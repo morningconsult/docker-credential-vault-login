@@ -47,14 +47,14 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 ## Usage
 
 In order for the helper to work properly, you must first set some Vault environmental variables on your system:
-* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)**
-* **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)**
-* DOCKER_CREDS_VAULT_PATH
+* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - Your Vault instance's URL
+* **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - A valid Vault token with permission to read your secret
+* **DOCKER_CREDS_VAULT_PATH** - The path in your Vault instance where your Docker credentials secret is stored (e.g. `secret/credentials/docker/myregistry`)
 
 If your Vault instance uses TLS, you must also set the following environment variables:
-* [VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)
-* [VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert) 
-* [VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)
+* **[VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)**
+* **[VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert)**
+* **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
 
 
 - Users specify path where Docker credentials are stored in Vault with DOCKER_CREDS_VAULT_PATH environment variable
