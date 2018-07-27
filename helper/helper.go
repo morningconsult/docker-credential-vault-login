@@ -2,6 +2,8 @@ package helper
 
 import (
         "fmt"
+        "net/url"
+        
         vault "github.com/hashicorp/vault/api"
         "github.com/docker/docker-credential-helpers/credentials"
 )
@@ -43,7 +45,7 @@ func (h Helper) Get(serverURL string) (string, string, error) {
 
         creds := secret.Data
 
-        if username, ok = creds["username"].(string); !ok || username == "" {
+        if username = creds["username"]; username == "" {
                 return "", "", fmt.Errorf("No username found")
         }
         if password, ok = creds["password"].(string); !ok || password == "" {

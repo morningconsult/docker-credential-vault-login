@@ -15,8 +15,7 @@ Within Vault, you should store your Docker credentials in the following format:
     "password": "my-secure-password"
 }
 ```
-
-
+Note that the Vault path where you store these credentials will be used as the value of the `DOCKER_CREDS_VAULT_PATH` environment variable (see the [Usage](#usage) section).
 
 ## Installation
 
@@ -56,6 +55,4 @@ If your Vault instance uses TLS, you must also set the following environment var
 * **[VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert)**
 * **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
 
-
-- Users specify path where Docker credentials are stored in Vault with DOCKER_CREDS_VAULT_PATH environment variable
-
+Once you've set these environmental variables, your Docker daemon will automatically look up the credentials in Vault at the `DOCKER_CREDS_VAULT_PATH` and use them to authenticate against your Docker registries.

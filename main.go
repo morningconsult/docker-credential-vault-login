@@ -1,13 +1,12 @@
 package main
 
 import (
-        "fmt"
         "log"
-        help "helper"
         "os"
         
         vault "github.com/hashicorp/vault/api"
-        // "github.com/docker/docker-credential-helpers/credentials"
+        "github.com/docker/docker-credential-helpers/credentials"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/helper"
 )
 
 const (
@@ -28,14 +27,5 @@ func main() {
                 log.Fatalf("Error initializing Vault client: %+v\n", err)
         }
 
-        helper := help.NewHelper(secretPath, client)
-
-        username, password, err := helper.Get("")
-        if err != nil {
-                panic(err)
-        }
-
-        fmt.Printf("Username: %s\nPassword: %s\n", username, password)
-        
-        // crentials.Serve(NewHelper(secretPath, client))
+        credentials.Serve(helper.NewHelper(secretPath, client))
 }
