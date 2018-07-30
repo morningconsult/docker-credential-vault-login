@@ -36,7 +36,7 @@ printf "\n==> Starting Go unit tests...\n\n"
 export GOPATH="$TEMPDIR"
 export PATH=$PATH:$GOPATH/bin
 go get -u $REPO
-go test -v -ldflags="-X ${REPO}.helper.testPort=${VAULT_DEV_PORT}" -timeout 30s $REPO/vault/...
+go test -v -ldflags="-X ${REPO}/vault.TestPort=${VAULT_DEV_PORT}" -timeout 30s $REPO/vault/...
 printf "\n==> Tests complete\n\n"
 
 ## Kill vault-dev

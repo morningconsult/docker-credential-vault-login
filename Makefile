@@ -5,6 +5,6 @@ update-deps:
 .PHONY: update-deps
 
 test:
-	@echo "==> Running unit tests..."
+	@echo "==> Starting test script..."
 	@sh -c "$(CURDIR)/scripts/run-tests.sh"
 .PHONY: test

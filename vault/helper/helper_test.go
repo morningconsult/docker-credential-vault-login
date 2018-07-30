@@ -2,10 +2,9 @@ package helper
 
 import (
         "testing"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
 
-var testPort string
-
 func TestTODO(t *testing.T) {
-        t.Logf("Test port: %s\n", testPort)
+        t.Logf("Test port: %d\n", vault.TestPort)
 }
