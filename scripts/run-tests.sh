@@ -2,6 +2,7 @@
 
 REPO="gitlab.morningconsult.com/mci/docker-credential-vault-login"
 VAULT_VERSION="0.10.4"
+VAULT_DEV_PORT="8204"
 ROOT=$(pwd)
 MACHINE=$(uname -m)
 KERNEL=$(uname -s)
@@ -26,7 +27,7 @@ unzip -o $TEMPDIR/vault-${VAULT_VERSION}.zip -d $TEMPDIR
 mv $TEMPDIR/vault $TEMPDIR/vault-dev
 
 ## Start vault-dev in the background
-$TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:8204" &
+$TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" &
 
 sleep 2
 
@@ -35,7 +36,7 @@ printf "\n==> Starting Go unit tests...\n\n"
 export GOPATH="$TEMPDIR"
 export PATH=$PATH:$GOPATH/bin
 go get -u $REPO
-go test -v -timeout 30s $REPO/vault/...
+go test -v -ldflags="-X ${REPO}.helper.testPort=${VAULT_DEV_PORT}" -timeout 30s $REPO/vault/...
 printf "\n==> Tests complete\n\n"
 
 ## Kill vault-dev
