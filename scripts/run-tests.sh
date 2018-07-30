@@ -48,7 +48,7 @@ unzip -o $TEMPDIR/vault-${VAULT_VERSION}.zip -d $TEMPDIR
 mv $TEMPDIR/vault $TEMPDIR/vault-dev
 
 ## Start vault-dev in the background
-$TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" &
+$TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" -log-level=err &
 
 sleep 2
 
