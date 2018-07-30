@@ -1,3 +1,3 @@
 package vault
 
-var VaultDevPort int
+var VaultDevPort string
