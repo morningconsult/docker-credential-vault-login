@@ -6,5 +6,5 @@ import (
 )
 
 func TestTODO(t *testing.T) {
-        t.Logf("Test port: %d\n", vault.TestPort)
+        t.Logf("Test port: %d\n", vault.VaultDevPort)
 }
