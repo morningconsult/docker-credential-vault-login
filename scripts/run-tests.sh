@@ -41,7 +41,7 @@ TEMPDIR="${ROOT}/${TEMPDIR}"
 ## Download Vault binary
 wget --quiet -O $TEMPDIR/vault-${VAULT_VERSION}.zip https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
 
-## Unzip the Vault binary to /usr/loca/lbin
+## Unzip the Vault binary 
 unzip -o $TEMPDIR/vault-${VAULT_VERSION}.zip -d $TEMPDIR
 
 ## Rename vault to vault-dev
