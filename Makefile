@@ -6,5 +6,5 @@ update-deps:
 
 test:
 	@echo "==> Running unit tests..."
-    @sh -c "$(CURDIR)/scripts/run-tests.sh"
+	@sh -c "$(CURDIR)/scripts/run-tests.sh"
 .PHONY: test

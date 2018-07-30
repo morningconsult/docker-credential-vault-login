@@ -6,7 +6,7 @@ import (
         
         vault "github.com/hashicorp/vault/api"
         "github.com/docker/docker-credential-helpers/credentials"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/helper"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/helper"
 )
 
 const (

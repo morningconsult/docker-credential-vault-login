@@ -14,6 +14,7 @@ fi
 
 ## Make a temporary directory
 TEMPDIR=$(mktemp -d vault.XXXXXX)
+TEMPDIR="${ROOT}/${TEMPDIR}"
 
 ## Download Vault binary
 wget --quiet -O $TEMPDIR/vault-${VAULT_VERSION}.zip https://releases.hashicorp.com/vault/${VAULT_VERSION}/vault_${VAULT_VERSION}_linux_amd64.zip
@@ -27,11 +28,15 @@ mv $TEMPDIR/vault $TEMPDIR/vault-dev
 ## Start vault-dev in the background
 $TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:8204" &
 
+sleep 2
+
 ## Run Go unit tests
-export GOPATH=$TEMPDIR
+printf "\n==> Starting Go unit tests...\n\n"
+export GOPATH="$TEMPDIR"
 export PATH=$PATH:$GOPATH/bin
 go get -u $REPO
-go test -v -timeout 30s $REPO/...
+go test -v -timeout 30s $REPO/vault/...
+printf "\n==> Tests complete\n\n"
 
 ## Kill vault-dev
 pkill vault-dev 
