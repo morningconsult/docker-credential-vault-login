@@ -1,8 +1,29 @@
 #!/usr/bin/env bash
 
+get_available_port () {
+    local LOWERPORT
+    local UPPERPORT
+
+    read LOWERPORT UPPERPORT < /proc/sys/net/ipv4/ip_local_port_range
+
+    local FILE1=$(tempfile)
+    local FILE2=$(tempfile)
+    local FILE3=$(tempfile)
+
+    seq "$LOWERPORT" "$UPPERPORT" | sort > $FILE1
+    ss -tan | awk '{print $4}' | cut -d':' -f2 | grep '[0-9]\{1,5\}' | sort -u > $FILE2
+
+    comm -23 $FILE1 $FILE2 > $FILE3
+
+    local OPEN_PORT=$(shuf -n1 $FILE3)
+    rm -f $FILE1 $FILE2 $FILE3
+
+    echo "$OPEN_PORT"
+}
+
 REPO="gitlab.morningconsult.com/mci/docker-credential-vault-login"
 VAULT_VERSION="0.10.4"
-VAULT_DEV_PORT="8204"
+VAULT_DEV_PORT=$(get_available_port)
 ROOT=$(pwd)
 MACHINE=$(uname -m)
 KERNEL=$(uname -s)
@@ -33,10 +54,7 @@ sleep 2
 
 ## Run Go unit tests
 printf "\n==> Starting Go unit tests...\n\n"
-export GOPATH="$TEMPDIR"
-export PATH=$PATH:$GOPATH/bin
-go get -u $REPO
-go test -v -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT}" -timeout 30s $REPO/vault/...
+go test -v -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT}" -timeout 30s ./vault/...
 printf "\n==> Tests complete\n\n"
 
 ## Kill vault-dev
