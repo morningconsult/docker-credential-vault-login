@@ -40,7 +40,7 @@ func parseLogfile(t *testing.T) string {
 
         file, err := os.Open(VaultDevServerLogfile)
         if err != nil {
-                t.Fatal("error opening Vault dev server log file: %v", err)
+                t.Fatalf("error opening Vault dev server log file: %v", err)
         }
 
         scanner := bufio.NewScanner(file)
@@ -57,7 +57,7 @@ func parseLogfile(t *testing.T) string {
         if err = scanner.Err(); err != nil {
                 t.Fatalf("error reading Vault dev server log file: %v", err)
         }
-        t.Fatal("root token not found in Vault dev server log file %s", VaultDevServerLogfile)
+        t.Fatalf("root token not found in Vault dev server log file %s", VaultDevServerLogfile)
         return ""
 
 }
