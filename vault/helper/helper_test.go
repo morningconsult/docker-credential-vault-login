@@ -1,10 +1,9 @@
 package helper
 
 import (
-        "io/ioutil"
         "os"
-        "strconv"
         "testing"
+        
         vaultAPI "github.com/hashicorp/vault/api"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
