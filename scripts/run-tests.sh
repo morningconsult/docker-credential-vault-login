@@ -64,7 +64,7 @@ sleep 2
 ## Run Go unit tests
 printf "\n==> Starting Go unit tests...\n\n"
 go test -v \
-    -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerLogfile=${TESTDATA}/vault_dev_server_output.txt" \
+    -ldflags="-X ${REPO}/vault.VaultDevPortString=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerLogfile=${TESTDATA}/vault_dev_server_output.txt" \
     -timeout 30s ./vault/...
 printf "\n==> Tests complete\n\n"
 
