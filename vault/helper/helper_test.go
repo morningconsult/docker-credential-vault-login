@@ -21,7 +21,7 @@ func TestTODO(t *testing.T) {
 
         data, err := json.Marshal(map[string]interface{}{
                 "data": map[string]string{
-                        "foo": "bar"
+                        "foo": "bar",
                 },
         })
         if err != nil {
@@ -30,6 +30,9 @@ func TestTODO(t *testing.T) {
         buf := bytes.NewBuffer(data)
 
         req, err := http.NewRequest("PUT", info.Address + "/v1/secret/data/" + secret, buf)
+        req.Header.Set("X-Vault-Token", info.Token)
+        req.Header.Set("Content-Type", "application/json")
+        
         resp, err := client.Do(req)
         if err != nil {
                 t.Fatalf("error making HTTP request: %v", err)
