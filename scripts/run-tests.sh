@@ -25,6 +25,7 @@ REPO="gitlab.morningconsult.com/mci/docker-credential-vault-login"
 VAULT_VERSION="0.10.4"
 VAULT_DEV_PORT=$(get_available_port)
 ROOT=$(pwd)
+TESTDATA="${ROOT}/testdata"
 MACHINE=$(uname -m)
 KERNEL=$(uname -s)
 
@@ -33,6 +34,9 @@ if [ "${KERNEL}" != "Linux" ] || [ "${MACHINE}" != "x86_64" ]; then
     echo "Tests may be run on a 64-bit Linux machine only. Exiting."
     exit 1
 fi
+
+## Make a testdata directory
+mkdir -p $TESTDATA
 
 ## Make a temporary directory
 TEMPDIR=$(mktemp -d vault.XXXXXX)
@@ -48,13 +52,26 @@ unzip -o $TEMPDIR/vault-${VAULT_VERSION}.zip -d $TEMPDIR
 mv $TEMPDIR/vault $TEMPDIR/vault-dev
 
 ## Start vault-dev in the background
-$TEMPDIR/vault-dev server -dev -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" -log-level=err &
+$TEMPDIR/vault-dev server \
+    -dev \
+    -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" \
+    -log-level=err | tee "${TESTDATA}/vault_dev_server_output.txt" &
+
+ls $ROOT
 
 sleep 2
 
 ## Run Go unit tests
 printf "\n==> Starting Go unit tests...\n\n"
-go test -v -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT}" -timeout 30s ./vault/...
+# export GOPATH=$TEMPDIR
+# export PATH=$PATH:$GOPATH/bin
+# go get -u $REPO
+# go test -v \
+#     -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerConfig=${TESTDATA}/vault_dev_server_output.txt" \
+#     -timeout 30s $REPO/vault/...
+go test -v \
+    -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerConfig=${TESTDATA}/vault_dev_server_output.txt" \
+    -timeout 30s ./vault/...
 printf "\n==> Tests complete\n\n"
 
 ## Kill vault-dev
