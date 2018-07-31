@@ -1,30 +1,44 @@
 package helper
 
 import (
-        "os"
+        "bytes"
+        "encoding/json"
+        "io/ioutil"
+        "net/http"
         "testing"
+        "time"
 
-        vaultAPI "github.com/hashicorp/vault/api"
+        cleanhttp "github.com/hashicorp/go-cleanhttp"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
 
 func TestTODO(t *testing.T) {
-        info := vault.NewVaultTestServerInfo(t)
-        os.Setenv("VAULT_ADDR", info.Address)
-        os.Setenv("VAULT_TOKEN", info.Token)
+        var secret = "foo/bar"
+        client := cleanhttp.DefaultClient()
+        client.Timeout = time.Second * 60
 
-        client, err := vaultAPI.NewClient(nil)
-        if err != nil {
-                t.Fatalf("error creating new Vault API client: %v", err)
-        }
-        mySecret := map[string]interface{}{
+        info := vault.NewVaultTestServerInfo(t)
+
+        data, err := json.Marshal(map[string]interface{}{
                 "data": map[string]string{
-                        "foo": "bar",
+                        "foo": "bar"
                 },
-        }
-        s, err = client.Logical().Write("secret/foo/bar", mySecret)
+        })
         if err != nil {
-                t.Fatalf("error writing secret: %v", err)
+                t.Fatalf("error marshaling map: %v", err)
         }
-        t.Logf("Secret: %+v\n", s)
+        buf := bytes.NewBuffer(data)
+
+        req, err := http.NewRequest("PUT", info.Address + "/v1/secret/data/" + secret, buf)
+        resp, err := client.Do(req)
+        if err != nil {
+                t.Fatalf("error making HTTP request: %v", err)
+        }
+        defer resp.Body.Close()
+
+        body, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+                t.Fatalf("error reading response body: %v", err)
+        }
+        t.Logf("response body: %s\n", string(body))
 }
