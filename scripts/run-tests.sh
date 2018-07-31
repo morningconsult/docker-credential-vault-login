@@ -63,12 +63,6 @@ sleep 2
 
 ## Run Go unit tests
 printf "\n==> Starting Go unit tests...\n\n"
-# export GOPATH=$TEMPDIR
-# export PATH=$PATH:$GOPATH/bin
-# go get -u $REPO
-# go test -v \
-#     -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerConfig=${TESTDATA}/vault_dev_server_output.txt" \
-#     -timeout 30s $REPO/vault/...
 go test -v \
     -ldflags="-X ${REPO}/vault.VaultDevPort=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerConfig=${TESTDATA}/vault_dev_server_output.txt" \
     -timeout 30s ./vault/...
