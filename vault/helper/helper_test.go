@@ -14,7 +14,7 @@ func TestTODO(t *testing.T) {
         }
         t.Logf("Test port: %d\n", port)
 
-        data, err := ioutil.ReadFile("testdata/vault_dev_server_output.txt")
+        data, err := ioutil.ReadFile(vault.VaultDevServerConfig)
         if err != nil {
                 t.Fatalf("ReadFile failed: %v\n", err)
         }
