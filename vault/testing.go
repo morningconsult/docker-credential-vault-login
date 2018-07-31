@@ -4,11 +4,11 @@ import (
         "bytes"
         "encoding/json"
         "fmt"
-        "io/ioutil"
         "net/http"
         "strconv"
         "strings"
         "testing"
+        "time"
 
         cleanhttp "github.com/hashicorp/go-cleanhttp"
 )
@@ -35,7 +35,7 @@ func NewTestClient(t *testing.T) *TestClient {
         cl := cleanhttp.DefaultClient()
         cl.Timeout = time.Second * 60
 
-        return &VaultTestServerInfo{
+        return &TestClient{
                 pathPrefix: "/v1/secret/data",
                 address:    "http://127.0.0.1:" + VaultDevPortString,
                 token:      VaultDevRootToken,
