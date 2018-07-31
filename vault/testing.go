@@ -43,6 +43,9 @@ func NewTestClient(t *testing.T) *TestClient {
         }
 }
 
+// path should be only the path to the secret. For example, if
+// your secret is stored at "secret/foo/bar", you should pass
+// only "foo/bar" as the path argument to this function.
 func (c *TestClient) Write(t *testing.T, path string, data map[string]interface{}) *http.Response {
         var secret map[string]interface{}
 
@@ -83,7 +86,7 @@ func (c *TestClient) Read(t *testing.T, path string) *http.Response {
 }
 
 func hasData(data map[string]interface{}) bool {
-        for k, v := range data {
+        for k, _ := range data {
                 if k == "data" {
                         return true
                 }

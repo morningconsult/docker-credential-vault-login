@@ -16,5 +16,8 @@ func TestTODO(t *testing.T) {
         defer resp.Body.Close()
 
         body, err := ioutil.ReadAll(resp.Body)
+        if err != nil {
+                t.Fatalf("error reading HTTP response body: %v", err)
+        }
         t.Logf("Body: %s\n", string(body))
 }
