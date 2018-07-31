@@ -18,10 +18,13 @@ func TestTODO(t *testing.T) {
                 t.Fatalf("error creating new Vault API client: %v", err)
         }
         mySecret := map[string]interface{}{
-                "foo": "bar",
+                "data": map[string]string{
+                        "foo": "bar",
+                },
         }
-        _, err = client.Logical().Read("secret/foo/bar", mySecret)
+        s, err = client.Logical().Write("secret/foo/bar", mySecret)
         if err != nil {
                 t.Fatalf("error writing secret: %v", err)
         }
+        t.Logf("Secret: %+v\n", s)
 }
