@@ -32,7 +32,7 @@ func NewVaultTestServerInfo(t *testing.T) *VaultTestServerInfo {
 // until it finds the root token, at which point it returns
 // the root token. It will cause the test to fail if it
 // does not find the root token
-func parseLogFile(t *testing.T) string {
+func parseLogfile(t *testing.T) string {
         var (
                 target   = "Root Token: "
                 uuid_len = 36
