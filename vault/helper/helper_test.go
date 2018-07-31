@@ -2,21 +2,21 @@ package helper
 
 import (
         "io/ioutil"
+        "os"
         "strconv"
         "testing"
+        vaultAPI "github.com/hashicorp/vault/api"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
 
 func TestTODO(t *testing.T) {
-        port, err := strconv.Atoi(vault.VaultDevPort)
-        if err != nil {
-                t.Fatalf("strconv.Atoi failed: %v\n", err)
-        }
-        t.Logf("Test port: %d\n", port)
+        info := vault.NewVaultTestServerInfo(t)
+        os.Setenv("VAULT_ADDR", info.Address)
+        os.Setenv("VAULT_TOKEN", info.Token)
 
-        data, err := ioutil.ReadFile(vault.VaultDevServerConfig)
+        client, err := vaultAPI.NewClient(nil)
         if err != nil {
-                t.Fatalf("ReadFile failed: %v\n", err)
+                t.Fatalf("error creating new Vault API client: %v", err)
         }
-        t.Logf("Vault Data:\n\n***\n\n%s\n***\n\n", string(data))
+        
 }
