@@ -24,6 +24,7 @@ get_available_port () {
 REPO="gitlab.morningconsult.com/mci/docker-credential-vault-login"
 VAULT_VERSION="0.10.4"
 VAULT_DEV_PORT=$(get_available_port)
+VAULT_DEV_ROOT_TOKEN="31632a7e-ecca-ace5-feb0-4b7dfd22e04e"
 ROOT=$(pwd)
 TESTDATA="${ROOT}/testdata"
 MACHINE=$(uname -m)
@@ -55,18 +56,18 @@ mv $TEMPDIR/vault $TEMPDIR/vault-dev
 $TEMPDIR/vault-dev server \
     -dev \
     -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" \
-    -log-level=err | tee "${TESTDATA}/vault_dev_server_output.txt" &
-
-ls $ROOT
+    -dev-root-token-id="${VAULT_DEV_ROOT_TOKEN}" \
+    -log-level=err &
 
 sleep 2
 
 ## Run Go unit tests
 printf "\n==> Starting Go unit tests...\n\n"
 go test -v \
-    -ldflags="-X ${REPO}/vault.VaultDevPortString=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevServerLogfile=${TESTDATA}/vault_dev_server_output.txt" \
+    -ldflags="-X ${REPO}/vault.VaultDevPortString=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevRootToken=${VAULT_DEV_ROOT_TOKEN}" \
     -timeout 30s ./vault/...
 printf "\n==> Tests complete\n\n"
+
 
 ## Kill vault-dev
 pkill vault-dev 

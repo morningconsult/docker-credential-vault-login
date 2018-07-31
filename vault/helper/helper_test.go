@@ -20,7 +20,7 @@ func TestTODO(t *testing.T) {
         mySecret := map[string]interface{}{
                 "foo": "bar",
         }
-        _, err = client.Logical().Write("secret/foo/bar", mySecret)
+        _, err = client.Logical().Read("secret/foo/bar", mySecret)
         if err != nil {
                 t.Fatalf("error writing secret: %v", err)
         }
