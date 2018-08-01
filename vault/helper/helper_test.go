@@ -38,16 +38,31 @@ import (
 // }
 
 func TestTODO(t *testing.T) {
-        client := vault.NewTestClient(t)
-        client.InitSecretsEngine()
+        var (
+                path = "secret/app/docker"
+                secret = map[string]interface{}{
+                        "username": "docker.user@registry.com",
+                        "password": "potato",
+                }
+        )
+        vault.InitSecretsEngine(t)
 
-        os.Setenv("VAULT_ADDR", client.Address())
-        os.Setenv("VAULT_TOKEN", client.Token())
+        os.Setenv("VAULT_ADDR", vault.Address())
+        os.Setenv("VAULT_TOKEN", vault.Token())
 
-        vaultClient, err := api.NewClient(nil)
+        client, err := api.NewClient(nil)
         if err != nil {
                 t.Fatalf("error creating new Vault API client: %v", err)
         }
-        secret, _ := vaultClient.Read("secret/foo/bar")
-        t.Logf("Secret: %+v\n", secret)
+        _, err = client.Logical().Write(path, secret)
+        if err != nil {
+                t.Fatalf("error writing secret to Vault: %v", err)
+        }
+        
+        helper := NewHelper(path, client)
+        user, pw, err := helper.Get("")
+        if err != nil {
+                t.Fatalf("error retrieving Docker credentials from Vault: %v")
+        }
+        t.Logf("Username: %s\nPassword: %s\n", user, pw)
 }
