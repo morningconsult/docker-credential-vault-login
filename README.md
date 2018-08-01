@@ -56,3 +56,24 @@ If your Vault instance uses TLS, you must also set the following environment var
 * **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
 
 Once you've set these environmental variables, your Docker daemon will automatically look up the credentials in Vault at the `DOCKER_CREDS_VAULT_PATH` and use them to authenticate against your Docker registries.
+
+## Testing
+**Important:** Unit tests may only be performed on 64-bit Linux machine.
+
+In order to test this package, you must first `go get` it.
+```bash
+$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login
+```
+
+Then, `cd` to this package in your `src` directory and run `make test`
+```bash
+$ cd $GOPATH/src/gitlab.morningconsult.com/mci/docker-credential-vault-login
+$ make test
+```
+
+The test script will perform the following steps:
+1. Pull a [Vault binary](https://releases.hashicorp.com/vault)
+2. Start Vault in development mode
+3. Execute unit tests (`go test ...`)
+4. Stop Vault
+5. Cleanup test files
