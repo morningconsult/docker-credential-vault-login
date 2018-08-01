@@ -6,7 +6,6 @@ import (
         "fmt"
         "net/http"
         "strconv"
-        "strings"
         "testing"
         "time"
 
@@ -29,8 +28,8 @@ func InitSecretsEngine(t *testing.T) {
 
         URL := fmt.Sprintf("http://127.0.0.1:%s/v1/sys/mounts/secret", VaultDevPortString)
 
-        disableSecretEngine(t, client, URL, token)
-        enableSecretEngine(t, client, URL, token)
+        disableSecretEngine(t, client, URL, VaultDevRootToken)
+        enableSecretEngine(t, client, URL, VaultDevRootToken)
 }
 
 func disableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
