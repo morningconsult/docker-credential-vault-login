@@ -87,6 +87,14 @@ func (c *TestClient) Read(path string) *http.Response {
         return resp
 }
 
+func (c *TestClient) Token() string {
+        return c.token
+}
+
+func (c *TestClient) Address() string {
+        return c.address
+}
+
 func hasData(data map[string]interface{}) bool {
         for k, _ := range data {
                 if k == "data" {

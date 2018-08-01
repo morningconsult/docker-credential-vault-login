@@ -13,7 +13,7 @@ func TestTODO(t *testing.T) {
                 path = "secret/foo/bar"
                 secret = map[string]interface{}{
                         "username": "docker.user@registry.com",
-                        "password": "my secure password"
+                        "password": "my secure password",
                 }
         )
 
