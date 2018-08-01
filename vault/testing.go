@@ -81,10 +81,16 @@ func enableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
         }
 }
 
-func Address() string {
+func Address(t *testing.T) string {
+        if _, err := strconv.Atoi(VaultDevPortString); err != nil {
+                t.Fatal("Vault listener port must be an integer")
+        }
         return fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString)
 }
 
-func Token() string {
+func Token(t *testing.T) string {
+        if VaultDevRootToken == "" {
+                t.Fatal("No Vault root token provided")
+        }
         return VaultDevRootToken
 }

@@ -47,8 +47,8 @@ func TestHelperGet(t *testing.T) {
         )
         vault.InitSecretsEngine(t)
 
-        os.Setenv("VAULT_ADDR", vault.Address())
-        os.Setenv("VAULT_TOKEN", vault.Token())
+        os.Setenv("VAULT_ADDR", vault.Address(t))
+        os.Setenv("VAULT_TOKEN", vault.Token(t))
 
         client, err := api.NewClient(nil)
         if err != nil {
@@ -58,16 +58,16 @@ func TestHelperGet(t *testing.T) {
         if err != nil {
                 t.Fatalf("error writing secret to Vault: %v", err)
         }
-        
+
         helper := NewHelper(path, client)
         user, pw, err := helper.Get("")
         if err != nil {
                 t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
         }
         if v, _ := secret["username"].(string); v != user {
-                t.Error("Expected username %q, got %q", v, user)
+                t.Errorf("Expected username %q, got %q", v, user)
         }
         if v, _ := secret["password"].(string); v != pw {
-                t.Error("Expected password %q, got %q", v, pw)
+                t.Errorf("Expected password %q, got %q", v, pw)
         }
 }
