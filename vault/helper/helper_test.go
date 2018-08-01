@@ -12,7 +12,7 @@ func TestTODO(t *testing.T) {
 
         client := vault.NewTestClient(t)
 
-        resp := client.Write(t, secret, map[string]interface{}{"foo": "bar"})
+        resp := client.Write(secret, map[string]interface{}{"foo": "bar"})
         defer resp.Body.Close()
 
         body, err := ioutil.ReadAll(resp.Body)

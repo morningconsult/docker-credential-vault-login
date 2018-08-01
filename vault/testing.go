@@ -22,6 +22,7 @@ type TestClient struct {
         address    string
         token      string
         client     *http.Client
+        t          *testing.T
 }
 
 func NewTestClient(t *testing.T) *TestClient {
@@ -40,16 +41,14 @@ func NewTestClient(t *testing.T) *TestClient {
                 address:    "http://127.0.0.1:" + VaultDevPortString,
                 token:      VaultDevRootToken,
                 client:     cl,
+                t:          t,
         }
 }
 
-// path should be only the path to the secret. For example, if
-// your secret is stored at "secret/foo/bar", you should pass
-// only "foo/bar" as the path argument to this function.
-func (c *TestClient) Write(t *testing.T, path string, data map[string]interface{}) *http.Response {
+func (c *TestClient) Write(path string, data map[string]interface{}) *http.Response {
         var secret map[string]interface{}
 
-        path = strings.TrimPrefix(path, "/")
+        path = strings.TrimPrefix(strings.TrimPrefix(path, "/"), "secret/")
         
         if hasData(secret) {
                 secret = data
@@ -61,7 +60,7 @@ func (c *TestClient) Write(t *testing.T, path string, data map[string]interface{
 
         b, err := json.Marshal(secret)
         if err != nil {
-                t.Fatalf("error marshaling secret: %v", err)
+                c.t.Fatalf("error marshaling secret: %v", err)
         }
 
         req, err := http.NewRequest("PUT", fmt.Sprintf("%s%s/%s", c.address, c.pathPrefix, path), bytes.NewBuffer(b))
@@ -70,17 +69,20 @@ func (c *TestClient) Write(t *testing.T, path string, data map[string]interface{
 
         resp, err := c.client.Do(req)
         if err != nil {
-                t.Fatalf("error making HTTP request: %v", err)
+                c.t.Fatalf("error making HTTP request: %v", err)
         }
         return resp
 }
 
-func (c *TestClient) Read(t *testing.T, path string) *http.Response {
+func (c *TestClient) Read(path string) *http.Response {
+
+        path = strings.TrimPrefix(strings.TrimPrefix(path, "/"), "secret/")
+
         req, err := http.NewRequest("GET", fmt.Sprintf("%s%s/%s", c.address, c.pathPrefix, path), nil)
         req.Header.Set("X-Vault-Token", c.token)
         resp, err := c.client.Do(req)
         if err != nil {
-                t.Fatalf("error making HTTP request: %v", err)
+                c.t.Fatalf("error making HTTP request: %v", err)
         }
         return resp
 }
