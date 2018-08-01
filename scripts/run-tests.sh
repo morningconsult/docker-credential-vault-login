@@ -53,11 +53,12 @@ unzip -o $TEMPDIR/vault-${VAULT_VERSION}.zip -d $TEMPDIR
 mv $TEMPDIR/vault $TEMPDIR/vault-dev
 
 ## Start vault-dev in the background
+printf "\n==> Starting up Vault in development mode...\n"
 $TEMPDIR/vault-dev server \
     -dev \
     -dev-listen-address="127.0.0.1:${VAULT_DEV_PORT}" \
     -dev-root-token-id="${VAULT_DEV_ROOT_TOKEN}" \
-    -log-level=err &
+    -log-level=err > /dev/null &
 
 sleep 2
 
@@ -66,11 +67,14 @@ printf "\n==> Starting Go unit tests...\n\n"
 go test -v \
     -ldflags="-X ${REPO}/vault.VaultDevPortString=${VAULT_DEV_PORT} -X ${REPO}/vault.VaultDevRootToken=${VAULT_DEV_ROOT_TOKEN}" \
     -timeout 30s ./vault/...
-printf "\n==> Tests complete\n\n"
+printf "\n==> Tests complete\n"
 
 
 ## Kill vault-dev
+printf "\n==> Shutting down Vault...\n\n"
 pkill vault-dev 
 
 ## Delete the temporary directory
 rm -rf $TEMPDIR
+
+echo "==> Done"
