@@ -16,7 +16,7 @@ var VaultDevPortString string
 
 var VaultDevRootToken string
 
-func InitSecretsEngine(t *testing.T) {
+func InitSecretsEngine(t *testing.T) (string, string) {
         if _, err := strconv.Atoi(VaultDevPortString); err != nil {
                 t.Fatal("Vault listener port must be an integer")
         }
@@ -30,6 +30,7 @@ func InitSecretsEngine(t *testing.T) {
 
         disableSecretEngine(t, client, URL, VaultDevRootToken)
         enableSecretEngine(t, client, URL, VaultDevRootToken)
+        return URL, VaultDevRootToken
 }
 
 func disableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
@@ -79,18 +80,4 @@ func enableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
         if resp.StatusCode != 204 {
                 t.Fatalf("POST %s failed: %v", URL, err)
         }
-}
-
-func Address(t *testing.T) string {
-        if _, err := strconv.Atoi(VaultDevPortString); err != nil {
-                t.Fatal("Vault listener port must be an integer")
-        }
-        return fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString)
-}
-
-func Token(t *testing.T) string {
-        if VaultDevRootToken == "" {
-                t.Fatal("No Vault root token provided")
-        }
-        return VaultDevRootToken
 }

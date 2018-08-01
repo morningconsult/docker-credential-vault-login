@@ -45,10 +45,10 @@ func TestHelperGet(t *testing.T) {
                         "password": "potato",
                 }
         )
-        vault.InitSecretsEngine(t)
+        addr, token := vault.InitSecretsEngine(t)
 
-        os.Setenv("VAULT_ADDR", vault.Address(t))
-        os.Setenv("VAULT_TOKEN", vault.Token(t))
+        os.Setenv("VAULT_ADDR", addr)
+        os.Setenv("VAULT_TOKEN", token)
 
         client, err := api.NewClient(nil)
         if err != nil {
