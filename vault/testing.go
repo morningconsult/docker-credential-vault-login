@@ -49,7 +49,7 @@ func (c *TestClient) Write(path string, data map[string]interface{}) *http.Respo
         var secret map[string]interface{}
 
         path = strings.TrimPrefix(strings.TrimPrefix(path, "/"), "secret/")
-        
+
         if hasData(secret) {
                 secret = data
         } else {
