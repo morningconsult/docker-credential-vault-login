@@ -37,7 +37,7 @@ import (
 //         t.Logf("Username: %s\nPassword: %s\n", username, password)
 // }
 
-func TestTODO(t *testing.T) {
+func TestHelperGet(t *testing.T) {
         var (
                 path = "secret/app/docker"
                 secret = map[string]interface{}{
@@ -62,7 +62,12 @@ func TestTODO(t *testing.T) {
         helper := NewHelper(path, client)
         user, pw, err := helper.Get("")
         if err != nil {
-                t.Fatalf("error retrieving Docker credentials from Vault: %v")
+                t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
         }
-        t.Logf("Username: %s\nPassword: %s\n", user, pw)
+        if v, _ := secret["username"].(string); v != user {
+                t.Error("Expected username %q, got %q", v, user)
+        }
+        if v, _ := secret["password"].(string); v != pw {
+                t.Error("Expected password %q, got %q", v, pw)
+        }
 }

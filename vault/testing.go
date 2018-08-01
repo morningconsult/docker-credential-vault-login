@@ -82,7 +82,7 @@ func enableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
 }
 
 func Address() string {
-        return fmt.Sprintf("http://127.0.0.1:%s/v1/sys/mounts/secret", VaultDevPortString)
+        return fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString)
 }
 
 func Token() string {
