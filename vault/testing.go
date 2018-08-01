@@ -30,7 +30,7 @@ func InitSecretsEngine(t *testing.T) (string, string) {
 
         disableSecretEngine(t, client, URL, VaultDevRootToken)
         enableSecretEngine(t, client, URL, VaultDevRootToken)
-        return URL, VaultDevRootToken
+        return fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString), VaultDevRootToken
 }
 
 func disableSecretEngine(t *testing.T, client *http.Client, URL, token string) {
