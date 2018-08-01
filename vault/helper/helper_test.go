@@ -23,13 +23,13 @@ func TestTODO(t *testing.T) {
         resp := client.Write(path, secret)
         testResponseStatus(t, resp, 200)
 
-        os.Setenv("VAULT_ADDR", client.Address)
-        os.Setenv("VAULT_TOKEN", client.Token)
-        client, err := api.NewClient(nil)
+        os.Setenv("VAULT_ADDR", client.Address())
+        os.Setenv("VAULT_TOKEN", client.Token())
+        vaultClient, err := api.NewClient(nil)
         if err != nil {
                 t.Fatalf("error creating new Vault API client: %v", err)
         }
-        helper := NewHelper(path, client)
+        helper := NewHelper(path, vaultClient)
         username, password, err := helper.Get("")
         if err != nil {
                 t.Fatalf("error reading credentials from Vault: %v", err)
