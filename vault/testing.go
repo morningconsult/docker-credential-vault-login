@@ -45,6 +45,54 @@ func NewTestClient(t *testing.T) *TestClient {
         }
 }
 
+func (c *TestClient) InitSecretsEngine() {
+        c.disableSecretEngine()
+        c.enableSecretEngine()
+}
+
+func (c *TestClient) disableSecretEngine() {
+        req, err := http.NewRequest("DELETE", c.address + "/v1/sys/mounts/secret", nil)
+        if err != nil {
+                c.t.Fatalf("error creating HTTP request object: %v", err)
+        }
+        req.Header.Set("X-Vault-Token", c.token)
+        resp, err := c.client.Do(req)
+        if err != nil {
+                c.t.Fatalf("error making HTTP request: %v", err)
+        }
+        defer resp.Body.Close()
+        if resp.StatusCode != 204 {
+                c.t.Fatal("DELETE /v1/sys/mounts/secret failed: %v", err)
+        }
+}
+
+func (c *TestClient) enableSecretEngine() {
+        var params = map[string]interface{}{
+                "type":    "kv",
+                "options": map[string]string{
+                        "version": "1",
+                },
+        }
+        data, err := json.Marshal(params)
+        if err != nil {
+                c.t.Fatalf("error marshaling payload: %v", err)
+        }
+        req, err := http.NewRequest("POST", c.address + "/v1/sys/mounts/secret", bytes.NewBuffer(data))
+        if err != nil {
+                c.t.Fatalf("error creating HTTP request object: %v", err)
+        }
+        req.Header.Set("X-Vault-Token", c.token)
+        req.Header.Set("Content-Type", "application/json")
+        resp, err := c.client.Do(req)
+        if err != nil {
+                c.t.Fatalf("error making HTTP request: %v", err)
+        }
+        defer resp.Body.Close()
+        if resp.StatusCode != 204 {
+                c.t.Fatalf("POST /v1/sys/mounts/secret failed: %v", err)
+        }
+}
+
 func (c *TestClient) Write(path string, data map[string]interface{}) *http.Response {
         var secret map[string]interface{}
 
@@ -64,6 +112,9 @@ func (c *TestClient) Write(path string, data map[string]interface{}) *http.Respo
         }
 
         req, err := http.NewRequest("PUT", fmt.Sprintf("%s%s/%s", c.address, c.pathPrefix, path), bytes.NewBuffer(b))
+        if err != nil {
+                t.Fatalf("error creating HTTP request object: %v", err)
+        }
         req.Header.Set("X-Vault-Token", c.token)
         req.Header.Set("Content-Type", "application/json")
 
