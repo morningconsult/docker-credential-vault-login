@@ -2,30 +2,31 @@ package main
 
 import (
         "log"
-        "os"
-        
-        vault "github.com/hashicorp/vault/api"
-        "github.com/docker/docker-credential-helpers/credentials"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/helper"
-)
 
-const (
-        // EnvDockerCredsVaultPath is the path in Vault where the Docker
-        // login credentials are stored
-        EnvDockerCredsVaultPath string = "DOCKER_CREDS_VAULT_PATH"
+        "github.com/hashicorp/vault/api"
+        "github.com/docker/docker-credential-helpers/credentials"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/helper"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/config"
 )
 
 func main() {
-        var secretPath string
-
-        if secretPath = os.Getenv(EnvDockerCredsVaultPath); secretPath == "" {
-                log.Fatalf("Environment variable %s is not set\n", EnvDockerCredsVaultPath)
+        cfg, err := config.GetCredHelperConfig()
+        if err != nil {
+                log.Fatalf("Error parsing configuration file: %+v", err)
         }
 
-        client, err := vault.NewClient(nil)
+        if cfg.Method == config.VaultAuthMethodAWS {
+                err := vault.GetAndSetToken(cfg.Role)
+                if err != nil {
+                        log.Fatalf("Error making HTTP request to Vault's AWS IAM login endpoint: %+v", err)
+                }
+        }
+
+        client, err := api.NewClient(nil)
         if err != nil {
                 log.Fatalf("Error initializing Vault client: %+v\n", err)
         }
 
-        credentials.Serve(helper.NewHelper(secretPath, client))
+        credentials.Serve(helper.NewHelper(cfg.Path, client))
 }

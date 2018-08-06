@@ -1,0 +1,5 @@
+{
+  "vault_auth_method": "aws",
+  "vault_role": "dev",
+  "vault_secret_path": "secret/docker"
+}

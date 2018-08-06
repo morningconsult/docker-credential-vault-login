@@ -80,9 +80,10 @@ func makeCanonicalRequestHash(params *RequestParams) (string, string, error) {
         signedHeaders := strings.Join(signedHeadersArray, ";")
         payloadHash := fmt.Sprintf("%x", makeHmac(nil, params.Body))
 
-        canonicalRequest := fmt.Sprintf("%s\n%s\n\n%s\n\n%s\n%s", 
+        canonicalRequest := fmt.Sprintf("%s\n%s\n%s\n%s\n\n%s\n%s", 
                 params.Method,
                 u.Path,
+                u.RawQuery,
                 strings.Join(canonicalHeadersArray, "\n"),
                 signedHeaders,
                 payloadHash)
