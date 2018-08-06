@@ -50,7 +50,7 @@ func (c *CredHelperConfig) validate() error {
                 msg := fmt.Sprintf("%s %s %q (must be either %q or %q)", 
                         "Unrecognized Vault authentication method",
                         `("vault_auth_method") value`, method, 
-                        VaultAuthMethodAWS, VaultAuthMethodToken))
+                        VaultAuthMethodAWS, VaultAuthMethodToken)
                 return fmt.Errorf(msg)
         }
 }
