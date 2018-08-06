@@ -34,8 +34,7 @@ type IAMAuthElements struct {
 
 
 func GetIAMAuthElements(serverID string) (*IAMAuthElements, error) {
-        creds := &credentials.SharedCredentialsProvider{}
-        val, err := creds.Retrieve()
+        val, err := getCredentials()
         if err != nil {
                 return nil, err
         }
@@ -81,4 +80,21 @@ func makeSTSGetCallerIdentityRequestHeaders(serverID string) map[string]string {
 
 func nowAsISO8601() string {
 	return strings.Replace(strings.Replace(time.Now().UTC().Format(time.RFC3339)[:19] + "Z", "-", "", -1), ":", "", -1)
+}
+
+func getCredentials() (credentials.Value, error) {
+        var (
+                creds *credentials.Credentials
+                val   credentials.Value
+                err   error
+        )
+
+        creds = credentials.NewEnvCredentials()
+        if val, err = creds.Get(); err != nil {
+                creds = credentials.NewSharedCredentials("", "")
+                if val, err = creds.Get(); err != nil {
+                        return credentials.Value{}, err
+                }
+        }
+        return val, nil
 }
