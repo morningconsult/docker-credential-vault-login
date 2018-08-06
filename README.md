@@ -46,10 +46,10 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 ## Usage
 
 ### Configuration File
-This program requires a configuration file `config.json` in order to determine which authentication method to use. The program will search first search for this file at the path specified with by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the program will fail.
+This program requires a configuration file `config.json` in order to determine which authentication method to use. The program will search first search for this file at the path specified with by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, it will fail.
 
 The configuration file should include the following:
-* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials using the [AWS environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html) first or the `~/.aws/credentials` file second and use them to log into Vault in order to retrieve a Vault token. If this method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is required.
+* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials via [AWS environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html) first or with the `~/.aws/credentials` file second and use them to log into Vault in order to retrieve a Vault token. If the `aws` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is required in all cases.
 * `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `aws` authentication method. 
 * `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is required.
 
@@ -64,9 +64,9 @@ The configuration file should include the following:
 
 ### Environment Variables
 Additionally, in order for the helper to work properly you must first set some Vault environmental variables on your system:
-* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - Your Vault instance's URL
+* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - (Required) Your Vault instance's URL
 * **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - (Note: This only applies if the `token` authentication method is chosen) A valid Vault token with permission to read your secret
-* **DOCKER_CREDS_CONFIG_FILE** - The path to your `config.json` file.
+* **DOCKER_CREDS_CONFIG_FILE** - (Optional) The path to your `config.json` file. If not set, the program will search for the file at `/etc/docker-credential-vault-login/config.json`.
 
 If your Vault instance uses TLS, you must also set the following environment variables:
 * **[VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)**
