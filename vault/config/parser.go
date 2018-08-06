@@ -20,9 +20,10 @@ const (
 )
 
 type CredHelperConfig struct {
-        Method VaultAuthMethod `json:"vault_auth_method"`
-        Role   string          `json:"vault_role"`
-        Path   string          `json:"vault_secret_path"`
+        Method   VaultAuthMethod `json:"vault_auth_method"`
+        Role     string          `json:"vault_role"`
+        Path     string          `json:"vault_secret_path"`
+        ServerID string          `json:"vault_iam_server_id_header_value"`
 }
 
 func (c *CredHelperConfig) validate() error {

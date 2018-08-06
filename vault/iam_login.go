@@ -21,7 +21,7 @@ const (
         VaultAPIAWSLoginEndpoint string = "/auth/aws/login"
 )
 
-func GetAndSetToken(role string) error {
+func GetAndSetToken(role, serverID string) error {
         var addr string
 
         // Get Vault server URL from environment
@@ -33,7 +33,7 @@ func GetAndSetToken(role string) error {
         client := makeHTTPClient()
 
         // Create parameters for an sts:GetCallerIdentity request
-        elems, err := aws.GetIAMAuthElements()
+        elems, err := aws.GetIAMAuthElements(serverID)
         if err != nil {
                 return err
         }

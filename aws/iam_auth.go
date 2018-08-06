@@ -33,13 +33,13 @@ type IAMAuthElements struct {
 }
 
 
-func GetIAMAuthElements() (*IAMAuthElements, error) {
+func GetIAMAuthElements(serverID string) (*IAMAuthElements, error) {
         creds := &credentials.SharedCredentialsProvider{}
         val, err := creds.Retrieve()
         if err != nil {
                 return nil, err
         }
-        headers := makeSTSGetCallerIdentityRequestHeaders()
+        headers := makeSTSGetCallerIdentityRequestHeaders(serverID)
         url := fmt.Sprintf("https://%s/", Host)
         params := &RequestParams{
                 Service:     Service,
@@ -64,13 +64,16 @@ func GetIAMAuthElements() (*IAMAuthElements, error) {
         }, nil
 }
 
-func makeSTSGetCallerIdentityRequestHeaders() map[string]string {
+func makeSTSGetCallerIdentityRequestHeaders(serverID string) map[string]string {
         now := nowAsISO8601()
         h := map[string]string{
                 "Accept-Encoding": "identity",
                 "Content-Type":    "application/x-www-form-urlencoded",
                 "Host":            Host,
                 "X-Amz-Date":      now,
+        }
+        if serverID != "" {
+                h["X-Vault-AWS-IAM-Server-ID"] = serverID
         }
         h["Content-Length"] = fmt.Sprintf("%d", len(RequestBody))
         return h

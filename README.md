@@ -18,6 +18,10 @@ Within Vault, you should store your Docker credentials in the following format:
 Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
+Note: If you're pulling from a Morning Consult's private GitLab, run the following in order to enable `go get`:
+```bash
+$ git config --global url."git@gitlab.morningconsult.com:".insteadOf "https://gitlab.morningconsult.com/
+```
 
 You can install this via `go get` with:
 ```bash
@@ -52,6 +56,7 @@ The configuration file should include the following:
 * `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials via [AWS environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html) first or with the `~/.aws/credentials` file second and use them to log into Vault in order to retrieve a Vault token. If the `aws` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is required in all cases.
 * `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `aws` authentication method. 
 * `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is required.
+* `vault_iam_server_id_header_value` (string: "") - The value of the "X-Vault-AWS-IAM-Server-ID" header for the AWS login request (to prevent cross-instance attacks).
 
 **Sample Configuration File**
 ```json

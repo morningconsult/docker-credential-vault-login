@@ -17,7 +17,7 @@ func main() {
         }
 
         if cfg.Method == config.VaultAuthMethodAWS {
-                err := vault.GetAndSetToken(cfg.Role)
+                err := vault.GetAndSetToken(cfg.Role, cfg.ServerID)
                 if err != nil {
                         log.Fatalf("Error making HTTP request to Vault's AWS IAM login endpoint: %+v", err)
                 }
