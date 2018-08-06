@@ -15,7 +15,7 @@ Within Vault, you should store your Docker credentials in the following format:
     "password": "my-secure-password"
 }
 ```
-Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configurationfile) section).
+Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
 
