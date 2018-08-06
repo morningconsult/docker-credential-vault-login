@@ -53,7 +53,7 @@ The configuration file should include the following:
 * `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `aws` authentication method. 
 * `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is required.
 
-**Example**
+**Sample Configuration File**
 ```json
 {
   "vault_auth_method": "aws",
