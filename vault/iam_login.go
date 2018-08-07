@@ -58,7 +58,7 @@ func GetAndSetToken(role, serverID string) error {
         // Parse the response and extract the token
         token, err := extractToken(resp)
         if err != nil {
-                return fmt.Errorf("error reading response body: %v", err)
+                return err
         }
 
         // Set the value of the VAULT_TOKEN environment variable to
@@ -109,6 +109,10 @@ func extractToken(resp *http.Response) (string, error) {
         body, err := readResponseBody(resp)
         if err != nil {
                 return "", err
+        }
+
+        if resp.StatusCode != 200 {
+                return "", fmt.Errorf("Failed to make sts:GetCallerIdentity request. Response body:\n\n%s", body)
         }
 
         if auth, ok = body["auth"].(map[string]interface{}); !ok {
