@@ -63,7 +63,8 @@ The configuration file should include the following:
 {
   "vault_auth_method": "aws",
   "vault_role": "dev-role-iam",
-  "vault_secret_path": "secret/credentials/docker/myregistry"
+  "vault_secret_path": "secret/credentials/docker/myregistry",
+  "vault_iam_server_id_header_value": "vault.example.com"
 }
 ```
 
