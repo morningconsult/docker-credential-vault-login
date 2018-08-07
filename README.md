@@ -68,7 +68,14 @@ The configuration file should include the following:
 }
 ```
 
-### Environment Variables
+### AWS IAM Credentials
+
+This program requires IAM credentials if the `aws` method of authentication is selected. You also have AWS credentials available in one of the standard locations:
+* The `~/.aws/credentials` file
+* The `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
+* An [IAM role for Amazon EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html)
+
+### Environmental Variables
 Additionally, in order for the helper to work properly you must first set some Vault environmental variables on your system:
 * **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - (Required) Your Vault instance's URL
 * **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - (Note: This only applies if the `token` authentication method is chosen) A valid Vault token with permission to read your secret
