@@ -89,5 +89,5 @@ func getCredentials() (credentials.Value, error) {
         if err != nil {
                 return nil, fmt.Errorf("error creating AWS session: %v", err)
         }
-        return session.Config.Credentials.Get()
+        return sess.Config.Credentials.Get()
 }
