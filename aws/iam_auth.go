@@ -4,6 +4,8 @@ import (
         "fmt"
         "strings"
         "time"
+
+        "github.com/aws/aws-sdk-go/aws/session"
         "github.com/aws/aws-sdk-go/aws/credentials"
 )
 
@@ -28,7 +30,7 @@ const (
 type IAMAuthElements struct {
         Method  string
         URL     string
-        Body    string
+        Body    []byte
         Headers map[string]string
 }
 
@@ -58,7 +60,7 @@ func GetIAMAuthElements(serverID string) (*IAMAuthElements, error) {
         return &IAMAuthElements{
                 Method:  RequestMethod,
                 URL:     url,
-                Body:    RequestBody,
+                Body:    []byte(RequestBody),
                 Headers: headers,
         }, nil
 }
@@ -83,18 +85,9 @@ func nowAsISO8601() string {
 }
 
 func getCredentials() (credentials.Value, error) {
-        var (
-                creds *credentials.Credentials
-                val   credentials.Value
-                err   error
-        )
-
-        creds = credentials.NewEnvCredentials()
-        if val, err = creds.Get(); err != nil {
-                creds = credentials.NewSharedCredentials("", "")
-                if val, err = creds.Get(); err != nil {
-                        return credentials.Value{}, err
-                }
+        sess, err := session.NewSession()
+        if err != nil {
+                return nil, fmt.Errorf("error creating AWS session: %v", err)
         }
-        return val, nil
+        return session.Config.Credentials.Get()
 }

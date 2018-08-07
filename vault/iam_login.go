@@ -81,7 +81,7 @@ func makePayload(role string, elems *aws.IAMAuthElements) (*bytes.Buffer, error)
         }
         headers := base64.StdEncoding.EncodeToString(buf)
         url := base64.StdEncoding.EncodeToString([]byte(elems.URL))
-        body := base64.StdEncoding.EncodeToString([]byte(elems.Body))
+        body := base64.StdEncoding.EncodeToString(elems.Body)
 
         p := map[string]string{
                 "role":                    role,
