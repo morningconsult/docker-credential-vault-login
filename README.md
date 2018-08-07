@@ -18,7 +18,7 @@ Within Vault, you should store your Docker credentials in the following format:
 Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
-Note: If you're pulling from a Morning Consult's private GitLab, run the following in order to enable `go get`:
+Note: If you're pulling from Morning Consult's private GitLab, run the following in order to enable `go get`:
 ```bash
 $ git config --global url."git@gitlab.morningconsult.com:".insteadOf "https://gitlab.morningconsult.com/
 ```
