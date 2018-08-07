@@ -87,7 +87,7 @@ func nowAsISO8601() string {
 func getCredentials() (credentials.Value, error) {
         sess, err := session.NewSession()
         if err != nil {
-                return nil, fmt.Errorf("error creating AWS session: %v", err)
+                return credentials.Value{}, fmt.Errorf("error creating AWS session: %v", err)
         }
         return sess.Config.Credentials.Get()
 }
