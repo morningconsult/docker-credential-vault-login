@@ -9,8 +9,6 @@ import (
         "github.com/aws/aws-sdk-go/aws/request"
 )
 
-
-
 type IAMAuthElements struct {
         Method  string
         URL     string

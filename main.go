@@ -3,7 +3,6 @@ package main
 import (
         "log"
 
-        "github.com/hashicorp/vault/api"
         "github.com/docker/docker-credential-helpers/credentials"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/helper"
@@ -16,17 +15,12 @@ func main() {
                 log.Fatalf("Error parsing configuration file: %+v", err)
         }
 
-        if cfg.Method == config.VaultAuthMethodAWS {
-                err := vault.GetAndSetToken(cfg.Role, cfg.ServerID)
-                if err != nil {
-                        log.Fatalf("Error making HTTP request to Vault's AWS IAM login endpoint: %+v", err)
-                }
-        }
+        // cfg.Validate() ?
 
-        client, err := api.NewClient(nil)
+        client, err := vault.NewClient(cfg.Method, cfg.Role, cfg.ServerID)
         if err != nil {
-                log.Fatalf("Error initializing Vault client: %+v\n", err)
+                log.Fatalf("Error initializing Vault client: %+v", err)
         }
 
-        credentials.Serve(helper.NewHelper(cfg.Path, client))
+        credentials.Serve(helper.NewHelper(cfg.Secret, client))
 }
