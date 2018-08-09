@@ -1,6 +1,7 @@
 package vault
 
 import (
+        "fmt"
         "encoding/base64"
         "encoding/json"
         "path"
@@ -28,18 +29,18 @@ func getAndSetToken(client *api.Client, role, serverID string) error {
         // Create parameters for an sts:GetCallerIdentity request
         elems, err := aws.GetIAMAuthElements(serverID)
         if err != nil {
-                return err
+                return fmt.Errorf("error building sts:GetCallerIdentity request: %v", err)
         }
 
         // Build the request payload
         payload, err := makePayload(role, elems)
         if err != nil {
-                return err
+                return fmt.Errorf("error creating Vault AWS login request payload: %v", err)
         }
 
         secret, err := client.Logical().Write(path.Join("auth", "aws", "login"), payload)
         if err != nil {
-                return err
+                return fmt.Errorf("error making Vault AWS login request: %v", err)
         }
 
         client.SetToken(secret.Auth.ClientToken)
