@@ -86,6 +86,9 @@ func TestConfigMissingMethod(t *testing.T) {
         makeFile(t, testFilePath, data)
         defer deleteFile(t, testFilePath)
 
+        os.Setenv(EnvConfigFilePath, testFilePath)
+        defer os.Unsetenv(EnvConfigFilePath)
+
         if _, err := GetCredHelperConfig(); err != nil {
                 errorsEqual(t, err, expectedError)
         }
