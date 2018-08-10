@@ -18,16 +18,16 @@ func TestReadsFileEnv(t *testing.T) {
                 Path:     "secret/foo/bar",
                 ServerID: "vault.example.com",
         }
-        data := marshalJSON(cfg)
+        data := marshalJSON(t, cfg)
         makeFile(t, testFilePath, data)
         // defer deleteFile(t, testFilePath)
 
         os.Setenv(EnvConfigFilePath, testFilePath)
-        defer os.Unset(EnvConfigFilePath)
+        defer os.Unsetenv(EnvConfigFilePath)
 }
 
-func marshalJSON(t *testing.T, data interface{}) []byte {
-        data, err := json.Marshal(data)
+func marshalJSON(t *testing.T, v interface{}) []byte {
+        v, err := json.Marshal(v)
         if err != nil {
                 t.Fatalf("error marshaling JSON: %v", err)
         }
@@ -35,7 +35,7 @@ func marshalJSON(t *testing.T, data interface{}) []byte {
 }
 
 func makeFile(t *testing.T, name string, data []byte) {
-        file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE)
+        file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
         if err != nil {
                 t.Fatalf("error opening file %q: %v", name, err)
         }
