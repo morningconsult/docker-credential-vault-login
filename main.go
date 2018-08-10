@@ -15,8 +15,6 @@ func main() {
                 log.Fatalf("Error parsing configuration file: %+v", err)
         }
 
-        // cfg.Validate() ?
-
         client, err := vault.NewClient(cfg.Method, cfg.Role, cfg.ServerID)
         if err != nil {
                 log.Fatalf("Error initializing Vault client: %+v", err)
