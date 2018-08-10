@@ -23,8 +23,9 @@ const (
 type CredHelperConfig struct {
         Method   VaultAuthMethod `json:"vault_auth_method"`
         Role     string          `json:"vault_role"`
-        Path     string          `json:"vault_secret_path"`
+        Secret   string          `json:"vault_secret_path"`
         ServerID string          `json:"vault_iam_server_id_header_value"`
+        Path     string          `json:"-"`
 }
 
 func (c *CredHelperConfig) validate() error {
@@ -45,20 +46,20 @@ func (c *CredHelperConfig) validate() error {
                         errors = append(errors, fmt.Sprintf("VAULT_TOKEN environment variable is not set"))
                 }
         default:
-                errors = append(errors, fmt.Sprintf("%s %s %q (must be either %q or %q)", 
+                errors = append(errors, fmt.Sprintf("%s %s %q (must be either %q or %q)",
                         "Unrecognized Vault authentication method",
-                        `("vault_auth_method") value`, method, 
+                        `("vault_auth_method") value`, method,
                         VaultAuthMethodAWS, VaultAuthMethodToken))
         }
 
-        if c.Path == "" {
+        if c.Secret == "" {
                 errors = append(errors, fmt.Sprintf("%s %s", "No path to the location of",
                         `your secret in Vault ("vault_secret_path") is provided`))
         }
-        
+
         if len(errors) > 0 {
-                return fmt.Errorf("Your configuration file has the following errors:\n* %s", 
-                        strings.Join(errors, "\n* "))
+                return fmt.Errorf("Configuration file %s has the following errors:\n* %s", 
+                        c.Path, strings.Join(errors, "\n* "))
         }
         return nil
 }
@@ -88,6 +89,9 @@ func parseConfig() (*CredHelperConfig, error) {
         }
 
         var cfg = new(CredHelperConfig)
-        err = json.Unmarshal(data, cfg)
-        return cfg, err
+        if err = json.Unmarshal(data, cfg); err != nil {
+                return cfg, err
+        }
+        cfg.Path = path
+        return cfg, nil
 }

@@ -17,7 +17,7 @@ func TestReadsFileEnv(t *testing.T) {
         cfg := &CredHelperConfig{
                 Method:   VaultAuthMethodAWS,
                 Role:     "dev-role-iam",
-                Path:     "secret/foo/bar",
+                Secret:   "secret/foo/bar",
                 ServerID: "vault.example.com",
         }
         data := marshalJSON(t, cfg)
@@ -56,7 +56,7 @@ func TestConfigFileMissing(t *testing.T) {
 func TestEmptyConfigFile(t *testing.T) {
         const testFilePath = "/tmp/docker-credential-vault-login-testfile-3.json"
         var expectedError = fmt.Sprintf("%s\n%s\n%s",
-                "Your configuration file has the following errors:",
+                fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
                 "* No Vault authentication method (\"vault_auth_method\") is provided",
                 "* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
 
@@ -74,12 +74,35 @@ func TestEmptyConfigFile(t *testing.T) {
 func TestConfigMissingMethod(t *testing.T) {
         const testFilePath = "/tmp/docker-credential-vault-login-testfile-4.json"
         var expectedError = fmt.Sprintf("%s\n%s",
-                "Your configuration file has the following errors:",
+                fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
                 "* No Vault authentication method (\"vault_auth_method\") is provided")
         
         cfg := &CredHelperConfig{
                 Role:     "dev-role-iam",
-                Path:     "secret/foo/bar",
+                Secret:   "secret/foo/bar",
+                ServerID: "vault.example.com",
+        }
+        data := marshalJSON(t, cfg)
+        makeFile(t, testFilePath, data)
+        defer deleteFile(t, testFilePath)
+
+        os.Setenv(EnvConfigFilePath, testFilePath)
+        defer os.Unsetenv(EnvConfigFilePath)
+
+        if _, err := GetCredHelperConfig(); err != nil {
+                errorsEqual(t, err, expectedError)
+        }
+}
+
+func TestConfigMissingSecret(t *testing.T) {
+        const testFilePath = "/tmp/docker-credential-vault-login-testfile-5.json"
+        var expectedError = fmt.Sprintf("%s\n%s",
+                fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
+                "* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
+        
+        cfg := &CredHelperConfig{
+                Method:   VaultAuthMethodAWS
+                Role:     "dev-role-iam",
                 ServerID: "vault.example.com",
         }
         data := marshalJSON(t, cfg)

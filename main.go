@@ -20,5 +20,5 @@ func main() {
                 log.Fatalf("Error initializing Vault client: %+v", err)
         }
 
-        credentials.Serve(helper.NewHelper(cfg.Path, client))
+        credentials.Serve(helper.NewHelper(cfg.Secret, client))
 }
