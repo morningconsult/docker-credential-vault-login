@@ -4,14 +4,16 @@
 package config
 
 import (
-        "encoding/json"
+        "fmt"
         "os"
         "testing"
 )
 
+// TestReadsFileEnv tests that the GetCredHelperConfig function
+// looks for and parses the config file specified by the 
+// DOCKER_CREDS_CONFIG_FILE environment variable
 func TestReadsFileEnv(t *testing.T) {
-        const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"  
-        // create test file
+        const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
         cfg := &CredHelperConfig{
                 Method:   VaultAuthMethodAWS,
                 Role:     "dev-role-iam",
@@ -20,34 +22,71 @@ func TestReadsFileEnv(t *testing.T) {
         }
         data := marshalJSON(t, cfg)
         makeFile(t, testFilePath, data)
-        // defer deleteFile(t, testFilePath)
+        defer deleteFile(t, testFilePath)
 
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Unsetenv(EnvConfigFilePath)
-}
 
-func marshalJSON(t *testing.T, v interface{}) []byte {
-        v, err := json.Marshal(v)
-        if err != nil {
-                t.Fatalf("error marshaling JSON: %v", err)
-        }
-        return data
-}
-
-func makeFile(t *testing.T, name string, data []byte) {
-        file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
-        if err != nil {
-                t.Fatalf("error opening file %q: %v", name, err)
-        }
-        defer file.Close()
-
-        if _, err = file.Write(data); err != nil {
-                t.Fatalf("error writing data to file %q: %v", name, err)
+        if _, err := GetCredHelperConfig(); err != nil {
+                t.Errorf("Failed to read config file specified by environment variable %s", 
+                        EnvConfigFilePath)
         }
 }
 
-func deleteFile(t *testing.T, name string) {
-        if err := os.Remove(name); err != nil {
-                t.Fatalf("error deleting file %q: %v", name, err)
+// TestConfigFileMissing tests that if the config file located
+// at either the default path or the path given by the 
+// DOCKER_CREDS_CONFIG_FILE environment variable does not exist,
+// GetCredHelperConfig() throws the appropriate error
+func TestConfigFileMissing(t *testing.T) {
+        const testFilePath = "/tmp/docker-credential-vault-login-testfile-2.json"
+        os.Setenv(EnvConfigFilePath, testFilePath)
+        defer os.Unsetenv(EnvConfigFilePath)
+
+        if _, err := GetCredHelperConfig(); err != nil {
+                if !os.IsNotExist(err) {
+                        t.Errorf("%s (expected os.ErrNotExist, got %v)", 
+                                "GetCredHelperConfig() returned unexpected error", 
+                                err)
+                }
+        }
+}
+
+// TestEmptyConfigFile tests that if the configuration file is
+// just an empty JSON, the expected errors are returned.
+func TestEmptyConfigFile(t *testing.T) {
+        const testFilePath = "/tmp/docker-credential-vault-login-testfile-3.json"
+        var expectedError = fmt.Sprintf("%s\n%s\n%s",
+                "Your configuration file has the following errors:",
+                "* No Vault authentication method (\"vault_auth_method\") is provided",
+                "* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
+
+        makeFile(t, testFilePath, []byte("{}"))
+        defer deleteFile(t, testFilePath)
+
+        os.Setenv(EnvConfigFilePath, testFilePath)
+        defer os.Unsetenv(EnvConfigFilePath)
+
+        if _, err := GetCredHelperConfig(); err != nil {
+                errorsEqual(t, err, expectedError)
+        }
+}
+
+func TestConfigMissingMethod(t *testing.T) {
+        const testFilePath = "/tmp/docker-credential-vault-login-testfile-4.json"
+        var expectedError = fmt.Sprintf("%s\n%s",
+                "Your configuration file has the following errors:",
+                "* No Vault authentication method (\"vault_auth_method\") is provided")
+        
+        cfg := &CredHelperConfig{
+                Role:     "dev-role-iam",
+                Path:     "secret/foo/bar",
+                ServerID: "vault.example.com",
+        }
+        data := marshalJSON(t, cfg)
+        makeFile(t, testFilePath, data)
+        defer deleteFile(t, testFilePath)
+
+        if _, err := GetCredHelperConfig(); err != nil {
+                errorsEqual(t, err, expectedError)
         }
 }

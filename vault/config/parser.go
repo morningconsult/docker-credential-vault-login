@@ -5,6 +5,7 @@ import (
         "encoding/json"
         "os"
         "io/ioutil"
+        "strings"
 )
 
 type VaultAuthMethod string
@@ -27,33 +28,39 @@ type CredHelperConfig struct {
 }
 
 func (c *CredHelperConfig) validate() error {
-        if c.Path == "" {
-                return fmt.Errorf("%s %s", "No path to the location of your secret in Vault",
-                        `("vault_secret_path") is provided in configuration file`)
-        }
+        var errors []string
 
         method := c.Method
 
         switch method {
+        case "":
+                errors = append(errors, `No Vault authentication method ("vault_auth_method") is provided`)
         case VaultAuthMethodAWS:
                 if c.Role == "" {
-                        return fmt.Errorf("%s %s %s", `No Vault role ("vault_role") provided in`,
-                                "configuration file (required when the AWS authentication",
-                                "method is selected)")
+                        errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("vault_role") is`,
+                                "provided (required when the AWS authentication method is chosen)"))
                 }
-                return nil
         case VaultAuthMethodToken:
                 if v := os.Getenv("VAULT_TOKEN"); v == "" {
-                        return fmt.Errorf("VAULT_TOKEN environment variable is not set")
+                        errors = append(errors, fmt.Sprintf("VAULT_TOKEN environment variable is not set"))
                 }
-                return nil
         default:
-                msg := fmt.Sprintf("%s %s %q (must be either %q or %q)", 
+                errors = append(errors, fmt.Sprintf("%s %s %q (must be either %q or %q)", 
                         "Unrecognized Vault authentication method",
                         `("vault_auth_method") value`, method, 
-                        VaultAuthMethodAWS, VaultAuthMethodToken)
-                return fmt.Errorf(msg)
+                        VaultAuthMethodAWS, VaultAuthMethodToken))
         }
+
+        if c.Path == "" {
+                errors = append(errors, fmt.Sprintf("%s %s", "No path to the location of",
+                        `your secret in Vault ("vault_secret_path") is provided`))
+        }
+        
+        if len(errors) > 0 {
+                return fmt.Errorf("Your configuration file has the following errors:\n* %s", 
+                        strings.Join(errors, "\n* "))
+        }
+        return nil
 }
 
 func GetCredHelperConfig() (*CredHelperConfig, error) {
