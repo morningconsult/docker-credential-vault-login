@@ -28,6 +28,38 @@ type CredHelperConfig struct {
         Path     string          `json:"-"`
 }
 
+func GetCredHelperConfig() (*CredHelperConfig, error) {
+        cfg, err := parseConfig()
+        if err != nil {
+                return nil, err
+        }
+
+        if err = cfg.validate(); err != nil {
+                return nil, err
+        }
+        return cfg, nil
+}
+
+func parseConfig() (*CredHelperConfig, error) {
+        var path = DefaultConfigFilePath
+
+        if v := os.Getenv(EnvConfigFilePath); v != "" {
+                path = v
+        }
+
+        data, err := ioutil.ReadFile(path)
+        if err != nil {
+                return nil, err
+        }
+
+        var cfg = new(CredHelperConfig)
+        if err = json.Unmarshal(data, cfg); err != nil {
+                return cfg, err
+        }
+        cfg.Path = path
+        return cfg, nil
+}
+
 func (c *CredHelperConfig) validate() error {
         var errors []string
 
@@ -62,36 +94,4 @@ func (c *CredHelperConfig) validate() error {
                         c.Path, strings.Join(errors, "\n* "))
         }
         return nil
-}
-
-func GetCredHelperConfig() (*CredHelperConfig, error) {
-        cfg, err := parseConfig()
-        if err != nil {
-                return nil, err
-        }
-
-        if err = cfg.validate(); err != nil {
-                return nil, err
-        }
-        return cfg, nil
-}
-
-func parseConfig() (*CredHelperConfig, error) {
-        var path = DefaultConfigFilePath
-
-        if v := os.Getenv(EnvConfigFilePath); v != "" {
-                path = v
-        }
-
-        data, err := ioutil.ReadFile(path)
-        if err != nil {
-                return nil, err
-        }
-
-        var cfg = new(CredHelperConfig)
-        if err = json.Unmarshal(data, cfg); err != nil {
-                return cfg, err
-        }
-        cfg.Path = path
-        return cfg, nil
 }
