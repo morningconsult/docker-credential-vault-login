@@ -102,7 +102,7 @@ func TestExpectedValues(t *testing.T) {
                                         "application/x-www-form-urlencoded; charset=utf-8",
                                 },
                                 "Content-Length":            []string{"43"},
-                                "X-Vault-Aws-Iam-Server-Id": serverID,
+                                "X-Vault-Aws-Iam-Server-Id": []string{serverID},
                                 "X-Amz-Date":                []string{},
                                 "Authorization":             []string{},
                                 "User-Agent":                []string{},
@@ -124,7 +124,7 @@ func TestExpectedValues(t *testing.T) {
                 t.Errorf("got unexpected HTTP request URL (Got: %q; Expected: %q)", 
                         elems.URL, expected.URL)
         }
-        if elems.Body != expected.Body {
+        if string(elems.Body) != string(expected.Body) {
                 t.Errorf("got unexpected HTTP request body (Got: %q; Expected %q)",
                         string(elems.Body), string(expected.Body))
         }
