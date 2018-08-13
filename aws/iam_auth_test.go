@@ -23,11 +23,6 @@ const (
 var savedEnvVars map[string]string
 
 func TestReadsEnvFirst(t *testing.T) {
-        var (
-                auth []string
-                ok   bool
-        )
-
         clearEnvVars()
         setTestEnvVars()
         elems, err := GetIAMAuthElements("")
