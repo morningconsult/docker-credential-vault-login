@@ -30,7 +30,7 @@ func TestReadsEnvFirst(t *testing.T) {
 
         clearEnvVars()
         setTestEnvVars()
-        elems, err := aws.GetIAMAuthElements()
+        elems, err := GetIAMAuthElements()
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
@@ -43,7 +43,7 @@ func TestReadsEnvFirst(t *testing.T) {
         }
 }
 
-func TestMain(t *testing.T) {
+func TestMain(m *testing.M) {
         saveEnvVars()
         status := m.Run()
         restoreEnvVars()
@@ -56,7 +56,7 @@ func extractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) st
                 ok   bool
         )
 
-        if ok, auth = elems.Headers["Authorization"]; !ok {
+        if ok, auth = headers["Authorization"]; !ok {
                 t.Fatal("sts:GetCallerIdentity request headers does not contain \"Authorization\" header")
         }
 
@@ -76,7 +76,7 @@ func extractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) st
                 t.Fatalf("Malformed \"Authorization\" header in sts:GetCallerIdentity request")
         }
         cred = cred[start + 1:]
-        return strings.Split(credential, "/")[0]
+        return strings.Split(cred, "/")[0]
 }
 
 func clearEnvVars() {
