@@ -1,6 +1,7 @@
 package aws
 
 import (
+        "fmt"
         "os"
         "strings"
 	"testing"
@@ -22,8 +23,8 @@ const (
 
 var savedEnvVars map[string]string
 
-// TestReadsEnvFirst tests that the GetIAMAuthElements function
-// first reads credentials from the AWS environment variables
+// TestReadsEnvFirst tests that GetIAMAuthElements first
+// reads credentials from the AWS environment variables
 // if they are set.
 func TestReadsEnvFirst(t *testing.T) {
         setTestEnvVars()
@@ -40,6 +41,9 @@ func TestReadsEnvFirst(t *testing.T) {
         }
 }
 
+// TestWithoutServerID tests that GetIAMAuthElements creates a
+// request object without an X-Vault-AWS-IAM-Server-ID header
+// when serverID is an empty string
 func TestWithoutServerID(t *testing.T) {
         var serverID = ""
 
@@ -57,6 +61,9 @@ func TestWithoutServerID(t *testing.T) {
         }
 }
 
+// TestWithServerID tests that GetIAMAuthElements creates a
+// request object with an X-Vault-AWS-IAM-Server-ID header when
+// serverID is not an empty string
 func TestWithServerID(t *testing.T) {
         var serverID = "vault.example.com"
 
@@ -79,12 +86,80 @@ func TestWithServerID(t *testing.T) {
         }
 }
 
+// TestExpectedValues tests that GetIAMAuthElements creates an
+// IAMAuthElements struct with expected values when provided AWS
+// credentials (via environment variables in this unit test) 
+// and a server ID.
+func TestExpectedValues(t *testing.T) {
+        var (
+                serverID = "vault.example.com"
+                expected = IAMAuthElements{
+                        Method:  "POST",
+                        URL:     "https://sts.amazonaws.com/",
+                        Body:    []byte("Action=GetCallerIdentity&Version=2011-06-15"),
+                        Headers: map[string][]string{
+                                "Content-Type":              []string{
+                                        "application/x-www-form-urlencoded; charset=utf-8",
+                                },
+                                "Content-Length":            []string{"43"},
+                                "X-Vault-Aws-Iam-Server-Id": serverID,
+                                "X-Amz-Date":                []string{},
+                                "Authorization":             []string{},
+                                "User-Agent":                []string{},
+                        },
+                }
+        )
+
+        setTestEnvVars()
+        elems, err := GetIAMAuthElements(serverID)
+        if err != nil {
+                t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
+        }
+
+        if elems.Method != expected.Method {
+                t.Errorf("got unexpected HTTP request method (Got: %q; Expected: %q)", 
+                        elems.Method, expected.Method)
+        }
+        if elems.URL != expected.URL {
+                t.Errorf("got unexpected HTTP request URL (Got: %q; Expected: %q)", 
+                        elems.URL, expected.URL)
+        }
+        if elems.Body != expected.Body {
+                t.Errorf("got unexpected HTTP request body (Got: %q; Expected %q)",
+                        string(elems.Body), string(expected.Body))
+        }
+
+        for k, v := range expected.Headers {
+                if d, ok := elems.Headers[k]; !ok && len(d) > 0 {
+                        t.Errorf("request headers returned by GetIAMAuthElements do not contain header %q", k)
+                }
+
+                switch k {
+                case "X-Amz-Date":
+                        var date, time int
+                        if _, err = fmt.Sscanf(v[0], "%8dT%6dZ", &date, &time); err != nil {
+                                t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
+                        }
+                case "Content-Type", "Content-Length", "X-Vault-Aws-Iam-Server-Id":
+                        if v != elems.Headers[k] {
+                                t.Errorf("unexpected value of header %q returned by GetIAMAuthElements (Got: %q, Expected %q)",
+                                        k, elems.Headers[k], v)
+                        }
+                // case "Authorization":
+                //         verifyAuthorization(t, v)
+                default:
+                        continue
+                }
+        }
+}
+
 func TestMain(m *testing.M) {
         saveEnvVars()
         status := m.Run()
         restoreEnvVars()
         os.Exit(status)
 }
+
 func extractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) string {
         var (
                 cred = ""
