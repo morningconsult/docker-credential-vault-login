@@ -4,7 +4,7 @@ import (
         "os"
         "strings"
 	"testing"
-        "github.com/aws/aws-sdk-go/internal/shareddefaults"
+        // "github.com/aws/aws-sdk-go/internal/shareddefaults"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/aws"
 )
 
