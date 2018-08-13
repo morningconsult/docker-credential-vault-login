@@ -141,7 +141,7 @@ func TestExpectedValues(t *testing.T) {
                                 t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
                         }
                 case "Content-Type", "Content-Length", "X-Vault-Aws-Iam-Server-Id":
-                        if v != elems.Headers[k] {
+                        if v[0] != elems.Headers[k][0] {
                                 t.Errorf("unexpected value of header %q returned by GetIAMAuthElements (Got: %q, Expected %q)",
                                         k, elems.Headers[k], v)
                         }
