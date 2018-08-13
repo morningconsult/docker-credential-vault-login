@@ -22,8 +22,10 @@ const (
 
 var savedEnvVars map[string]string
 
+// TestReadsEnvFirst tests that the GetIAMAuthElements function
+// first reads credentials from the AWS environment variables
+// if they are set.
 func TestReadsEnvFirst(t *testing.T) {
-        clearEnvVars()
         setTestEnvVars()
         elems, err := GetIAMAuthElements("")
         if err != nil {
@@ -35,6 +37,45 @@ func TestReadsEnvFirst(t *testing.T) {
                 t.Errorf("%s %s\nGot:\n%q\n\nExpected:\n%q\n", "Credential value of the \"Authorization\" header", 
                         "of the sts:GetCallerIdentity request has the wrong AWS Access Key ID:\n",
                         accessKey, TestAccessKey)
+        }
+}
+
+func TestWithoutServerID(t *testing.T) {
+        var serverID = ""
+
+        setTestEnvVars()
+        elems, err := GetIAMAuthElements(serverID)
+        if err != nil {
+                t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
+        }
+
+        for k, _ := range elems.Headers {
+                if strings.ToLower(k) == "x-vault-aws-iam-server-id" {
+                        t.Errorf("%s %s", "GetIAMAuthElements should not add a",
+                                "\"X-Vault-AWS-IAM-Server-ID\" header when serverID is an empty string")
+                }
+        }
+}
+
+func TestWithServerID(t *testing.T) {
+        var serverID = "vault.example.com"
+
+        setTestEnvVars()
+        elems, err := GetIAMAuthElements(serverID)
+        if err != nil {
+                t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
+        }
+
+        var present = false
+        for k, _ := range elems.Headers {
+                if strings.ToLower(k) == "x-vault-aws-iam-server-id" {
+                        present = true
+                        break
+                }
+        }
+        if !present {
+                t.Errorf("%s %s", "GetIAMAuthElements should add a",
+                                "\"X-Vault-AWS-IAM-Server-ID\" header when serverID is not empty")
         }
 }
 
@@ -82,6 +123,7 @@ func clearEnvVars() {
 }
 
 func saveEnvVars() {
+        clearEnvVars()
         savedEnvVars = map[string]string{
                 EnvAWSAccessKey:       os.Getenv(EnvAWSAccessKey),
                 EnvAWSAccessKeyID:     os.Getenv(EnvAWSAccessKeyID),
@@ -92,9 +134,7 @@ func saveEnvVars() {
 
 func setTestEnvVars() {
         os.Setenv(EnvAWSAccessKey, TestAccessKey)
-        os.Setenv(EnvAWSAccessKeyID, "")
         os.Setenv(EnvAWSSecretKey, TestSecretKey)
-        os.Setenv(EnvAWSSecretAccessKey, "")
 }
 
 func restoreEnvVars() {
