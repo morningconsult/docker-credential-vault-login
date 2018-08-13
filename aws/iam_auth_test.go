@@ -137,7 +137,7 @@ func TestExpectedValues(t *testing.T) {
                 switch k {
                 case "X-Amz-Date":
                         var date, time int
-                        if _, err = fmt.Sscanf(v[0], "%8dT%6dZ", &date, &time); err != nil {
+                        if _, err = fmt.Sscanf(elems.Headers[k], "%8dT%6dZ", &date, &time); err != nil {
                                 t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
                         }
                 case "Content-Type", "Content-Length", "X-Vault-Aws-Iam-Server-Id":
