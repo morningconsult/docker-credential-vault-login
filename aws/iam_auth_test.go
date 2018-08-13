@@ -30,7 +30,7 @@ func TestReadsEnvFirst(t *testing.T) {
 
         clearEnvVars()
         setTestEnvVars()
-        elems, err := GetIAMAuthElements()
+        elems, err := GetIAMAuthElements("")
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
@@ -56,7 +56,7 @@ func extractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) st
                 ok   bool
         )
 
-        if ok, auth = headers["Authorization"]; !ok {
+        if auth, ok = headers["Authorization"]; !ok {
                 t.Fatal("sts:GetCallerIdentity request headers does not contain \"Authorization\" header")
         }
 
