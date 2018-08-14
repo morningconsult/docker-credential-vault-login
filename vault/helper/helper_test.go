@@ -1,40 +1,54 @@
 package helper
 
 import (
+        "fmt"
         "os"
         "path"
         "testing"
 
         "github.com/hashicorp/vault/api"
+        "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
+        "github.com/hashicorp/vault/logical"
+        "github.com/hashicorp/vault/builtin/logical/transit"
         // vault "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
 
+const ClusterPort int = 32010
 
 func TestStartCluster(t *testing.T) {
-        cluster := vault.NewTestCluster(t, nil, nil)
-        _, _, addr, err := cluster.Cores[0].Leader()
-        if err != nil {
-                t.Fatalf("error getting TestCluster leader: %v", err)
+        coreConfig := &vault.CoreConfig{
+		LogicalBackends: map[string]logical.Factory{
+			"transit": transit.Factory,
+		},
+		ClusterAddr: fmt.Sprintf("https://127.3.4.1:%d", ClusterPort),
         }
 
-        token := cluster.RootToken
-        caPath := cluster.TempDir
-
-        go cluster.Start()
+        cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+                HandlerFunc: http.Handler,
+        })
+        cluster.Start()
         defer cluster.Cleanup()
+        cores := cluster.Cores
 
-        os.Setenv("VAULT_ADDR", addr)
-        os.Setenv("VAULT_TOKEN", token)
-        os.Setenv("VAULT_CACERT", path.Join(caPath, "ca_cert.pem"))
-        // os.Setenv("VAULT_CLIENT_CERT", path.Join(caPath, ))
+	// make it easy to get access to the active
+	core := cores[0].Core
+	vault.TestWaitActive(t, core)
 
-        client, err := api.NewClient(nil)
+        config := api.DefaultConfig()
+        config.Address = coreConfig.ClusterAddr
+        config.HttpClient.Transport.(*http.Transport).TLSClientConfig = core.TLSConfig
+
+        client, err := api.NewClient(config)
         if err != nil {
-                t.Fatalf("error initializing Vault API client: %v", err)
+                t.Fatal(err)
         }
+        client.SetToken(cluster.RootToken)
 
-        client.Logical().Write("secret/foo/bar", map[string]interface{}{"foo":"bar"})
+        _, err = client.Logical().Write("secret/foo/bar", map[string]interface{}{"foo":"bar"})
+        if err != nil {
+                t.Fatal(err)
+        }
 }
 
 // func TestHelperGet(t *testing.T) {
