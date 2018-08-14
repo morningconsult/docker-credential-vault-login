@@ -13,7 +13,7 @@ var VaultDevPortString string
 
 var VaultDevRootToken string
 
-func initSecretsEngine(t *testing.T) (string, string) {
+func InitSecretsEngine(t *testing.T) (string, string) {
         if _, err := strconv.Atoi(VaultDevPortString); err != nil {
                 t.Fatal("Vault listener port must be an integer")
         }

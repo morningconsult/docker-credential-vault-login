@@ -4,6 +4,6 @@ import (
 	"testing"
 )
 
-func TestInit(t *testing.T) {
-        initSecretsEngine(t)
-}
+// func TestInit(t *testing.T) {
+//         initSecretsEngine(t)
+// }

@@ -128,7 +128,7 @@ func TestExpectedValues(t *testing.T) {
         }
 
         for k, v := range expected.Headers {
-                if d, ok := elems.Headers[k]; !ok {
+                if _, ok := elems.Headers[k]; !ok {
                         t.Errorf("request headers returned by GetIAMAuthElements do not contain header %q", k)
                 }
 
