@@ -19,6 +19,12 @@
 			"revisionTime": "2018-04-20T20:36:15Z"
 		},
 		{
+			"checksumSHA1": "Xhlz4CNOopUt3MnUhRVOsKpLe6o=",
+			"path": "github.com/NYTimes/gziphandler",
+			"revision": "5032c8878b9dd46cfe8c625c0d9b9f258a560ee8",
+			"revisionTime": "2018-02-27T02:18:10Z"
+		},
+		{
 			"checksumSHA1": "zp8WqI7AFFN/yQYw7NU1FDfMkcE=",
 			"path": "github.com/SAP/go-hdb/driver",
 			"revision": "94b6d9c3c048c0af854a6be7138c947db29a9d20",
@@ -271,6 +277,18 @@
 			"revisionTime": "2018-07-19T07:47:51Z"
 		},
 		{
+			"checksumSHA1": "7DxViusFRJ7UPH0jZqYatwDrOkY=",
+			"path": "github.com/elazarl/go-bindata-assetfs",
+			"revision": "38087fe4dafb822e541b3f7955075cc1c30bd294",
+			"revisionTime": "2018-02-23T16:03:09Z"
+		},
+		{
+			"checksumSHA1": "5BP5xofo0GoFi6FtgqFFbmHyUKI=",
+			"path": "github.com/fatih/structs",
+			"revision": "ebf56d35bba727c68ac77f56f2fcf90b181851aa",
+			"revisionTime": "2018-01-23T06:50:59Z"
+		},
+		{
 			"checksumSHA1": "ENmi2SyGiR8a4ycVhs2gRdmWZg0=",
 			"path": "github.com/go-ini/ini",
 			"revision": "d58d458bec3cb5adec4b7ddb41131855eac0b33f",
@@ -505,6 +523,12 @@
 			"revisionTime": "2018-08-14T19:29:22Z"
 		},
 		{
+			"checksumSHA1": "YCJnzaExQkLDAS47RBpxLZ9D/DY=",
+			"path": "github.com/hashicorp/vault/builtin/logical/transit",
+			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
+			"revisionTime": "2018-08-14T19:29:22Z"
+		},
+		{
 			"checksumSHA1": "eO+5+ZDLmCFoL/9rUic1S86coy8=",
 			"path": "github.com/hashicorp/vault/helper/base62",
 			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
@@ -569,6 +593,18 @@
 			"path": "github.com/hashicorp/vault/helper/jsonutil",
 			"revision": "f8b331954679c85f41a418fe1e10ceb211220385",
 			"revisionTime": "2018-07-27T20:52:38Z"
+		},
+		{
+			"checksumSHA1": "Dm8C/NfkwxHIpq27XJk1GOsRnus=",
+			"path": "github.com/hashicorp/vault/helper/kdf",
+			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
+			"revisionTime": "2018-08-14T19:29:22Z"
+		},
+		{
+			"checksumSHA1": "3KQ7sBGjOaklMWf4+Smj3IeLTRM=",
+			"path": "github.com/hashicorp/vault/helper/keysutil",
+			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
+			"revisionTime": "2018-08-14T19:29:22Z"
 		},
 		{
 			"checksumSHA1": "kPLxfKd5d4TkHZLdtAs73hMrCfQ=",
@@ -657,6 +693,12 @@
 		{
 			"checksumSHA1": "c66DHHA2+FAVq7pFPqy3/VXBRrk=",
 			"path": "github.com/hashicorp/vault/helper/xor",
+			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
+			"revisionTime": "2018-08-14T19:29:22Z"
+		},
+		{
+			"checksumSHA1": "wOuUOEFKUC2XWWiyho3oOL/r4go=",
+			"path": "github.com/hashicorp/vault/http",
 			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
 			"revisionTime": "2018-08-14T19:29:22Z"
 		},
@@ -913,6 +955,12 @@
 			"revisionTime": "2017-01-28T01:21:29Z"
 		},
 		{
+			"checksumSHA1": "20XuIoc75R0vBHzMLxFe3rQs4Ok=",
+			"path": "golang.org/x/crypto/chacha20poly1305",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
 			"checksumSHA1": "IQkUIOnvlf0tYloFx9mLaXSvXWQ=",
 			"path": "golang.org/x/crypto/curve25519",
 			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
@@ -927,6 +975,12 @@
 		{
 			"checksumSHA1": "0JTAFXPkankmWcZGQJGScLDiaN8=",
 			"path": "golang.org/x/crypto/ed25519/internal/edwards25519",
+			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
+			"revisionTime": "2018-08-08T16:52:45Z"
+		},
+		{
+			"checksumSHA1": "4D8hxMIaSDEW5pCQk22Xj4DcDh4=",
+			"path": "golang.org/x/crypto/hkdf",
 			"revision": "de0752318171da717af4ce24d0a2e8626afaeb11",
 			"revisionTime": "2018-08-08T16:52:45Z"
 		},
@@ -1001,6 +1055,12 @@
 			"path": "golang.org/x/net/trace",
 			"revision": "c39426892332e1bb5ec0a434a079bf82f5d30c54",
 			"revisionTime": "2018-07-15T06:54:04Z"
+		},
+		{
+			"checksumSHA1": "REkmyB368pIiip76LiqMLspgCRk=",
+			"path": "golang.org/x/sys/cpu",
+			"revision": "4e1fef5609515ec7a2cee7b5de30ba6d9b438cbf",
+			"revisionTime": "2018-08-13T06:52:15Z"
 		},
 		{
 			"checksumSHA1": "LeV5qDBHhQEbFMh9PARudS6ltos=",
