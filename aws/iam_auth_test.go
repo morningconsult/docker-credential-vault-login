@@ -160,36 +160,6 @@ func TestMain(m *testing.M) {
         os.Exit(status)
 }
 
-func extractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) string {
-        var (
-                cred = ""
-                auth []string
-                ok   bool
-        )
-
-        if auth, ok = headers["Authorization"]; !ok {
-                t.Fatal("sts:GetCallerIdentity request headers does not contain \"Authorization\" header")
-        }
-
-        vals := strings.Split(auth[0], " ")
-        for _, v := range vals {
-                if i := strings.Index(v, "Credential="); i != -1 {
-                        cred = v
-                        break
-                }
-        }
-        if cred == "" {
-                t.Fatalf("\"Authorization\" header of the sts:GetCallerIdentity request does not have a Credential value")
-        }
-
-        start := strings.Index(cred, "=")
-        if start == -1 {
-                t.Fatalf("Malformed \"Authorization\" header in sts:GetCallerIdentity request")
-        }
-        cred = cred[start + 1:]
-        return strings.Split(cred, "/")[0]
-}
-
 func clearEnvVars() {
         os.Unsetenv(EnvAWSAccessKeyID)
         os.Unsetenv(EnvAWSAccessKey)
