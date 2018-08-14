@@ -673,12 +673,6 @@
 			"revisionTime": "2018-08-14T19:29:22Z"
 		},
 		{
-			"checksumSHA1": "iwXQDzHqTFsjJW2ehYae0oLo2Ts=",
-			"path": "github.com/hashicorp/vault/helper/strutil",
-			"revision": "f8b331954679c85f41a418fe1e10ceb211220385",
-			"revisionTime": "2018-07-27T20:52:38Z"
-		},
-		{
 			"checksumSHA1": "3j8u5mMkRfs+YG0viUIFPqDWeJc=",
 			"path": "github.com/hashicorp/vault/helper/tlsutil",
 			"revision": "9cf497f688d3973032a9a148eeeeed3796ed6814",
