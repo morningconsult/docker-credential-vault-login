@@ -2,12 +2,13 @@ package helper
 
 import (
         "fmt"
-        "os"
-        "path"
+        "net/http"
+        // "os"
+        // "path"
         "testing"
 
         "github.com/hashicorp/vault/api"
-        "github.com/hashicorp/vault/http"
+        vaulthttp "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
         "github.com/hashicorp/vault/logical"
         "github.com/hashicorp/vault/builtin/logical/transit"
@@ -25,7 +26,7 @@ func TestStartCluster(t *testing.T) {
         }
 
         cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-                HandlerFunc: http.Handler,
+                HandlerFunc: vaulthttp.Handler,
         })
         cluster.Start()
         defer cluster.Cleanup()
@@ -37,7 +38,7 @@ func TestStartCluster(t *testing.T) {
 
         config := api.DefaultConfig()
         config.Address = coreConfig.ClusterAddr
-        config.HttpClient.Transport.(*http.Transport).TLSClientConfig = core.TLSConfig
+        config.HttpClient.Transport.(*http.Transport).TLSClientConfig = cores[0].TLSConfig
 
         client, err := api.NewClient(config)
         if err != nil {
