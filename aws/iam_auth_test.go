@@ -166,7 +166,6 @@ func clearEnvVars() {
 }
 
 func saveEnvVars() map[string]string {
-        clearEnvVars()
         return map[string]string{
                 EnvAWSAccessKey:       os.Getenv(EnvAWSAccessKey),
                 EnvAWSAccessKeyID:     os.Getenv(EnvAWSAccessKeyID),
@@ -176,6 +175,7 @@ func saveEnvVars() map[string]string {
 }
 
 func setTestEnvVars() {
+        clearEnvVars()
         os.Setenv(EnvAWSAccessKey, TestAccessKey)
         os.Setenv(EnvAWSSecretKey, TestSecretKey)
 }
