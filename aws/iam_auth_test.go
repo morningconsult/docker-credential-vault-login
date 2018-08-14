@@ -21,8 +21,6 @@ const (
         TestSecretKey string = "F+B46nGe/FCVEem5WO7IXQtRl9B72ehob7VWpMdx"
 )
 
-var savedEnvVars map[string]string
-
 // TestReadsEnvFirst tests that GetIAMAuthElements first
 // reads credentials from the AWS environment variables
 // if they are set.
@@ -154,9 +152,9 @@ func TestExpectedValues(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
-        saveEnvVars()
+        savedEnvVars := saveEnvVars()
         status := m.Run()
-        restoreEnvVars()
+        restoreEnvVars(savedEnvVars)
         os.Exit(status)
 }
 
@@ -167,9 +165,9 @@ func clearEnvVars() {
         os.Unsetenv(EnvAWSSecretKey)
 }
 
-func saveEnvVars() {
+func saveEnvVars() map[string]string {
         clearEnvVars()
-        savedEnvVars = map[string]string{
+        return map[string]string{
                 EnvAWSAccessKey:       os.Getenv(EnvAWSAccessKey),
                 EnvAWSAccessKeyID:     os.Getenv(EnvAWSAccessKeyID),
                 EnvAWSSecretAccessKey: os.Getenv(EnvAWSSecretAccessKey),
@@ -182,7 +180,7 @@ func setTestEnvVars() {
         os.Setenv(EnvAWSSecretKey, TestSecretKey)
 }
 
-func restoreEnvVars() {
+func restoreEnvVars(savedEnvVars map[string]string) {
         for k, v := range savedEnvVars {
                 os.Setenv(k, v)
         }
