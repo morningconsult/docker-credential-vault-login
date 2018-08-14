@@ -141,7 +141,9 @@ func TestExpectedValues(t *testing.T) {
                                 t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
                         }
                 case "Authorization":
-                        validateAuthorization(t, v, TestAccessKey)
+                        validateAuthorization(t, elems.Headers[k][0], TestAccessKey)
+                case "User-Agent":
+                        continue
                 default:
                         if v[0] != elems.Headers[k][0] {
                                 t.Errorf("unexpected value of header %q returned by GetIAMAuthElements (Got: %q, Expected %q)",
