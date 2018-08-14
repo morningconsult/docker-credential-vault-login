@@ -19,6 +19,7 @@ func TestHelperGet(t *testing.T) {
                         "username": "docker@user.com",
                         "password": "potato",
                 }
+        )
 
         cluster := vault.NewTestCluster(t, &vault.CoreConfig{}, &vault.TestClusterOptions{
                 HandlerFunc: vaulthttp.Handler,
@@ -46,7 +47,7 @@ func TestHelperGet(t *testing.T) {
                 t.Fatal(err)
         }
 
-        helper := NewHelper(secret, client)
+        helper := NewHelper(secretPath, client)
         user, pw, err := helper.Get("")
         if err != nil {
                 t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
@@ -56,6 +57,7 @@ func TestHelperGet(t *testing.T) {
         }
         if v, _ := secret["password"].(string); v != pw {
                 t.Errorf("Expected password %q, got %q", v, pw)
+        }
 }
 
 // func TestHelperGet(t *testing.T) {
