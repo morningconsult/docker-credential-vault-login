@@ -21,7 +21,8 @@ func initSecretsEngine(t *testing.T) (string, string) {
                 t.Fatal("No Vault root token provided")
         }
 
-        os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString))
+        addr := fmt.Sprintf("http://127.0.0.1:%s", VaultDevPortString)
+        os.Setenv("VAULT_ADDR", addr)
         client, err := api.NewClient(nil)
         if err != nil {
                 t.Fatalf("error initializing Vault API client: %v", err)
@@ -30,6 +31,7 @@ func initSecretsEngine(t *testing.T) (string, string) {
 
         disableSecretEngine(t, client)
         enableSecretEngine(t, client)
+        return addr, VaultDevRootToken
 }
 
 func disableSecretEngine(t *testing.T, client *api.Client) {
