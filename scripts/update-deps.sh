@@ -23,6 +23,8 @@ go get -u github.com/kardianos/govendor
 
 govendor init
 
+govendor remove +unused
+
 ## Fetch dependencies
 echo "Fetching dependencies. This will take some time..."
 govendor fetch +missing
