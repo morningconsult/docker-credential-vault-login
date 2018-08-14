@@ -48,7 +48,7 @@ func validateCredential(t *testing.T, credential, testAccessKey string) {
                         "of \"Authorization\" header of sts:GetCallerIdentity request", elems[0], testAccessKey)
         }
         var date int
-        if _, err := fmt.Sscanf(elems[1], "%8d", &date) {
+        if _, err := fmt.Sscanf(elems[1], "%8d", &date); err != nil {
                 t.Errorf("%s %s (Got: %q, Expected: YYYYMMDD)", "malformed date in \"Credential\" element",
                         "of \"Authorization\" header of sts:GetCallerIdentity request", elems[0])
         }
