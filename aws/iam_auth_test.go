@@ -140,15 +140,13 @@ func TestExpectedValues(t *testing.T) {
                         if _, err = fmt.Sscanf(elems.Headers[k][0], "%8dT%6dZ", &date, &time); err != nil {
                                 t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
                         }
-                case "Content-Type", "Content-Length", "X-Vault-Aws-Iam-Server-Id":
+                case "Authorization":
+                        validateAuthorization(t, v, TestAccessKey)
+                default:
                         if v[0] != elems.Headers[k][0] {
                                 t.Errorf("unexpected value of header %q returned by GetIAMAuthElements (Got: %q, Expected %q)",
                                         k, elems.Headers[k], v)
                         }
-                // case "Authorization":
-                //         verifyAuthorization(t, v)
-                default:
-                        continue
                 }
         }
 }
