@@ -2,6 +2,7 @@ package helper
 
 import (
         "os"
+        "path"
         "testing"
 
         "github.com/hashicorp/vault/api"
@@ -18,14 +19,15 @@ func TestStartCluster(t *testing.T) {
         }
 
         token := cluster.RootToken
-        capath := cluster.TempDir
+        caPath := cluster.TempDir
 
         go cluster.Start()
         defer cluster.Cleanup()
 
         os.Setenv("VAULT_ADDR", addr)
         os.Setenv("VAULT_TOKEN", token)
-        os.Setenv("VAULT_CAPATH", capath)
+        os.Setenv("VAULT_CACERT", path.Join(caPath, "ca_cert.pem"))
+        // os.Setenv("VAULT_CLIENT_CERT", path.Join(caPath, ))
 
         client, err := api.NewClient(nil)
         if err != nil {
