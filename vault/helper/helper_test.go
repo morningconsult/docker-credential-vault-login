@@ -10,22 +10,10 @@ import (
         "github.com/hashicorp/vault/api"
         vaulthttp "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
-        "github.com/hashicorp/vault/logical"
-        "github.com/hashicorp/vault/builtin/logical/transit"
-        // vault "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault"
 )
 
-const ClusterPort int = 32010
-
 func TestStartCluster(t *testing.T) {
-        coreConfig := &vault.CoreConfig{
-		LogicalBackends: map[string]logical.Factory{
-			"transit": transit.Factory,
-		},
-		ClusterAddr: fmt.Sprintf("https://127.3.4.1:%d", ClusterPort),
-        }
-
-        cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+        cluster := vault.NewTestCluster(t, &vault.CoreConfig{}, &vault.TestClusterOptions{
                 HandlerFunc: vaulthttp.Handler,
         })
         cluster.Start()
@@ -37,7 +25,7 @@ func TestStartCluster(t *testing.T) {
 	vault.TestWaitActive(t, core)
 
         config := api.DefaultConfig()
-        config.Address = coreConfig.ClusterAddr
+        config.Address = fmt.Sprintf("https://127.0.0.1:%d", cores[0].Listeners[0].Address.Port)
         config.HttpClient.Transport.(*http.Transport).TLSClientConfig = cores[0].TLSConfig
 
         client, err := api.NewClient(config)
