@@ -2,7 +2,6 @@ package aws
 
 import (
         "fmt"
-        "strconv"
         "strings"
         "testing"
 )
