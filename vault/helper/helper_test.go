@@ -12,7 +12,14 @@ import (
         "github.com/hashicorp/vault/vault"
 )
 
-func TestStartCluster(t *testing.T) {
+func TestHelperGet(t *testing.T) {
+        var (
+                secretPath = "secret/foo/bar"
+                secret     = map[string]interface{}{
+                        "username": "docker@user.com",
+                        "password": "potato",
+                }
+
         cluster := vault.NewTestCluster(t, &vault.CoreConfig{}, &vault.TestClusterOptions{
                 HandlerFunc: vaulthttp.Handler,
         })
@@ -34,10 +41,21 @@ func TestStartCluster(t *testing.T) {
         }
         client.SetToken(cluster.RootToken)
 
-        _, err = client.Logical().Write("secret/foo/bar", map[string]interface{}{"foo":"bar"})
+        _, err = client.Logical().Write(secretPath, secret)
         if err != nil {
                 t.Fatal(err)
         }
+
+        helper := NewHelper(secret, client)
+        user, pw, err := helper.Get("")
+        if err != nil {
+                t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
+        }
+        if v, _ := secret["username"].(string); v != user {
+                t.Errorf("Expected username %q, got %q", v, user)
+        }
+        if v, _ := secret["password"].(string); v != pw {
+                t.Errorf("Expected password %q, got %q", v, pw)
 }
 
 // func TestHelperGet(t *testing.T) {
@@ -63,15 +81,15 @@ func TestStartCluster(t *testing.T) {
 //         }
 
 //         helper := NewHelper(path, client)
-//         user, pw, err := helper.Get("")
-//         if err != nil {
-//                 t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
-//         }
-//         if v, _ := secret["username"].(string); v != user {
-//                 t.Errorf("Expected username %q, got %q", v, user)
-//         }
-//         if v, _ := secret["password"].(string); v != pw {
-//                 t.Errorf("Expected password %q, got %q", v, pw)
+        // user, pw, err := helper.Get("")
+        // if err != nil {
+        //         t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
+        // }
+        // if v, _ := secret["username"].(string); v != user {
+        //         t.Errorf("Expected username %q, got %q", v, user)
+        // }
+        // if v, _ := secret["password"].(string); v != pw {
+        //         t.Errorf("Expected password %q, got %q", v, pw)
 //         }
 // }
 
