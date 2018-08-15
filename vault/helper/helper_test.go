@@ -85,7 +85,7 @@ func TestHelperFailsWhenNoCreds(t *testing.T) {
         helper := NewHelper(secretPath, client)
         user, pw, err := helper.Get("")
         if err == nil {
-                t.Fatal("expected an error when no secret is found but got no error")
+                t.Fatal("expected an error when no credentials are found but got no error")
         }
         if user != "" {
                 t.Fatal("returned username should be an empty string when no credentials found")
