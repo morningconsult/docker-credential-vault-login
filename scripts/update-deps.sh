@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-ORIGIN=$(pwd)
+# ORIGIN=$(pwd)
 GITLAB="gitlab.morningconsult.com/mci"
+TOOL="docker-credential-vault-login"
 
 ## Make a temporary directory
 TEMPDIR=$(mktemp -d get-deps.XXXXXX)
@@ -14,9 +15,12 @@ cd $TEMPDIR
 ## Get repo
 mkdir -p "src/${GITLAB}"
 cd "src/${GITLAB}"
-echo "Fetching ${GITLAB}/docker-credential-vault-login..."
-git clone git@gitlab.morningconsult.com:mci/docker-credential-vault-login
-cd docker-credential-vault-login
+echo "Fetching ${TOOL}..."
+git clone git@gitlab.morningconsult.com:mci/${TOOL}
+cd ${TOOL}
+
+## Clean out earlier vendoring
+rm -rf Godeps vendor
 
 ## Get govendor
 go get -u github.com/kardianos/govendor
@@ -27,9 +31,4 @@ govendor init
 echo "Fetching dependencies. This will take some time..."
 govendor fetch +missing
 
-## Move vendor files to the original project folder
-cp -R vendor/* "${ORIGIN}/vendor"
-
-## Delete the temporary directory
-cd $ORIGIN
-rm -rf $TEMPDIR
+printf "Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${GITLAB}/${TOOL}\n\n"
