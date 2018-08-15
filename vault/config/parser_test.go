@@ -155,11 +155,10 @@ func TestConfigMissingToken(t *testing.T) {
         }
 }
 
-// TestConfigMissingSecret tests that GetCredHelperConfig 
-// returns the expected error message when no path to a Vault
-// secret is provided in the configuration file. This secret 
-// is the location in Vault at which your Docker credentials 
-// are stored
+// TestConfigMissingRole tests that GetCredHelperConfig 
+// returns the expected error message when no Vault role
+// is provided in the configuration file when the AWS auth
+// method is chosen
 func TestConfigMissingRole(t *testing.T) {
         const testFilePath = "/tmp/docker-credential-vault-login-testfile-7.json"
         var expectedError = fmt.Sprintf("%s\n%s%s",
