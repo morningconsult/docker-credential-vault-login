@@ -10,6 +10,8 @@ import (
         "github.com/hashicorp/vault/api"
         vaulthttp "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
+        "github.com/hashicorp/vault/helper/logging"
+        log "github.com/hashicorp/go-hclog"
 )
 
 func TestHelperGet(t *testing.T) {
@@ -21,7 +23,11 @@ func TestHelperGet(t *testing.T) {
                 }
         )
 
-        cluster := vault.NewTestCluster(t, &vault.CoreConfig{}, &vault.TestClusterOptions{
+        base := &vault.CoreConfig{
+                Logger: logging.NewVaultLogger(log.Error),
+        }
+
+        cluster := vault.NewTestCluster(t, base, &vault.TestClusterOptions{
                 HandlerFunc: vaulthttp.Handler,
         })
         cluster.Start()
