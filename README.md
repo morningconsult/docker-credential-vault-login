@@ -47,16 +47,16 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 }
 ```
 
-## Usage
+## Setup
 
 ### Configuration File
 This program requires a configuration file `config.json` in order to determine which authentication method to use. The program will search first search for this file at the path specified with by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, it will fail.
 
 The configuration file should include the following:
-* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials via [AWS environment variables](https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html) first or with the `~/.aws/credentials` file second and use them to log into Vault in order to retrieve a Vault token. If the `aws` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is required in all cases.
+* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials and use them to log into Vault in order to retrieve a Vault token. If the `aws` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
 * `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `aws` authentication method. 
-* `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is required.
-* `vault_iam_server_id_header_value` (string: "") - The value of the "X-Vault-AWS-IAM-Server-ID" header for the AWS login request (to prevent cross-instance attacks).
+* `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
+* `vault_iam_server_id_header_value` (string: "") - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `aws` authentication method.
 
 **Sample Configuration File**
 ```json
