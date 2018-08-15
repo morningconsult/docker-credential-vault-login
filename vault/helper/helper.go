@@ -34,8 +34,10 @@ func (h Helper) Delete(serverURL string) error {
 }
 
 func (h Helper) Get(serverURL string) (string, string, error) {
-        var username, password string
-        var ok bool
+        var (
+                username, password string
+                ok                 bool
+        )
 
         secret, err := h.vaultClient.Logical().Read(h.vaultSecretPath)
         if err != nil {
