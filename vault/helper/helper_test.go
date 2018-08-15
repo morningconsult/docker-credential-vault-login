@@ -26,7 +26,7 @@ func TestHelperGetsCreds(t *testing.T) {
         
         client := newClient(t, cluster)
 
-	_, err = client.Logical().Write(secretPath, secret)
+	_, err := client.Logical().Write(secretPath, secret)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestHelperGetsCreds(t *testing.T) {
 	}
 }
 
-func TestHelperFailsWhenNoCreds(t *testing.T) {
+func TestHelperFailsWhenNoSecret(t *testing.T) {
         cluster := startTestCluster(t)
         defer cluster.Cleanup()
 
@@ -52,8 +52,46 @@ func TestHelperFailsWhenNoCreds(t *testing.T) {
 
         helper := NewHelper("secret/foo/bar", client)
         user, pw, err := helper.Get("")
-        if err != nil {
-                t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
+        if err == nil {
+                t.Fatal("expected an error when no secret is found but got no error")
+        }
+        if user != "" {
+                t.Fatal("returned username should be an empty string when secret does not exist")
+        }
+        if pw != "" {
+                t.Fatal("returned password should be an empty string when secret does not exist")
+        }
+}
+
+func TestHelperFailsWhenNoCreds(t *testing.T) {
+        var (
+                secretPath = "secret/foo/bar"
+                secret     = map[string]interface{}{
+                        "foo": "bar",
+                        "bim": "baz",
+                }
+        )
+
+        cluster := startTestCluster(t)
+        defer cluster.Cleanup()
+
+        client := newClient(t, cluster)
+
+        _, err := client.Logical().Write(secretPath, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+        helper := NewHelper(secretPath, client)
+        user, pw, err := helper.Get("")
+        if err == nil {
+                t.Fatal("expected an error when no secret is found but got no error")
+        }
+        if user != "" {
+                t.Fatal("returned username should be an empty string when no credentials found")
+        }
+        if pw != "" {
+                t.Fatal("returned password should be an empty string when no credentials found")
         }
 }
 

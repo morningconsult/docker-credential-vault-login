@@ -44,6 +44,10 @@ func (h Helper) Get(serverURL string) (string, string, error) {
                 return "", "", fmt.Errorf("Error fetching secret from Vault: %+v", err)
         }
 
+        if secret == nil {
+                return "", "", fmt.Errorf("No secret found at path %q", h.vaultSecretPath)
+        }
+
         creds := secret.Data
 
         if username, ok = creds["username"].(string); !ok || username == "" {
