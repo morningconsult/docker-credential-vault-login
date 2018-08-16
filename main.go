@@ -20,7 +20,7 @@ Git commit: %s
 
 func main() {
         var versionFlag bool
-	flag.BoolVar(&versionFlag, "v", false, "print version and exit")
+	flag.BoolVar(&versionFlag, "version", false, "print version and exit")
 	flag.Parse()
 
 	// Exit safely when version is used
