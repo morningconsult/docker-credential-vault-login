@@ -15,3 +15,9 @@ changelog: git_chglog_check
 	git add CHANGELOG.md
 	git commit --amend --no-edit --no-verify
 .PHONY: changelog
+
+# sync-version updates the version.go file to match the latest version
+# tag (only recognizes tags of the format X.X.X where X is an integer)
+sync-version:
+	@sh "$(CURDIR)/scripts/sync-version.sh"
+.PHONY: sync-version
