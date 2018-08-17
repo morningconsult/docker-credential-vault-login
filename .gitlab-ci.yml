@@ -4,6 +4,7 @@ variables:
   BIN_NAME: docker-credential-vault-login
   ARTIFACTS_DIR: artifacts
   GO_PROJECT: gitlab.morningconsult.com/mci/docker-credential-vault-login
+  CGO_ENABLED: 0
 
 stages:
   - build
@@ -15,15 +16,20 @@ before_script:
   - cp -r ${CI_PROJECT_DIR}/* ${GOPATH}/src/${GO_PROJECT}/
   - cd ${GOPATH}/src/${GO_PROJECT}
 
-build-my-project:
+build:
   stage: build
   script:
-    - go build -o ${CI_PROJECT_DIR}/${ARTIFACTS_DIR}/${BIN_NAME}
+    - |
+      go build -a \
+        -ldflags "-X ${GO_PROJECT}/vault/version.GitCommitSHA=${CI_COMMIT_SHA} -X ${PACKAGE_ROOT}/vault/version.Version=${CI_COMMIT_TAG}" \
+        -o ${CI_PROJECT_DIR}/${ARTIFACTS_DIR}/${BIN_NAME}
   artifacts:
     paths:
       - ${ARTIFACTS_DIR}
+  only:
+    - tags
 
-test-my-project:
+test:
   stage: test
   script:
     - go test -v -cover ./...
