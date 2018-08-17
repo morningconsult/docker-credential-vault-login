@@ -1,0 +1,29 @@
+image: golang:1.10.3-alpine3.7
+
+variables:
+  BIN_NAME: docker-credential-vault-login
+  ARTIFACTS_DIR: artifacts
+  GO_PROJECT: gitlab.morningconsult.com/mci/docker-credential-vault-login
+
+stages:
+  - build
+  - test
+
+before_script:
+  - mkdir -p ${GOPATH}/src/${GO_PROJECT}
+  - mkdir -p ${CI_PROJECT_DIR}/${ARTIFACTS_DIR}
+  - cp -r ${CI_PROJECT_DIR}/* ${GOPATH}/src/${GO_PROJECT}/
+  - cd ${GOPATH}/src/${GO_PROJECT}
+
+build-my-project:
+  stage: build
+  script:
+    - go build -o ${CI_PROJECT_DIR}/${ARTIFACTS_DIR}/${BIN_NAME}
+  artifacts:
+    paths:
+      - ${ARTIFACTS_DIR}
+
+test-my-project:
+  stage: test
+  script:
+    - go test -v -cover ./...
