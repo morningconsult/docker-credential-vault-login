@@ -1,4 +1,13 @@
 
+BIN_DIR := $(shell pwd)/bin
+REPO=gitlab.morningconsult.com/mci/docker-credential-vault-login
+SOURCES := $(shell find . -name '*.go')
+VERSION := $(shell cat VERSION)
+GITCOMMIT_SHA := $(shell git rev-parse HEAD)
+BINARY_NAME=docker-credential-vault-login
+LOCAL_BINARY=bin/local/$(BINARY_NAME)
+
+all: build
 
 update-deps:
 	@sh -c "$(CURDIR)/scripts/update-deps.sh"
@@ -12,12 +21,26 @@ git_chglog_check:
 
 changelog: git_chglog_check
 	git-chglog --output CHANGELOG.md
-	git add CHANGELOG.md
-	git commit --amend --no-edit --no-verify
 .PHONY: changelog
 
+docker: Dockerfile
+	@docker run --rm \
+	-e TARGET_GOOS=$(TARGET_GOOS) \
+	-e TARGET_GOARCH=$(TARGET_GOARCH) \
+	-v '$(shell pwd)/bin':/go/src/$(REPO)/bin \
+	$(shell docker build -q .)
+.PHONY: docker
+
+build: $(LOCAL_BINARY)
+.PHONY: build
+
+$(LOCAL_BINARY): $(SOURCES)
+	@echo "==> Starting binary build..."
+	@sh -c "'./scripts/build_binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
+	@echo "==> Done; binary can be found at bin/local/docker-credential-vault-login"
+
 # sync-version updates the version.go file to match the latest version
-# tag (only recognizes tags of the format X.X.X where X is an integer)
+# and commit hash of this clone
 sync-version:
-	@sh "$(CURDIR)/scripts/sync-version.sh"
+	@sh -c "'./scripts/sync-version.sh' '$(VERSION)' '$(GITCOMMIT_SHA)'"
 .PHONY: sync-version
