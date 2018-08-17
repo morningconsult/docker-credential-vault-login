@@ -24,8 +24,9 @@ build:
         -ldflags "-X ${GO_PROJECT}/vault/version.GitCommitSHA=${CI_COMMIT_SHA} -X ${PACKAGE_ROOT}/vault/version.Version=${CI_COMMIT_TAG}" \
         -o ${CI_PROJECT_DIR}/${ARTIFACTS_DIR}/${BIN_NAME}
   artifacts:
+    name: "${BIN_NAME}-${CI_COMMIT_TAG}"
     paths:
-      - ${ARTIFACTS_DIR}
+      - ${ARTIFACTS_DIR}/${BIN_NAME}
   only:
     - tags
 
