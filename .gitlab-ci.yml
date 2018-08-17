@@ -19,12 +19,14 @@ before_script:
 build:
   stage: build
   script:
+    - echo "$CI_COMMIT_TAG" > VERSION
     - |
       go build -a \
         -ldflags "-X ${GO_PROJECT}/vault/version.GitCommitSHA=${CI_COMMIT_SHA} -X ${PACKAGE_ROOT}/vault/version.Version=${CI_COMMIT_TAG}" \
         -o ${CI_PROJECT_DIR}/${BIN_NAME}
   artifacts:
     name: "${BIN_NAME}-${CI_COMMIT_TAG}"
+    expire_in: '47 yrs'
     paths:
       - ${BIN_NAME}
   only:
