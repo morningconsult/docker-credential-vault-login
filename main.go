@@ -13,6 +13,8 @@ import (
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/version"
 )
 
+const banner = "Docker Credential Helper for Vault Storage v%s ('%s')\n"
+
 func main() {
         var versionFlag bool
 	flag.BoolVar(&versionFlag, "version", false, "print version and exit")
@@ -20,7 +22,7 @@ func main() {
 
 	// Exit safely when version is used
 	if versionFlag {
-		fmt.Println(version.Version)
+		fmt.Printf(banner, version.Version, version.GitCommitSHA)
 		os.Exit(0)
         }
 
