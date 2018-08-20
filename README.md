@@ -25,7 +25,7 @@ $ git config --global url."git@gitlab.morningconsult.com:".insteadOf "https://gi
 
 You can install this via `go get` with:
 ```bash
-$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login
+$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login/docker-credential-vault-login
 ```
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`. Place the `docker-credential-vault-login` binary on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
