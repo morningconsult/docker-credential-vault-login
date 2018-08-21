@@ -19,7 +19,7 @@ type Helper struct {
 // Ensure Helper adheres to the credentials.Helper interface
 var _ credentials.Helper = (*Helper)(nil)
 
-func NewHelper(client *api.Client) Helper {
+func NewHelper(client *api.Client) *Helper {
         return &Helper{
                 vaultAPI: client,
         }

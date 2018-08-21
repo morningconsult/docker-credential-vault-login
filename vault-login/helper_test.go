@@ -31,10 +31,12 @@ const (
         TestSecretKey string = "F+B46nGe/FCVEem5WO7IXQtRl9B72ehob7VWpMdx"
 )
 
-var testGoodConfigFile string = filepath.Abs(filepath.Join("testdata", "config_good.json"))
+var testGoodConfigFile string = filepath.Join("testdata", "config_good.json")
 
 func TestHelperGetsCreds(t *testing.T) {
 	var (
+                // secretPath should match the "vault_secret_path" field 
+                // of config.json file in "testdata"
 		secretPath = "secret/foo/bar"
 		secret     = map[string]interface{}{
 			"username": "docker@user.com",
