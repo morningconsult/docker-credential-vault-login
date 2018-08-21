@@ -2,13 +2,8 @@ package vault
 
 import (
         "fmt"
-        "encoding/base64"
-        "encoding/json"
-        "path"
 
         "github.com/hashicorp/vault/api"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
 )
 
 type Credentials struct {
@@ -38,7 +33,7 @@ func (d *defaultClient) GetCredentials(path string) (*Credentials, error) {
                 ok                 bool
         )
 
-        secret, err := h.vaultAPI.Logical().Read(path)
+        secret, err := d.vaultAPI.Logical().Read(path)
         if err != nil {
                 return nil, err
         }

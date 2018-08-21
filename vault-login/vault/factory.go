@@ -4,7 +4,6 @@ import (
         "fmt"
         "encoding/base64"
         "encoding/json"
-        "os"
         "path"
 
         "github.com/hashicorp/vault/api"
