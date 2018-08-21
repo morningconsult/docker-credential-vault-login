@@ -4,7 +4,7 @@ This program is a [Docker credential helper](https://github.com/docker/docker-cr
 
 ## Prerequisites
 
-You must have Docker (version 1.11 or newer) and Go (version 1.6 or newer) installed on your system.
+You must have Docker (version 1.11 or newer) and Go (version **1.8** or newer) installed on your system.
 
 You must also have an operational instance of Vault (version 0.10 or newer).
 

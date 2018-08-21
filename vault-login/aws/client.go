@@ -1,7 +1,6 @@
 package aws
 
 import (
-        "fmt"
         "io/ioutil"
 
         log "github.com/cihub/seelog"
@@ -58,7 +57,7 @@ func (d *defaultClient) GetIAMAuthElements(serverID string) (*IAMAuthElements, e
                 log.Debugf("Error reading sts:GetCallerIdentity request body. Using default value %q instead. Error message:\n%v", 
                         DefaultSTSGetCallerIdentityBody)
         } else {
-                body = DefaultSTSGetCallerIdentityBody
+                body = []byte(DefaultSTSGetCallerIdentityBody)
         }
 
         return &IAMAuthElements{

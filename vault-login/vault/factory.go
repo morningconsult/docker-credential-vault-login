@@ -8,7 +8,7 @@ import (
         "path"
 
         "github.com/hashicorp/vault/api"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/docker-credential-vault-login/aws"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws"
 )
 
 type ClientFactory interface {
@@ -53,17 +53,18 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
                 return nil, err
         }
 
+        // Create request payload
+        payload := map[string]interface{}{
+                "role":                    c.role,
+                "iam_http_request_method": elems.Method,
+                "iam_request_url":         base64.StdEncoding.EncodeToString([]byte(elems.URL)),
+                "iam_request_body":        base64.StdEncoding.EncodeToString(elems.Body),
+                "iam_request_headers":     base64.StdEncoding.EncodeToString(buf),
+        }
+
         // Authenticate against Vault via the AWS IAM endpoint
         // in order to obtain a valid client token
-        secret, err := client.Logical().Write(path.Join("auth", "aws", "login"), 
-                map[string]interface{}{
-                        "role":                    c.role,
-                        "iam_http_request_method": elems.Method,
-                        "iam_request_url":         base64.StdEncoding.EncodeToString([]byte(elems.URL)),
-                        "iam_request_body":        base64.StdEncoding.EncodeToString(elems.Body),
-                        "iam_request_headers":     base64.StdEncoding.EncodeToString(buf),
-                },
-        )
+        secret, err := client.Logical().Write(path.Join("auth", "aws", "login"), payload)
         if err != nil {
                 return nil, err
         }

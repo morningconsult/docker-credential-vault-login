@@ -7,8 +7,8 @@ import (
         "path"
 
         "github.com/hashicorp/vault/api"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/aws"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault/config"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
 )
 
 type Credentials struct {

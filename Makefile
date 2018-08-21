@@ -27,7 +27,7 @@ docker: Dockerfile
 	@docker run --rm \
 	-e TARGET_GOOS=$(TARGET_GOOS) \
 	-e TARGET_GOARCH=$(TARGET_GOARCH) \
-	-v '$(shell pwd)/bin':/go/src/$(REPO)/bin \
+	-v $(BIN_DIR):/go/src/$(REPO)/bin \
 	$(shell docker build -q .)
 .PHONY: docker
 

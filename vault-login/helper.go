@@ -2,11 +2,11 @@ package helper
 
 import (
         "fmt"
-        
+
         log "github.com/cihub/seelog"
         "github.com/docker/docker-credential-helpers/credentials"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/docker-credential-vault-login/config"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/docker-credential-vault-login/vault"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
+        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/vault"
 )
 
 var notImplementedError = fmt.Errorf("not implemented")
