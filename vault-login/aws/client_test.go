@@ -28,7 +28,9 @@ const (
 var testConfigFilename string = filepath.Join("testdata", "shared_config")
 
 func TestNewClientFails(t *testing.T) {
-        clearEnvVars()
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+
 	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
@@ -46,6 +48,8 @@ func TestNewClientFails(t *testing.T) {
 }
 
 func TestNewClientSucceeds(t *testing.T) {
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
         setTestEnvVars()
 
         _, err := NewDefaultClient()
@@ -58,6 +62,8 @@ func TestNewClientSucceeds(t *testing.T) {
 // reads credentials from the AWS environment variables
 // if they are set.
 func TestReadsEnvFirst(t *testing.T) {
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
         setTestEnvVars()
 
         client, err := NewDefaultClient()
@@ -81,6 +87,8 @@ func TestReadsEnvFirst(t *testing.T) {
 // request object without an X-Vault-AWS-IAM-Server-ID header
 // when serverID is an empty string
 func TestWithoutServerID(t *testing.T) {
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
         setTestEnvVars()
 
         client, err := NewDefaultClient()
@@ -106,6 +114,8 @@ func TestWithoutServerID(t *testing.T) {
 func TestWithServerID(t *testing.T) {
         var serverID = "vault.example.com"
 
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
         setTestEnvVars()
 
         client, err := NewDefaultClient()
@@ -155,6 +165,8 @@ func TestExpectedValues(t *testing.T) {
                 }
         )
 
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
         setTestEnvVars()
 
         client, err := NewDefaultClient()
@@ -201,12 +213,6 @@ func TestExpectedValues(t *testing.T) {
                         }
                 }
         }
-}
-
-func TestMain(m *testing.M) {
-        oldEnv := awstesting.StashEnv()
-        defer awstesting.PopEnv(oldEnv)
-        os.Exit(m.Run())
 }
 
 func clearEnvVars() {
