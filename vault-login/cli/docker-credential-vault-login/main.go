@@ -28,5 +28,5 @@ func main() {
         defer log.Flush()
         logging.SetupLogger()
         
-        credentials.Serve(helper.NewHelper())
+        credentials.Serve(helper.NewHelper(nil))
 }

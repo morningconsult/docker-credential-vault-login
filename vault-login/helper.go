@@ -4,6 +4,7 @@ import (
         "fmt"
 
         log "github.com/cihub/seelog"
+        "github.com/hashicorp/vault/api"
         "github.com/docker/docker-credential-helpers/credentials"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/vault"
@@ -11,22 +12,34 @@ import (
 
 var notImplementedError = fmt.Errorf("not implemented")
 
-type Helper struct {}
-
-func NewHelper() Helper {
-        return Helper{}
+type Helper struct {
+        vaultAPI *api.Client
 }
 
-func (h Helper) Add(creds *credentials.Credentials) error {
+// Ensure Helper adheres to the credentials.Helper interface
+var _ credentials.Helper = (*Helper)(nil)
+
+func NewHelper(client *api.Client) Helper {
+        return &Helper{
+                vaultAPI: client,
+        }
+}
+
+func (h *Helper) Add(creds *credentials.Credentials) error {
         return notImplementedError
 }
 
-func (h Helper) Delete(serverURL string) error {
+func (h *Helper) Delete(serverURL string) error {
         return notImplementedError
 }
 
-func (h Helper) Get(serverURL string) (string, string, error) {
-        var factory vault.ClientFactory
+func (h *Helper) Get(serverURL string) (string, string, error) {
+        // defer log.Flush()
+
+        var (
+                factory vault.ClientFactory
+                client  vault.Client
+        )
 
         // Parse the config.json file
         cfg, err := config.GetCredHelperConfig()
@@ -35,22 +48,28 @@ func (h Helper) Get(serverURL string) (string, string, error) {
                 return "", "", credentials.NewErrCredentialsNotFound()
         }
 
-        // Create a Vault API client factory based on the type of
+        // If the Helper does not already have a Vault API client
+        // or if it has a client but the client has no Vault token,
+        // create a Vault API client factory based on the type of
         // authentication method specified in the config file
-        switch cfg.Method {
-        case config.VaultAuthMethodAWS:
-                factory = vault.NewClientFactoryAWSAuth(cfg.Role, cfg.ServerID)
-        case config.VaultAuthMethodToken:
-                factory = vault.NewClientFactoryTokenAuth()
-        default:
-                log.Errorf("Unknown authentication method: %q", cfg.Method)
-                return "", "", credentials.NewErrCredentialsNotFound()
-        }
+        if h.vaultAPI == nil || h.vaultAPI.Token() == "" {
+                switch cfg.Method {
+                case config.VaultAuthMethodAWS:
+                        factory = vault.NewClientFactoryAWSAuth(cfg.Role, cfg.ServerID)
+                case config.VaultAuthMethodToken:
+                        factory = vault.NewClientFactoryTokenAuth()
+                default:
+                        log.Errorf("Unknown authentication method: %q", cfg.Method)
+                        return "", "", credentials.NewErrCredentialsNotFound()
+                }
 
-        client, err := factory.NewClient()
-        if err != nil {
-                log.Errorf("Error creating a new Vault client: %v", err)
-                return "", "", credentials.NewErrCredentialsNotFound()
+                client, err = factory.NewClient()
+                if err != nil {
+                        log.Errorf("Error creating a new Vault client: %v", err)
+                        return "", "", credentials.NewErrCredentialsNotFound()
+                }
+        } else {
+                client = vault.NewDefaultClient(h.vaultAPI)
         }
 
         // Get the Docker credentials from Vault
@@ -63,7 +82,7 @@ func (h Helper) Get(serverURL string) (string, string, error) {
         return creds.Username, creds.Password, nil
 }
 
-func (h Helper) List() (map[string]string, error) {
+func (h *Helper) List() (map[string]string, error) {
         // might be good to store secrets like
         // "dockerServerURL" : {
         //        "username": "foo"

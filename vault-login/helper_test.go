@@ -13,7 +13,7 @@ import (
 	"github.com/hashicorp/vault/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
-        
+
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
 )
 
@@ -44,18 +44,18 @@ func TestHelperGetsCreds(t *testing.T) {
 
         cluster := startTestCluster(t)
 	defer cluster.Cleanup()
-        
+
         client := newClient(t, cluster)
 
 	_, err := client.Logical().Write(secretPath, secret)
 	if err != nil {
 		t.Fatal(err)
         }
-        
+
         os.Setenv(config.EnvConfigFilePath, testGoodConfigFile)
         setTestEnvVars()
 
-	helper := NewHelper()
+	helper := NewHelper(client)
 	user, pw, err := helper.Get("")
 	if err != nil {
 		t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
