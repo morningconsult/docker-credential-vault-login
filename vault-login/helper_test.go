@@ -10,11 +10,14 @@ import (
 	"testing"
 
         "github.com/aws/aws-sdk-go/awstesting"
-	log "github.com/hashicorp/go-hclog"
+        log "github.com/hashicorp/go-hclog"
+        
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/logging"
-	vaulthttp "github.com/hashicorp/vault/http"
         "github.com/hashicorp/vault/vault"
+        "github.com/hashicorp/vault/vault/logical"
+        vaulthttp "github.com/hashicorp/vault/http"
+        credAWS "github.com/hashicorp/vault/builtin/credential/aws"
 
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
 )
@@ -49,6 +52,7 @@ func TestHelperGetsCreds(t *testing.T) {
 	defer cluster.Cleanup()
 
         client := newClient(t, cluster)
+        enableAWSAuthEngine(t, client)
         writeSecret(t, client, secretPath, secret)
 
         oldEnv := awstesting.StashEnv()
@@ -123,7 +127,10 @@ func TestHelperGetsCreds(t *testing.T) {
 
 func startTestCluster(t *testing.T) *vault.TestCluster {
         base := &vault.CoreConfig{
-		Logger: logging.NewVaultLogger(log.Error),
+                Logger: logging.NewVaultLogger(log.Error),
+                CredentialBackends: map[string]logical.Factory{
+                        "aws": credAws.Factory,
+                },
 	}
 
 	cluster := vault.NewTestCluster(t, base, &vault.TestClusterOptions{
@@ -149,6 +156,15 @@ func newClient(t *testing.T, cluster *vault.TestCluster) *api.Client {
 	}
         client.SetToken(cluster.RootToken)
         return client
+}
+
+func enableAWSAuthEngine(t *testing.T, client *api.Client) {
+        err := client.Sys().EnableAuthWithOptions("aws", &vault.EnableAuthOptions{
+                Type: "aws",
+        })
+        if err != nil {
+                t.Fatal(err)
+        }
 }
 
 func setTestAWSEnvVars() {
