@@ -15,7 +15,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/logging"
         "github.com/hashicorp/vault/vault"
-        "github.com/hashicorp/vault/vault/logical"
+        "github.com/hashicorp/vault/logical"
         vaulthttp "github.com/hashicorp/vault/http"
         credAWS "github.com/hashicorp/vault/builtin/credential/aws"
 
