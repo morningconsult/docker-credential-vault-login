@@ -4,6 +4,7 @@ import (
         "fmt"
         "encoding/base64"
         "encoding/json"
+        "os"
         "path"
 
         "github.com/hashicorp/vault/api"
@@ -11,6 +12,7 @@ import (
 )
 
 type ClientFactory interface {
+        WithClient(*api.Client) (Client, error)
         NewClient() (Client, error)
 }
 
@@ -26,6 +28,10 @@ func NewClientFactoryAWSAuth(role, serverID string) ClientFactory {
         }
 }
 
+// NewClient creates a new Vault API client and uses it to attempt to
+// authenticate against Vault via the AWS IAM endpoint. If authentication
+// is successful, it will set the Vault API client with the newly-created
+// client token and return a DefaultClient object.
 func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
         // Create a new Vault API client
         client, err := api.NewClient(nil)
@@ -33,23 +39,48 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
                 return nil, err
         }
 
+        if err = c.getAndSetToken(client); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(client), nil
+}
+
+// WithClient receives a Vault API client that has already been initialized
+// and uses it to attempt to authenticate against Vault via the AWS IAM
+// endpoint. If authentication is successful, it will set the Vault API
+// client with the newly-created client token and return a DefaultClient 
+// object.
+func (c *ClientFactoryAWSAuth) WithClient(client *api.Client) (Client, error) {
+        if err := c.getAndSetToken(client); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(client), nil
+}
+
+// getAndSetToken creates an AWS sts:GetCallerIdentity request, gets the
+// request elements required to authenticate against the Vault AWS IAM auth
+// endpoint, makes the authentication request to Vault, and if successful it
+// sets the token of Vault API client with the newly-created Vault token. 
+func (c *ClientFactoryAWSAuth) getAndSetToken(client *api.Client) error {
         // Create an AWS client
         awsClient, err := aws.NewDefaultClient()
         if err != nil {
-                return nil, err
+                return err
         }
 
         // Create an sts:GetCallerIdentity request and return the elements
         // of the request needed for Vault to authenticate against IAM
         elems, err := awsClient.GetIAMAuthElements(c.serverID)
         if err != nil {
-                return nil, err
+                return err
         }
 
         // Build the request payload
         buf, err := json.Marshal(elems.Headers)
         if err != nil {
-                return nil, err
+                return err
         }
 
         // Create request payload
@@ -65,13 +96,12 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
         // in order to obtain a valid client token
         secret, err := client.Logical().Write(path.Join("auth", "aws", "login"), payload)
         if err != nil {
-                return nil, err
+                return err
         }
 
         // Set the client token to the API client
         client.SetToken(secret.Auth.ClientToken)
-
-        return NewDefaultClient(client), nil
+        return nil
 }
 
 type ClientFactoryTokenAuth struct {}
@@ -80,6 +110,11 @@ func NewClientFactoryTokenAuth() ClientFactory {
         return &ClientFactoryTokenAuth{}
 }
 
+// NewClient creates a new Vault API client. It expects the various Vault
+// environment variables to be set as necessary (e.g. VAULT_TOKEN,
+// VAULT_ADDR, etc.). If the VAULT_TOKEN environment variable is not set,
+// NewClient will return an error. Otherwise, it will return a 
+// DefaultClient object.
 func (c *ClientFactoryTokenAuth) NewClient() (Client, error) {
         // Create a new Vault API client
         client, err := api.NewClient(nil)
@@ -90,9 +125,23 @@ func (c *ClientFactoryTokenAuth) NewClient() (Client, error) {
         // Check if the Vault API client has a token.
         // If not, raise an error.
         if v := client.Token(); v == "" {
-                return nil, fmt.Errorf("%s %s",
-                        "Vault API client has no token.",
-                        "Make sure to set the token using the VAULT_TOKEN environment variable.")
+                return nil, fmt.Errorf("%s %s %s",
+                        "Vault API client has no token. Make sure to set the token using the", 
+                        api.EnvVaultToken, "environment variable")
+        }
+
+        return NewDefaultClient(client), nil
+}
+
+// WithClient retrieves the environment variable set by the VAULT_TOKEN
+// environment variable and sets the Vault API client with this token
+// and returns a DefaultClient object. Note that this will overwrite 
+// the client's existing token if it has one.
+func (c *ClientFactoryTokenAuth) WithClient(client *api.Client) (Client, error) {
+        if v := os.Getenv(api.EnvVaultToken); v != "" {
+                client.SetToken(v)
+        } else {
+                return nil, fmt.Errorf("%s environment variable is not set", api.EnvVaultToken)
         }
 
         return NewDefaultClient(client), nil

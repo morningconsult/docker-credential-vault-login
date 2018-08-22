@@ -1,7 +1,8 @@
 package helper
 
 import (
-	"fmt"
+        "fmt"
+        "io/ioutil"
         "net/http"
         "path/filepath"
         "os"
@@ -35,27 +36,25 @@ var testGoodConfigFile string = filepath.Join("testdata", "config_good.json")
 
 func TestHelperGetsCreds(t *testing.T) {
 	var (
-                // secretPath should match the "vault_secret_path" field 
-                // of config.json file in "testdata"
-		secretPath = "secret/foo/bar"
-		secret     = map[string]interface{}{
+                testConfigFile = testGoodConfigFile
+		secretPath     = getSecretPath(t, testConfigFile)
+		secret         = map[string]interface{}{
 			"username": "docker@user.com",
 			"password": "potato",
 		}
-	)
+        )
 
         cluster := startTestCluster(t)
 	defer cluster.Cleanup()
 
         client := newClient(t, cluster)
+        writeSecret(t, client, secretPath, secret)
 
-	_, err := client.Logical().Write(secretPath, secret)
-	if err != nil {
-		t.Fatal(err)
-        }
-
-        os.Setenv(config.EnvConfigFilePath, testGoodConfigFile)
-        setTestEnvVars()
+        oldEnv := awstesting.StashEnv()
+        oldEnv = append(oldEnv, fmt.Sprintf("%s=%s", config.EnvConfigFilePath, os.Getenv(config.EnvConfigFilePath)))
+        defer awstesting.PopEnv(oldEnv)
+        setTestAWSEnvVars()
+        os.Setenv(config.EnvConfigFilePath, testConfigFile)
 
 	helper := NewHelper(client)
 	user, pw, err := helper.Get("")
@@ -121,12 +120,6 @@ func TestHelperGetsCreds(t *testing.T) {
 //         }
 // }
 
-func TestMain(m *testing.M) {
-        oldEnv := awstesting.StashEnv()
-        defer awstesting.PopEnv(oldEnv)
-        os.Exit(m.Run())
-}
-
 func startTestCluster(t *testing.T) *vault.TestCluster {
         base := &vault.CoreConfig{
 		Logger: logging.NewVaultLogger(log.Error),
@@ -157,15 +150,47 @@ func newClient(t *testing.T, cluster *vault.TestCluster) *api.Client {
         return client
 }
 
-func clearEnvVars() {
-        os.Unsetenv(EnvAWSAccessKeyID)
-        os.Unsetenv(EnvAWSAccessKey)
-        os.Unsetenv(EnvAWSSecretAccessKey)
-        os.Unsetenv(EnvAWSSecretKey)
-}
-
-func setTestEnvVars() {
-        clearEnvVars()
+func setTestAWSEnvVars() {
         os.Setenv(EnvAWSAccessKey, TestAccessKey)
         os.Setenv(EnvAWSSecretKey, TestSecretKey)
+}
+
+func writeSecret(t *testing.T, client *api.Client, secretPath string, secret map[string]interface{}) {
+	if _, err := client.Logical().Write(secretPath, secret); err != nil {
+		t.Fatal(err)
+        }
+}
+
+func getSecretPath(t *testing.T, testConfigFile string) string {
+        data, err := ioutil.ReadFile(testConfigFile)
+        if err != nil {
+                t.Fatal(err)
+        }
+
+        var cfg = new(config.CredHelperConfig)
+        if err = json.Unmarshal(data, cfg); err != nil {
+                t.Fatal(err)
+        }
+        return cfg.Secret
+
+}
+
+func parseConfig() (*CredHelperConfig, error) {
+        var path = DefaultConfigFilePath
+
+        if v := os.Getenv(EnvConfigFilePath); v != "" {
+                path = v
+        }
+
+        data, err := ioutil.ReadFile(path)
+        if err != nil {
+                return nil, err
+        }
+
+        var cfg = new(CredHelperConfig)
+        if err = json.Unmarshal(data, cfg); err != nil {
+                return cfg, err
+        }
+        cfg.Path = path
+        return cfg, nil
 }

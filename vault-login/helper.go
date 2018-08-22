@@ -34,8 +34,6 @@ func (h *Helper) Delete(serverURL string) error {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
-        // defer log.Flush()
-
         var (
                 factory vault.ClientFactory
                 client  vault.Client
@@ -52,24 +50,27 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
         // or if it has a client but the client has no Vault token,
         // create a Vault API client factory based on the type of
         // authentication method specified in the config file
-        if h.vaultAPI == nil || h.vaultAPI.Token() == "" {
-                switch cfg.Method {
-                case config.VaultAuthMethodAWS:
-                        factory = vault.NewClientFactoryAWSAuth(cfg.Role, cfg.ServerID)
-                case config.VaultAuthMethodToken:
-                        factory = vault.NewClientFactoryTokenAuth()
-                default:
-                        log.Errorf("Unknown authentication method: %q", cfg.Method)
-                        return "", "", credentials.NewErrCredentialsNotFound()
-                }
+        switch cfg.Method {
+        case config.VaultAuthMethodAWS:
+                factory = vault.NewClientFactoryAWSAuth(cfg.Role, cfg.ServerID)
+        case config.VaultAuthMethodToken:
+                factory = vault.NewClientFactoryTokenAuth()
+        default:
+                log.Errorf("Unknown authentication method: %q", cfg.Method)
+                return "", "", credentials.NewErrCredentialsNotFound()
+        }
 
-                client, err = factory.NewClient()
-                if err != nil {
-                        log.Errorf("Error creating a new Vault client: %v", err)
-                        return "", "", credentials.NewErrCredentialsNotFound()
-                }
+        // If Helper has a Vault API client already, create a new
+        // DefaultClient using this existing client
+        if h.vaultAPI != nil {
+                client, err = factory.WithClient(h.vaultAPI)
         } else {
-                client = vault.NewDefaultClient(h.vaultAPI)
+                client, err = factory.NewClient()
+        }
+
+        if err != nil {
+                log.Errorf("Error creating a new Vault client: %v", err)
+                return "", "", credentials.NewErrCredentialsNotFound()
         }
 
         // Get the Docker credentials from Vault
