@@ -7,17 +7,17 @@ import (
         "net/http"
         "path/filepath"
         "os"
-	"testing"
+        "testing"
 
         "github.com/aws/aws-sdk-go/awstesting"
         log "github.com/hashicorp/go-hclog"
-        
+
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/logging"
         "github.com/hashicorp/vault/vault"
         "github.com/hashicorp/vault/logical"
         vaulthttp "github.com/hashicorp/vault/http"
-        credAWS "github.com/hashicorp/vault/builtin/credential/aws"
+        credAws "github.com/hashicorp/vault/builtin/credential/aws"
 
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
 )
@@ -159,7 +159,7 @@ func newClient(t *testing.T, cluster *vault.TestCluster) *api.Client {
 }
 
 func enableAWSAuthEngine(t *testing.T, client *api.Client) {
-        err := client.Sys().EnableAuthWithOptions("aws", &vault.EnableAuthOptions{
+        err := client.Sys().EnableAuthWithOptions("aws", &api.EnableAuthOptions{
                 Type: "aws",
         })
         if err != nil {
