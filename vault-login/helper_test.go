@@ -1,6 +1,7 @@
 package helper
 
 import (
+        "encoding/json"
         "fmt"
         "io/ioutil"
         "net/http"
@@ -173,24 +174,4 @@ func getSecretPath(t *testing.T, testConfigFile string) string {
         }
         return cfg.Secret
 
-}
-
-func parseConfig() (*CredHelperConfig, error) {
-        var path = DefaultConfigFilePath
-
-        if v := os.Getenv(EnvConfigFilePath); v != "" {
-                path = v
-        }
-
-        data, err := ioutil.ReadFile(path)
-        if err != nil {
-                return nil, err
-        }
-
-        var cfg = new(CredHelperConfig)
-        if err = json.Unmarshal(data, cfg); err != nil {
-                return cfg, err
-        }
-        cfg.Path = path
-        return cfg, nil
 }
