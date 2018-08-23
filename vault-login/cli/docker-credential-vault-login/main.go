@@ -7,7 +7,7 @@ import (
 
         log "github.com/cihub/seelog"
         "github.com/docker/docker-credential-helpers/credentials"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/helper"
+        helper "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/logging"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/version"
 )

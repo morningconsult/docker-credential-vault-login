@@ -24,4 +24,4 @@ fi
 
 GOOS=$TARGET_GOOS GOARCH=$TARGET_GOARCH CGO_ENABLED=0 \
        	go build -a -ldflags "${version_ldflags}" \
-       	-o $1/docker-credential-vault-login/vault-login/cli/docker-credential-vault-login .
+       	-o $1/docker-credential-vault-login ./vault-login/cli/docker-credential-vault-login

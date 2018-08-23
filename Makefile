@@ -35,9 +35,9 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 $(LOCAL_BINARY): $(SOURCES)
-	@echo "'==> Starting binary build...'"
+	@echo "==> Starting binary build..."
 	@sh -c "'./scripts/build_binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
-	@echo "'==> Done; binary can be found at bin/local/docker-credential-vault-login'"
+	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
 # sync-version updates the version.go file to match the latest version
 # and commit hash of this clone
