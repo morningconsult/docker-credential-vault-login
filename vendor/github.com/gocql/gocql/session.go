@@ -681,6 +681,7 @@ type Query struct {
 	disableSkipMetadata   bool
 	context               context.Context
 	idempotent            bool
+	attemptTimeoutTimer   *time.Timer
 
 	disableAutoPage bool
 }
@@ -803,6 +804,11 @@ func (q *Query) WithContext(ctx context.Context) *Query {
 	return q
 }
 
+// Context satisfies the ExecutableQuery interface.
+func (q *Query) Context() context.Context {
+	return q.context
+}
+
 func (q *Query) execute(conn *Conn) *Iter {
 	return conn.executeQuery(q)
 }
@@ -821,6 +827,7 @@ func (q *Query) attempt(keyspace string, end, start time.Time, iter *Iter, host 
 			Rows:      iter.numRows,
 			Host:      host,
 			Err:       iter.err,
+			Attempt:   q.attempts,
 		})
 	}
 }
@@ -943,9 +950,9 @@ func (q *Query) IsIdempotent() bool {
 	return q.idempotent
 }
 
-// Idempontent marks the query as being idempontent or not depending on
+// Idempotent marks the query as being idempotent or not depending on
 // the value.
-func (q *Query) Idempontent(value bool) *Query {
+func (q *Query) Idempotent(value bool) *Query {
 	q.idempotent = value
 	return q
 }
@@ -1484,6 +1491,11 @@ func (b *Batch) WithContext(ctx context.Context) *Batch {
 	return b
 }
 
+// Context satisfies the ExecutableQuery interface.
+func (b *Batch) Context() context.Context {
+	return b.context
+}
+
 // Size returns the number of batch statements to be executed by the batch operation.
 func (b *Batch) Size() int {
 	return len(b.Entries)
@@ -1544,8 +1556,9 @@ func (b *Batch) attempt(keyspace string, end, start time.Time, iter *Iter, host 
 		Start:      start,
 		End:        end,
 		// Rows not used in batch observations // TODO - might be able to support it when using BatchCAS
-		Host: host,
-		Err:  iter.err,
+		Host:    host,
+		Err:     iter.err,
+		Attempt: b.attempts,
 	})
 }
 
@@ -1700,6 +1713,9 @@ type ObservedQuery struct {
 	// Err is the error in the query.
 	// It only tracks network errors or errors of bad cassandra syntax, in particular selects with no match return nil error
 	Err error
+
+	// Attempt contains the number of times the query has been attempted so far.
+	Attempt int
 }
 
 // QueryObserver is the interface implemented by query observers / stat collectors.
@@ -1725,6 +1741,9 @@ type ObservedBatch struct {
 	// Err is the error in the batch query.
 	// It only tracks network errors or errors of bad cassandra syntax, in particular selects with no match return nil error
 	Err error
+
+	// Attempt contains the number of times the query has been attempted so far.
+	Attempt int
 }
 
 // BatchObserver is the interface implemented by batch observers / stat collectors.
