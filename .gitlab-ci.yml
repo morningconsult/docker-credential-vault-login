@@ -22,8 +22,8 @@ build:
     - echo "$CI_COMMIT_TAG" > VERSION
     - |
       go build -a \
-        -ldflags "-X ${GO_PROJECT}/vault/version.GitCommitSHA=${CI_COMMIT_SHA} -X ${GO_PROJECT}/vault/version.Version=${CI_COMMIT_TAG}" \
-        -o ${CI_PROJECT_DIR}/${BIN_NAME}
+        -ldflags "-X ${GO_PROJECT}/vault-login/version.GitCommitSHA=${CI_COMMIT_SHA} -X ${GO_PROJECT}/vault-login/version.Version=${CI_COMMIT_TAG}" \
+        -o ${CI_PROJECT_DIR}/${BIN_NAME} ${GO_PROJECT}/vault-login/cli/docker-credential-vault-login
   artifacts:
     name: "${BIN_NAME}-${CI_COMMIT_TAG}"
     expire_in: '47 yrs'
