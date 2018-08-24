@@ -24,11 +24,7 @@ changelog: git_chglog_check
 .PHONY: changelog
 
 docker: Dockerfile
-	@docker run --rm \
-	-e TARGET_GOOS=$(TARGET_GOOS) \
-	-e TARGET_GOARCH=$(TARGET_GOARCH) \
-	-v $(BIN_DIR):/go/src/$(REPO)/bin \
-	$(shell docker build -q .)
+	@sh -c "$(CURDIR)/scripts/docker-build.sh"
 .PHONY: docker
 
 build: $(LOCAL_BINARY)

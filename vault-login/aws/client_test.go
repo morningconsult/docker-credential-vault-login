@@ -9,6 +9,7 @@ import (
 
         "github.com/aws/aws-sdk-go/aws/session"
         "github.com/aws/aws-sdk-go/awstesting"
+        test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
 )
 
 const (
@@ -50,7 +51,7 @@ func TestNewClientFails(t *testing.T) {
 func TestNewClientSucceeds(t *testing.T) {
         oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
-        setTestEnvVars()
+        test.SetTestAWSEnvVars()
 
         _, err := NewDefaultClient()
         if err != nil {
@@ -64,7 +65,7 @@ func TestNewClientSucceeds(t *testing.T) {
 func TestReadsEnvFirst(t *testing.T) {
         oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
-        setTestEnvVars()
+        test.SetTestAWSEnvVars()
 
         client, err := NewDefaultClient()
         if err != nil {
@@ -89,7 +90,7 @@ func TestReadsEnvFirst(t *testing.T) {
 func TestWithoutServerID(t *testing.T) {
         oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
-        setTestEnvVars()
+        test.SetTestAWSEnvVars()
 
         client, err := NewDefaultClient()
         if err != nil {
@@ -116,7 +117,7 @@ func TestWithServerID(t *testing.T) {
 
         oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
-        setTestEnvVars()
+        test.SetTestAWSEnvVars()
 
         client, err := NewDefaultClient()
         if err != nil {
@@ -167,7 +168,7 @@ func TestExpectedValues(t *testing.T) {
 
         oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
-        setTestEnvVars()
+        test.SetTestAWSEnvVars()
 
         client, err := NewDefaultClient()
         if err != nil {
@@ -212,24 +213,5 @@ func TestExpectedValues(t *testing.T) {
                                         k, elems.Headers[k], v)
                         }
                 }
-        }
-}
-
-func clearEnvVars() {
-        os.Unsetenv(EnvAWSAccessKeyID)
-        os.Unsetenv(EnvAWSAccessKey)
-        os.Unsetenv(EnvAWSSecretAccessKey)
-        os.Unsetenv(EnvAWSSecretKey)
-}
-
-func setTestEnvVars() {
-        clearEnvVars()
-        os.Setenv(EnvAWSAccessKey, TestAccessKey)
-        os.Setenv(EnvAWSSecretKey, TestSecretKey)
-}
-
-func restoreEnvVars(savedEnvVars map[string]string) {
-        for k, v := range savedEnvVars {
-                os.Setenv(k, v)
         }
 }
