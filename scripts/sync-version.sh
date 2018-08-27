@@ -19,4 +19,4 @@ var GitCommitSHA = "${2}"
 EOM
 )
 
-echo "${CODE}" > ${ROOT}/vault/version/version.go
+echo "${CODE}" > ${ROOT}/vault-login/version/version.go

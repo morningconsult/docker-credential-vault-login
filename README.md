@@ -4,7 +4,7 @@ This program is a [Docker credential helper](https://github.com/docker/docker-cr
 
 ## Prerequisites
 
-You must have Docker (version 1.11 or newer) and Go (version 1.6 or newer) installed on your system.
+You must have Docker (version 1.11 or newer) and Go (version **1.8** or newer) installed on your system.
 
 You must also have an operational instance of Vault (version 0.10 or newer).
 
@@ -25,7 +25,7 @@ $ git config --global url."git@gitlab.morningconsult.com:".insteadOf "https://gi
 
 You can install this via `go get` with:
 ```bash
-$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login
+$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login/docker-credential-vault-login
 ```
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`. Place the `docker-credential-vault-login` binary on your `PATH` and set the contents of your `~/.docker/config.json` file to be:

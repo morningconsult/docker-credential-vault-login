@@ -3,8 +3,13 @@ package aws
 import (
         "fmt"
         "os"
+        "path/filepath"
         "strings"
-	"testing"
+        "testing"
+
+        "github.com/aws/aws-sdk-go/aws/session"
+        "github.com/aws/aws-sdk-go/awstesting"
+        test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
 )
 
 const (
@@ -21,12 +26,52 @@ const (
         TestSecretKey string = "F+B46nGe/FCVEem5WO7IXQtRl9B72ehob7VWpMdx"
 )
 
+var testConfigFilename string = filepath.Join("testdata", "shared_config")
+
+func TestNewClientFails(t *testing.T) {
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
+	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", testConfigFilename)
+	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
+
+        _, err := NewDefaultClient()
+        if err == nil {
+                t.Fatalf("Expected an error but did not get an error")
+        }
+
+        if _, ok := err.(session.SharedConfigAssumeRoleError); !ok {
+                t.Errorf("Expected SharedConfigAssumeRoleError, but got %q instead", err.Error())
+        }
+}
+
+func TestNewClientSucceeds(t *testing.T) {
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+        test.SetTestAWSEnvVars()
+
+        _, err := NewDefaultClient()
+        if err != nil {
+                t.Errorf("Expected no error but got an error")
+        }
+}
+
 // TestReadsEnvFirst tests that GetIAMAuthElements first
 // reads credentials from the AWS environment variables
 // if they are set.
 func TestReadsEnvFirst(t *testing.T) {
-        setTestEnvVars()
-        elems, err := GetIAMAuthElements("")
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+        test.SetTestAWSEnvVars()
+
+        client, err := NewDefaultClient()
+        if err != nil {
+                t.Fatalf("error creating AWS client: %v", err)
+        }
+        elems, err := client.GetIAMAuthElements("")
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
@@ -43,10 +88,15 @@ func TestReadsEnvFirst(t *testing.T) {
 // request object without an X-Vault-AWS-IAM-Server-ID header
 // when serverID is an empty string
 func TestWithoutServerID(t *testing.T) {
-        var serverID = ""
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+        test.SetTestAWSEnvVars()
 
-        setTestEnvVars()
-        elems, err := GetIAMAuthElements(serverID)
+        client, err := NewDefaultClient()
+        if err != nil {
+                t.Fatalf("error creating AWS client: %v", err)
+        }
+        elems, err := client.GetIAMAuthElements("")
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
@@ -65,15 +115,23 @@ func TestWithoutServerID(t *testing.T) {
 func TestWithServerID(t *testing.T) {
         var serverID = "vault.example.com"
 
-        setTestEnvVars()
-        elems, err := GetIAMAuthElements(serverID)
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+        test.SetTestAWSEnvVars()
+
+        client, err := NewDefaultClient()
+        if err != nil {
+                t.Fatalf("error creating AWS client: %v", err)
+        }
+
+        elems, err := client.GetIAMAuthElements(serverID)
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
 
         var present = false
-        for k, _ := range elems.Headers {
-                if strings.ToLower(k) == "x-vault-aws-iam-server-id" {
+        for k, v := range elems.Headers {
+                if strings.ToLower(k) == "x-vault-aws-iam-server-id" && v[0] == serverID {
                         present = true
                         break
                 }
@@ -108,8 +166,15 @@ func TestExpectedValues(t *testing.T) {
                 }
         )
 
-        setTestEnvVars()
-        elems, err := GetIAMAuthElements(serverID)
+        oldEnv := awstesting.StashEnv()
+        defer awstesting.PopEnv(oldEnv)
+        test.SetTestAWSEnvVars()
+
+        client, err := NewDefaultClient()
+        if err != nil {
+                t.Fatalf("error creating AWS client: %v", err)
+        }
+        elems, err := client.GetIAMAuthElements(serverID)
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
@@ -148,40 +213,5 @@ func TestExpectedValues(t *testing.T) {
                                         k, elems.Headers[k], v)
                         }
                 }
-        }
-}
-
-func TestMain(m *testing.M) {
-        savedEnvVars := saveEnvVars()
-        status := m.Run()
-        restoreEnvVars(savedEnvVars)
-        os.Exit(status)
-}
-
-func clearEnvVars() {
-        os.Unsetenv(EnvAWSAccessKeyID)
-        os.Unsetenv(EnvAWSAccessKey)
-        os.Unsetenv(EnvAWSSecretAccessKey)
-        os.Unsetenv(EnvAWSSecretKey)
-}
-
-func saveEnvVars() map[string]string {
-        return map[string]string{
-                EnvAWSAccessKey:       os.Getenv(EnvAWSAccessKey),
-                EnvAWSAccessKeyID:     os.Getenv(EnvAWSAccessKeyID),
-                EnvAWSSecretAccessKey: os.Getenv(EnvAWSSecretAccessKey),
-                EnvAWSSecretKey:       os.Getenv(EnvAWSSecretKey),
-        }
-}
-
-func setTestEnvVars() {
-        clearEnvVars()
-        os.Setenv(EnvAWSAccessKey, TestAccessKey)
-        os.Setenv(EnvAWSSecretKey, TestSecretKey)
-}
-
-func restoreEnvVars(savedEnvVars map[string]string) {
-        for k, v := range savedEnvVars {
-                os.Setenv(k, v)
         }
 }

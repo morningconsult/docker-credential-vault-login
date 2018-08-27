@@ -9,8 +9,13 @@
 		{
 			"checksumSHA1": "NkpNQgmrdzGr9HUDL8Bp5YAxt0k=",
 			"path": "cloud.google.com/go/civil",
+<<<<<<< HEAD
 			"revision": "13a5d37070fcb4cc601a650c1bcb95885e3cc776",
 			"revisionTime": "2018-08-22T18:43:20Z"
+=======
+			"revision": "c360035b5687efa96c32dcb0d21d91200d48b46e",
+			"revisionTime": "2018-08-23T21:21:23Z"
+>>>>>>> refactor
 		},
 		{
 			"checksumSHA1": "eMJfN1SwbCz+TlmfzFRye82uhks=",
@@ -197,6 +202,15 @@
 			"path": "github.com/aws/aws-sdk-go/aws/signer/v4",
 			"revision": "cf65abf76f2fcf683caaae2893bac6f237639eaa",
 			"revisionTime": "2018-08-23T20:48:51Z"
+<<<<<<< HEAD
+=======
+		},
+		{
+			"checksumSHA1": "MxSiiCoPpY1mCRjyEFClUu3e14w=",
+			"path": "github.com/aws/aws-sdk-go/awstesting",
+			"revision": "cf65abf76f2fcf683caaae2893bac6f237639eaa",
+			"revisionTime": "2018-08-23T20:48:51Z"
+>>>>>>> refactor
 		},
 		{
 			"checksumSHA1": "wjxQlU1PYxrDRFoL1Vek8Wch7jk=",
@@ -251,14 +265,58 @@
 			"path": "github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
 			"revision": "cf65abf76f2fcf683caaae2893bac6f237639eaa",
 			"revisionTime": "2018-08-23T20:48:51Z"
+<<<<<<< HEAD
+=======
+		},
+		{
+			"checksumSHA1": "01b4hmyUzoReoOyEDylDinWBSdA=",
+			"path": "github.com/aws/aws-sdk-go/private/util",
+			"revision": "cf65abf76f2fcf683caaae2893bac6f237639eaa",
+			"revisionTime": "2018-08-23T20:48:51Z"
+>>>>>>> refactor
 		},
 		{
 			"checksumSHA1": "UhIVLDgQc19wjrPj8pP7Fu2UwWc=",
 			"path": "github.com/aws/aws-sdk-go/service/sts",
 			"revision": "cf65abf76f2fcf683caaae2893bac6f237639eaa",
 			"revisionTime": "2018-08-23T20:48:51Z"
+<<<<<<< HEAD
 		},
 		{
+=======
+		},
+		{
+			"checksumSHA1": "1bK29RcAjCAMCYS2HS3O18w4m8k=",
+			"path": "github.com/cihub/seelog",
+			"revision": "f561c5e57575bb1e0a2167028b7339b3a8d16fb4",
+			"revisionTime": "2017-01-30T13:45:32Z"
+		},
+		{
+			"checksumSHA1": "iMU6SM/jawaCOJnyvR5/w8C/C1w=",
+			"path": "github.com/cihub/seelog/archive",
+			"revision": "f561c5e57575bb1e0a2167028b7339b3a8d16fb4",
+			"revisionTime": "2017-01-30T13:45:32Z"
+		},
+		{
+			"checksumSHA1": "oSd7EVei192qS3uYyCAMx9zV3Y8=",
+			"path": "github.com/cihub/seelog/archive/gzip",
+			"revision": "f561c5e57575bb1e0a2167028b7339b3a8d16fb4",
+			"revisionTime": "2017-01-30T13:45:32Z"
+		},
+		{
+			"checksumSHA1": "emesF9mCsIQC59VUE2lvjZYpAHU=",
+			"path": "github.com/cihub/seelog/archive/tar",
+			"revision": "f561c5e57575bb1e0a2167028b7339b3a8d16fb4",
+			"revisionTime": "2017-01-30T13:45:32Z"
+		},
+		{
+			"checksumSHA1": "TXLSkZsRlMifg3mg9+6QgEZJ6m4=",
+			"path": "github.com/cihub/seelog/archive/zip",
+			"revision": "f561c5e57575bb1e0a2167028b7339b3a8d16fb4",
+			"revisionTime": "2017-01-30T13:45:32Z"
+		},
+		{
+>>>>>>> refactor
 			"checksumSHA1": "F95rIDpjWFF+RScHKJGyWMxhaeU=",
 			"path": "github.com/denisenkom/go-mssqldb",
 			"revision": "827b05f9f2b4dc8205a1610f666aa3f46b5b2472",
@@ -923,6 +981,12 @@
 			"path": "github.com/patrickmn/go-cache",
 			"revision": "5633e0862627c011927fa39556acae8b1f1df58a",
 			"revisionTime": "2018-08-15T05:31:27Z"
+		},
+		{
+			"checksumSHA1": "kZRhErakejBG0U2e8D+Ap/Djje8=",
+			"path": "github.com/phayes/freeport",
+			"revision": "e27662a4a9d6b2083dfd7e7b5d0e30985daca925",
+			"revisionTime": "2017-10-02T18:52:19Z"
 		},
 		{
 			"checksumSHA1": "6JP37UqrI0H80Gpk0Y2P+KXgn5M=",

@@ -24,20 +24,16 @@ changelog: git_chglog_check
 .PHONY: changelog
 
 docker: Dockerfile
-	@docker run --rm \
-	-e TARGET_GOOS=$(TARGET_GOOS) \
-	-e TARGET_GOARCH=$(TARGET_GOARCH) \
-	-v '$(shell pwd)/bin':/go/src/$(REPO)/bin \
-	$(shell docker build -q .)
+	@sh -c "$(CURDIR)/scripts/docker-build.sh"
 .PHONY: docker
 
 build: $(LOCAL_BINARY)
 .PHONY: build
 
 $(LOCAL_BINARY): $(SOURCES)
-	@echo "'==> Starting binary build...'"
+	@echo "==> Starting binary build..."
 	@sh -c "'./scripts/build_binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
-	@echo "'==> Done; binary can be found at bin/local/docker-credential-vault-login'"
+	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
 # sync-version updates the version.go file to match the latest version
 # and commit hash of this clone
