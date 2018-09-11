@@ -10,8 +10,8 @@ import (
 
         "github.com/hashicorp/vault/api"
         uuid "github.com/hashicorp/go-uuid"
-				"github.com/phayes/freeport"
-				"github.com/hashicorp/vault/helper/jsonutil"
+        "github.com/phayes/freeport"
+        "github.com/hashicorp/vault/helper/jsonutil"
 )
 
 type TestVaultServerOptions struct {
@@ -50,7 +50,9 @@ func MakeMockVaultServer(t *testing.T, opts *TestVaultServerOptions) *http.Serve
         }
         mux := http.NewServeMux()
         mux.HandleFunc("/v1/auth/aws/login", awsAuthHandler(t, opts.Role, port))
-        mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
+        if opts.SecretPath != "" {
+                mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
+        }
         server := &http.Server{
                 Addr:    fmt.Sprintf(":%d", port),
                 Handler: mux,
@@ -106,72 +108,72 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                         prefix := fmt.Sprintf("[ POST http://127.0.0.1:%d/v1/auth/aws/login ]", port)
 
                         var data = new(TestAwsAuthReqPayload)
-                        if err = jsonutil.DecodeJSONFromReader(req.Body, data); err != nil {
-                                t.Logf("%s error unmarshaling response: %v\n", prefix, err)
+                        if err := jsonutil.DecodeJSONFromReader(req.Body, data); err != nil {
+                                t.Errorf("%s error unmarshaling response: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
                                 return
                         }
 
                         if strings.ToLower(data.Role) != strings.ToLower(role) {
-                                t.Logf("%s role %q not configured for AWS authentication\n", prefix, role)
+                                // t.Logf("%s role %q not configured for AWS authentication\n", prefix, role)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         if strings.ToLower(data.Method) != "post" {
-                                t.Logf("%s \"iam_http_request_method\" method field of JSON payload is not \"POST\"\n", prefix)
+                                // t.Logf("%s \"iam_http_request_method\" method field of JSON payload is not \"POST\"\n", prefix)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         url, err := base64.StdEncoding.DecodeString(data.Url)
                         if err != nil {
-                                t.Logf("%s error base64 decoding \"iam_request_url\" field of JSON payload: %v\n", prefix, err)
+                                // t.Logf("%s error base64 decoding \"iam_request_url\" field of JSON payload: %v\n", prefix, err)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         if strings.TrimSuffix(string(url), "/") != "https://sts.amazonaws.com" {
-                                t.Logf("%s \"iam_request_url\" field of JSON payload is not \"https://sts.amazonaws.com/\"\n", prefix)
+                                // t.Logf("%s \"iam_request_url\" field of JSON payload is not \"https://sts.amazonaws.com/\"\n", prefix)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         databody, err := base64.StdEncoding.DecodeString(data.Body)
                         if err != nil {
-                                t.Logf("%s error base64 decoding \"iam_request_body\" field of JSON payload: %v", prefix, err)
+                                // t.Logf("%s error base64 decoding \"iam_request_body\" field of JSON payload: %v", prefix, err)
                                 http.Error(resp, "", 400)
                                 return
                         }
                         if string(databody) != "Action=GetCallerIdentity&Version=2011-06-15" {
-                                t.Logf("%s \"iam_request_body\" field of JSON payload is not \"Action=GetCallerIdentity&Version=2011-06-15\"\n", prefix)
+                                // t.Logf("%s \"iam_request_body\" field of JSON payload is not \"Action=GetCallerIdentity&Version=2011-06-15\"\n", prefix)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         headersBuf, err := base64.StdEncoding.DecodeString(data.Headers)
                         if err != nil {
-                                t.Logf("%s error base64 decoding \"iam_request_headers\" field of JSON payload: %v\n", prefix, err)
+                                // t.Logf("%s error base64 decoding \"iam_request_headers\" field of JSON payload: %v\n", prefix, err)
                                 http.Error(resp, "", 400)
                                 return
                         }
                         
                         var headers = make(map[string][]string)
-                        if err = jsonutil.EncodeJSON(headersBuf, &headers); err != nil {
-                                t.Logf("%s error unmarshaling request headers: %v\n", prefix, err)
+                        if err = jsonutil.DecodeJSON(headersBuf, &headers); err != nil {
+                                // t.Logf("%s error unmarshaling request headers: %v\n", prefix, err)
                                 http.Error(resp, "", 400)
                                 return
                         }
 
                         if _, ok := headers["Authorization"]; !ok {
-                                t.Logf("%s \"iam_request_headers\" field of JSON payload has no \"Authorization\" header\n", prefix)
+                                // t.Logf("%s \"iam_request_headers\" field of JSON payload has no \"Authorization\" header\n", prefix)
                                 http.Error(resp, "", 400)
                                 return
                         }
                         // return the expected response with random uuid
                         token, err := uuid.GenerateUUID()
                         if err != nil {
-                                t.Logf("%s failed to create a random UUID: %v\n", prefix, err)
+                                t.Errorf("%s failed to create a random UUID: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
                                 return
                         }
@@ -184,13 +186,13 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
 
                         payload, err := jsonutil.EncodeJSON(respData)
                         if err != nil {
-                                t.Logf("%s error marshaling response payload: %v\n", prefix, err)
+                                t.Errorf("%s error marshaling response payload: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
                                 return
                         }
 
                         resp.Header().Set("Content-Type", "application/json")
-                        rep.Write(payload)
+                        resp.Write(payload)
                         return
                 default:
                         http.Error(resp, "", 405)

@@ -18,17 +18,21 @@ type Client interface {
 
 // DefaultClient is a wrapper for the Vault API client which
 // is guaranteed to possess a token
-type defaultClient struct {
+type DefaultClient struct {
         vaultAPI *api.Client
 }
 
 func NewDefaultClient(vaultClient *api.Client) Client {
-        return &defaultClient{
+        return &DefaultClient{
                 vaultAPI: vaultClient,
         }
 }
 
-func (d *defaultClient) GetCredentials(path string) (*Credentials, error) {
+func (d *DefaultClient) RawClient() *api.Client {
+	return d.vaultAPI
+}
+
+func (d *DefaultClient) GetCredentials(path string) (*Credentials, error) {
         var (
                 username, password string
                 ok                 bool

@@ -48,15 +48,9 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
                 return nil, err
         }
 
-        // Create a new AWS client
-        awsClient, err := aws.NewDefaultClient()
-        if err != nil {
-                return nil, err
-        }
-
         // Built an sts:GetCallerIdentity request and login to
         // Vault to obtain a token via Vault's AWS IAM endpoint
-        if err = c.getAndSetToken(vaultClient, awsClient); err != nil {
+        if err = c.getAndSetToken(vaultClient); err != nil {
                 return nil, err
         }
 
@@ -69,15 +63,9 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
 // client with the newly-created client token and return a DefaultClient 
 // object.
 func (c *ClientFactoryAWSAuth) WithClient(vaultClient *api.Client) (Client, error) {
-        // Create a new AWS client
-        awsClient, err := aws.NewDefaultClient()
-        if err != nil {
-                return nil, err
-        }
-
         // Built an sts:GetCallerIdentity request and login to
         // Vault to obtain a token via Vault's AWS IAM endpoint
-        if err := c.getAndSetToken(vaultClient, awsClient); err != nil {
+        if err := c.getAndSetToken(vaultClient); err != nil {
                 return nil, err
         }
 
@@ -88,7 +76,12 @@ func (c *ClientFactoryAWSAuth) WithClient(vaultClient *api.Client) (Client, erro
 // request elements required to authenticate against the Vault AWS IAM auth
 // endpoint, makes the authentication request to Vault, and if successful it
 // sets the token of Vault API client with the newly-created Vault token. 
-func (c *ClientFactoryAWSAuth) getAndSetToken(vaultClient *api.Client, awsClient aws.Client) error {
+func (c *ClientFactoryAWSAuth) getAndSetToken(vaultClient *api.Client) error {
+        // Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
+                return err
+        }
 
         // Create an sts:GetCallerIdentity request and return the elements
         // of the request needed for Vault to authenticate against IAM
