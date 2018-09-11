@@ -2,9 +2,7 @@ package test
 
 import (
         "encoding/base64"
-        "encoding/json"
         "fmt"
-        "io/ioutil"
         "net/http"
         "path"
         "strings"
@@ -12,7 +10,8 @@ import (
 
         "github.com/hashicorp/vault/api"
         uuid "github.com/hashicorp/go-uuid"
-        "github.com/phayes/freeport"
+				"github.com/phayes/freeport"
+				"github.com/hashicorp/vault/helper/jsonutil"
 )
 
 type TestVaultServerOptions struct {
@@ -80,9 +79,9 @@ func dockerSecretHandler(t *testing.T, secret map[string]interface{}, port int) 
                                 Data: secret,
                         }
 
-                        payload, err := json.Marshal(respData)
+                        payload, err := jsonutil.EncodeJSON(respData)
                         if err != nil {
-                                t.Logf("%s error marshaling response payload: %v\n", prefix, err)
+                                t.Logf("%s error encoding JSON response payload: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
                                 return
                         }
@@ -105,16 +104,9 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                 switch req.Method {
                 case "POST", "PUT":
                         prefix := fmt.Sprintf("[ POST http://127.0.0.1:%d/v1/auth/aws/login ]", port)
-                        body, err := ioutil.ReadAll(req.Body)
-                        if err != nil {
-                                t.Logf("%s error reading request body: %v\n", prefix, err)
-                                http.Error(resp, "", 500)
-                                return
-                        }
 
                         var data = new(TestAwsAuthReqPayload)
-                        // var datamap = make(map[string]interface{})
-                        if err = json.Unmarshal(body, data); err != nil {
+                        if err = jsonutil.DecodeJSONFromReader(req.Body, data); err != nil {
                                 t.Logf("%s error unmarshaling response: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
                                 return
@@ -165,7 +157,7 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                         }
                         
                         var headers = make(map[string][]string)
-                        if err = json.Unmarshal(headersBuf, &headers); err != nil {
+                        if err = jsonutil.EncodeJSON(headersBuf, &headers); err != nil {
                                 t.Logf("%s error unmarshaling request headers: %v\n", prefix, err)
                                 http.Error(resp, "", 400)
                                 return
@@ -190,7 +182,7 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                                 },
                         }
 
-                        payload, err := json.Marshal(respData)
+                        payload, err := jsonutil.EncodeJSON(respData)
                         if err != nil {
                                 t.Logf("%s error marshaling response payload: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
@@ -198,10 +190,7 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                         }
 
                         resp.Header().Set("Content-Type", "application/json")
-                        if _, err = resp.Write(payload); err != nil {
-                                t.Logf("%s error writing response: %v\n", prefix, err)
-                                http.Error(resp, "", 500)
-                        }
+                        rep.Write(payload)
                         return
                 default:
                         http.Error(resp, "", 405)

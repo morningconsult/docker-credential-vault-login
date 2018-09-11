@@ -3,11 +3,11 @@ package vault
 import (
         "fmt"
         "encoding/base64"
-        "encoding/json"
         "os"
         "path"
 
         "github.com/hashicorp/vault/api"
+        "github.com/hashicorp/vault/helper/jsonutil"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws"
 )
 
@@ -17,10 +17,19 @@ type ClientFactory interface {
 }
 
 type ClientFactoryAWSAuth struct {
-        role     string
+        // (Required) role is the Vault role associated with the
+        // IAM role used in the sts:GetCallerIdentity request. This
+        // Vault role should have permission to read the secret
+        // specified in your config.json file.
+        role string
+
+        // (Optional) serverID is the name of the Vault server
+        // to be used as the value of the X-Vault-AWS-IAM-Server-ID
+        // header in the sts:GetCallerIdentity request.
         serverID string
 }
 
+// NewClientFactoryAWSAuth creates a new Vault API client factory.
 func NewClientFactoryAWSAuth(role, serverID string) ClientFactory {
         return &ClientFactoryAWSAuth{
                 role:     role,
@@ -34,16 +43,24 @@ func NewClientFactoryAWSAuth(role, serverID string) ClientFactory {
 // client token and return a DefaultClient object.
 func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
         // Create a new Vault API client
-        client, err := api.NewClient(nil)
+        vaultClient, err := api.NewClient(nil)
         if err != nil {
                 return nil, err
         }
 
-        if err = c.getAndSetToken(client); err != nil {
+        // Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
                 return nil, err
         }
 
-        return NewDefaultClient(client), nil
+        // Built an sts:GetCallerIdentity request and login to
+        // Vault to obtain a token via Vault's AWS IAM endpoint
+        if err = c.getAndSetToken(vaultClient, awsClient); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(vaultClient), nil
 }
 
 // WithClient receives a Vault API client that has already been initialized
@@ -51,24 +68,27 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient 
 // object.
-func (c *ClientFactoryAWSAuth) WithClient(client *api.Client) (Client, error) {
-        if err := c.getAndSetToken(client); err != nil {
+func (c *ClientFactoryAWSAuth) WithClient(vaultClient *api.Client) (Client, error) {
+        // Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
                 return nil, err
         }
 
-        return NewDefaultClient(client), nil
+        // Built an sts:GetCallerIdentity request and login to
+        // Vault to obtain a token via Vault's AWS IAM endpoint
+        if err := c.getAndSetToken(vaultClient, awsClient); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(vaultClient), nil
 }
 
 // getAndSetToken creates an AWS sts:GetCallerIdentity request, gets the
 // request elements required to authenticate against the Vault AWS IAM auth
 // endpoint, makes the authentication request to Vault, and if successful it
 // sets the token of Vault API client with the newly-created Vault token. 
-func (c *ClientFactoryAWSAuth) getAndSetToken(client *api.Client) error {
-        // Create an AWS client
-        awsClient, err := aws.NewDefaultClient()
-        if err != nil {
-                return err
-        }
+func (c *ClientFactoryAWSAuth) getAndSetToken(vaultClient *api.Client, awsClient aws.Client) error {
 
         // Create an sts:GetCallerIdentity request and return the elements
         // of the request needed for Vault to authenticate against IAM
@@ -78,7 +98,7 @@ func (c *ClientFactoryAWSAuth) getAndSetToken(client *api.Client) error {
         }
 
         // Build the request payload
-        buf, err := json.Marshal(elems.Headers)
+        buf, err := jsonutil.EncodeJSON(elems.Headers)
         if err != nil {
                 return err
         }
@@ -94,13 +114,13 @@ func (c *ClientFactoryAWSAuth) getAndSetToken(client *api.Client) error {
 
         // Authenticate against Vault via the AWS IAM endpoint
         // in order to obtain a valid client token
-        secret, err := client.Logical().Write(path.Join("auth", "aws", "login"), payload)
+        secret, err := vaultClient.Logical().Write(path.Join("auth", "aws", "login"), payload)
         if err != nil {
                 return err
         }
 
         // Set the client token to the API client
-        client.SetToken(secret.Auth.ClientToken)
+        vaultClient.SetToken(secret.Auth.ClientToken)
         return nil
 }
 

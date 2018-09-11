@@ -6,6 +6,10 @@ VERSION := $(shell cat VERSION)
 GITCOMMIT_SHA := $(shell git rev-parse HEAD)
 BINARY_NAME=docker-credential-vault-login
 LOCAL_BINARY=bin/local/$(BINARY_NAME)
+EXTERNAL_TOOLS=\
+	github.com/golang/mock/mockgen \
+	golang.org/x/tools/cmd/goimports
+
 
 all: build
 
@@ -30,13 +34,23 @@ docker: Dockerfile
 build: $(LOCAL_BINARY)
 .PHONY: build
 
+test:
+	@go test -v -cover  $(go list ./vault-login/... | grep -v testing)
+.PHONY: test
+
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build_binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
+	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
 	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
-# sync-version updates the version.go file to match the latest version
-# and commit hash of this clone
-sync-version:
-	@sh -c "'./scripts/sync-version.sh' '$(VERSION)' '$(GITCOMMIT_SHA)'"
-.PHONY: sync-version
+mocktools:
+	@echo $(GOPATH)
+	@for tool in  $(EXTERNAL_TOOLS) ; do \
+		echo "Installing/Updating $$tool" ; \
+		go get -u $$tool; \
+	done
+.PHONY: mocktools
+
+build_mocks: mocktools
+	PATH=$$PATH:$$$(CURDIR)/scripts/generate scripts/build-mocks.sh
+.PHONY: build_mocks

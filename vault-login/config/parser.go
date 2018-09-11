@@ -2,10 +2,11 @@ package config
 
 import (
         "fmt"
-        "encoding/json"
         "os"
-        "io/ioutil"
         "strings"
+
+        "github.com/mitchellh/go-homedir"
+        "github.com/hashicorp/vault/helper/jsonutil"
 )
 
 type VaultAuthMethod string
@@ -29,7 +30,7 @@ type CredHelperConfig struct {
 }
 
 func GetCredHelperConfig() (*CredHelperConfig, error) {
-        cfg, err := parseConfig()
+        cfg, err := parseConfigFile()
         if err != nil {
                 return nil, err
         }
@@ -40,22 +41,28 @@ func GetCredHelperConfig() (*CredHelperConfig, error) {
         return cfg, nil
 }
 
-func parseConfig() (*CredHelperConfig, error) {
-        var path = DefaultConfigFilePath
+func parseConfigFile() (*CredHelperConfig, error) {
+        var rawPath = DefaultConfigFilePath
 
         if v := os.Getenv(EnvConfigFilePath); v != "" {
-                path = v
+                rawPath = v
         }
 
-        data, err := ioutil.ReadFile(path)
+        path, err := homedir.Expand(rawPath)
+        if err != nil {
+                return nil, err
+        }
+
+        file, err := os.Open(path)
         if err != nil {
                 return nil, err
         }
 
         var cfg = new(CredHelperConfig)
-        if err = json.Unmarshal(data, cfg); err != nil {
+        if err = jsonutil.DecodeJSONFromReader(file, cfg); err != nil {
                 return cfg, err
         }
+
         cfg.Path = path
         return cfg, nil
 }

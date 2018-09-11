@@ -11,7 +11,6 @@ import (
         "github.com/hashicorp/vault/api"
 )
 
-
 func StartTestCluster(t *testing.T) *vault.TestCluster {
         base := &vault.CoreConfig{
                 Logger: logging.NewVaultLogger(log.Error),

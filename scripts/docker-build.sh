@@ -15,7 +15,7 @@ echo "==> Building Docker image..."
 IMAGE=$(docker build -q .)
 
 echo "==> Building the binary..."
-CONTAINER_ID=$(docker run --rm -d -t -e TARGET_GOOS=${TARGET_GOOS} -e TARGET_GOARCH=${TARGET_GOARCH} ${IMAGE})
+CONTAINER_ID=$(docker run --rm --detach --tty --env TARGET_GOOS=${TARGET_GOOS} --env TARGET_GOARCH=${TARGET_GOARCH} ${IMAGE})
 
 docker cp "${CONTAINER_ID}:/go/src/${REPO}/${BIN_DIR}/${TOOL}" "${ROOT}/${BIN_DIR}"
 
