@@ -84,10 +84,5 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 }
 
 func (h *Helper) List() (map[string]string, error) {
-        // might be good to store secrets like
-        // "dockerServerURL" : {
-        //        "username": "foo"
-        //        "password": "bar"
-        // }"
         return nil, notImplementedError
 }

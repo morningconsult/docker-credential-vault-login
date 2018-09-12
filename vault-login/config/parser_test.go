@@ -4,10 +4,11 @@
 package config
 
 import (
-        "fmt"
-        "os"
-        "testing"
-        "github.com/hashicorp/vault/helper/jsonutil"
+	"fmt"
+	"os"
+	"testing"
+	"github.com/mitchellh/go-homedir"
+	test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
 )
 
 // TestReadsFileEnv tests that the GetCredHelperConfig function
@@ -21,9 +22,9 @@ func TestReadsFileEnv(t *testing.T) {
                 Secret:   "secret/foo/bar",
                 ServerID: "vault.example.com",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
@@ -66,15 +67,15 @@ func TestEmptyConfigFile(t *testing.T) {
                 "* No Vault authentication method (\"vault_auth_method\") is provided",
                 "* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
 
-        makeFile(t, testFilePath, []byte("{}"))
-        defer deleteFile(t, testFilePath)
+        test.MakeFile(t, testFilePath, []byte("{}"))
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Setenv(EnvConfigFilePath, path)
 
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -94,16 +95,16 @@ func TestConfigMissingMethod(t *testing.T) {
                 Secret:   "secret/foo/bar",
                 ServerID: "vault.example.com",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Setenv(EnvConfigFilePath, path)
 
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -125,16 +126,16 @@ func TestConfigMissingSecret(t *testing.T) {
                 Role:     "dev-role-iam",
                 ServerID: "vault.example.com",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Setenv(EnvConfigFilePath, path)
 
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -154,9 +155,9 @@ func TestConfigMissingToken(t *testing.T) {
                 Method:   VaultAuthMethodToken,
                 Secret:   "secret/foo/bar",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
@@ -167,7 +168,7 @@ func TestConfigMissingToken(t *testing.T) {
 
         os.Setenv("VAULT_TOKEN", "")
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -188,16 +189,16 @@ func TestConfigMissingRole(t *testing.T) {
                 Method:   VaultAuthMethodAWS,
                 Secret:   "secret/foo/bar",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Setenv(EnvConfigFilePath, path)
 
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -223,52 +224,49 @@ func TestConfigBadAuthMethod(t *testing.T) {
                 Method:   VaultAuthMethod("potato"),
                 Secret:   "secret/foo/bar",
         }
-        data := encodeJSON(t, cfg)
-        makeFile(t, testFilePath, data)
-        defer deleteFile(t, testFilePath)
+        data := test.EncodeJSON(t, cfg)
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
 
         path := os.Getenv(EnvConfigFilePath)
         os.Setenv(EnvConfigFilePath, testFilePath)
         defer os.Setenv(EnvConfigFilePath, path)
 
         if _, err := GetCredHelperConfig(); err != nil {
-                errorsEqual(t, err, expectedError)
+                test.ErrorsEqual(t, err, expectedError)
         } else {
                 t.Fatal("Expected to receive an error but didn't")
         }
 }
 
-func encodeJSON(t *testing.T, in interface{}) []byte {
-        data, err := jsonutil.EncodeJSON(in)
-        if err != nil {
-                t.Fatalf("error encoding json: %v", err)
-        }
-        return data
-}
+// TestConfigAllowsTildeInPath tests that  GetCredHelperConfig
+// does not fail when the path to the config.json file includes
+// a tile (e.g. "~/Desktop/config.json") in it.
+func TestConfigAllowsTildeInPath(t *testing.T) {
+	const testFilePath = "~/docker-credential-vault-login-testfile-9.json"
+	cfg := &CredHelperConfig{
+		Method:   VaultAuthMethodAWS,
+		Role:     "dev-role-iam",
+		Secret:   "secret/foo/bar",
+		ServerID: "vault.example.com",
+	}
+	
+	pathExpanded, err := homedir.Expand(testFilePath)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func makeFile(t *testing.T, name string, data []byte) {
-        file, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE, 0666)
-        if err != nil {
-                t.Fatalf("error opening file %q: %v", name, err)
-        }
-        defer file.Close()
+	data := test.EncodeJSON(t, cfg)
+	test.MakeFile(t, pathExpanded, data)
+	defer test.DeleteFile(t, pathExpanded)
 
-        if _, err = file.Write(data); err != nil {
-                t.Fatalf("error writing data to file %q: %v", name, err)
-        }
-}
+	path := os.Getenv(EnvConfigFilePath)
+	// Set $DOCKER_CREDS_CONFIG_FILE environment variable to testFilePath
+	os.Setenv(EnvConfigFilePath, testFilePath)
+	defer os.Setenv(EnvConfigFilePath, path)
 
-func deleteFile(t *testing.T, name string) {
-        if err := os.Remove(name); err != nil {
-                t.Fatalf("error deleting file %q: %v", name, err)
-        }
-}
-
-
-func errorsEqual(t *testing.T, got error, expected string) {
-        gotErrMsg := got.Error()
-        if gotErrMsg != expected {
-                t.Errorf("GetCredHelperConfig returned unexpected error message.\nExpected:\n%q\n\nGot:\n%q",
-                        expected, gotErrMsg)
-        }
+	if _, err := GetCredHelperConfig(); err != nil {
+		t.Errorf("Failed to read config file specified by environment variable %s", 
+			EnvConfigFilePath)
+	}
 }

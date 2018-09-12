@@ -11,6 +11,7 @@ import (
         "github.com/aws/aws-sdk-go/awstesting"
         "github.com/cihub/seelog"
 	"github.com/hashicorp/vault/api"
+	"github.com/docker/docker-credential-helpers/credentials"
 
         logger "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/logging"
         "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
@@ -286,6 +287,10 @@ func TestHelperGet_Token_Success(t *testing.T) {
         }
 }
 
+// TestHelperGet_Token_BadPath tests that when a user does not provide
+// the path to their Docker credentials in the "vault_secret_path"
+// field of the config.json file, the helper.Get() method returns
+// an error
 func TestHelperGet_Token_BadPath(t *testing.T) {
         var (
                 testConfigFile = testTokenConfigFile
@@ -360,6 +365,60 @@ func TestHelperGet_Token_MalformedSecret(t *testing.T) {
         if err == nil {
                 t.Error("should have returned an error, but didn't")
         }
+}
+
+func TestHelperList(t *testing.T) {
+	helper := NewHelper(nil)
+	_, err := helper.List()
+	if err == nil {
+		t.Fatal("Expected to receive an error but didn't")
+	}
+
+	test.ErrorsEqual(t, err.Error(), notImplementedError.Error())
+}
+
+func TestHelperAdd(t *testing.T) {
+	helper := NewHelper(nil)
+	err := helper.Add(&credentials.Credentials{})
+	if err == nil {
+		t.Fatal("Expected to receive an error but didn't")
+	}
+
+	test.ErrorsEqual(t, err.Error(), notImplementedError.Error())
+}
+
+func TestHelperDelete(t *testing.T) {
+	helper := NewHelper(nil)
+	err := helper.Delete("")
+	if err == nil {
+		t.Fatal("Expected to receive an error but didn't")
+	}
+
+	test.ErrorsEqual(t, err.Error(), notImplementedError.Error())
+}
+
+// TestHelperGet_ParseError test that when helper.Get() is called
+// but the config.json file is improperly formatted (and thus
+// cannot be decoded) the correct error is returned.
+func TestHelperGet_ParseError(t *testing.T) {
+	const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
+
+	oldEnv := awstesting.StashEnv()
+	defer awstesting.PopEnv(oldEnv)
+
+	data := test.EncodeJSON(t, map[string]int{"foo": 1234})
+        test.MakeFile(t, testFilePath, data)
+        defer test.DeleteFile(t, testFilePath)
+
+	os.Setenv("DOCKER_CREDS_CONFIG_FILE", testFilePath)
+
+	helper := NewHelper(nil)
+	_, _, err := helper.Get("")
+	if err == nil {
+		t.Fatal("expected to receive an error but didn't")
+	}
+
+	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
 
 func TestMain(m *testing.M) {

@@ -38,10 +38,10 @@ func TestGetCredentials_Success(t *testing.T) {
         }
 }
 
-// TestGetCredentials_BadPath tests that if the client attempts to read
+// TestGetCredentials_WrongPath tests that if the client attempts to read
 // a secret at an empty path (i.e. a path where no secret has been written)
 // the client returns the appropriate error.
-func TestGetCredentials_BadPath(t *testing.T) {
+func TestGetCredentials_WrongPath(t *testing.T) {
         var fakePath = "secret/bim/baz"
 
         cluster := test.StartTestCluster(t)
@@ -159,3 +159,28 @@ func TestGetCredentials_NoCreds(t *testing.T) {
                 t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
         }
 }
+
+// TestGetCredentials_WrongPath tests that if the client attempts to read
+// a secret at an empty path (i.e. a path where no secret has been written)
+// the client returns the appropriate error.
+// func TestGetCredentials_(t *testing.T) {
+//         var fakePath = "secret/bim/baz"
+
+//         cluster := test.StartTestCluster(t)
+//         defer cluster.Cleanup()
+
+//         client := test.NewPreConfiguredVaultClient(t, cluster)
+
+//         appClient := NewDefaultClient(client)
+
+//         _, err := appClient.GetCredentials(fakePath)
+//         if err == nil {
+//                 t.Fatal("expected an error, but got none")
+//         }
+
+//         expectedError := fmt.Sprintf("No secret found in Vault at path %q", fakePath)
+//         actualError := err.Error()
+//         if expectedError != actualError {
+//                 t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
+//         }
+// }

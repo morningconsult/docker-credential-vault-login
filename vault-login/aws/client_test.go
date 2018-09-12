@@ -75,7 +75,7 @@ func TestReadsEnvFirst(t *testing.T) {
         if err != nil {
                 t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
         }
-        accessKey := extractAccessKeyIDFromHeaders(t, elems.Headers)
+        accessKey := test.ExtractAccessKeyIDFromHeaders(t, elems.Headers)
         
         if accessKey != TestAccessKey {
                 t.Errorf("%s %s\nGot:\n%q\n\nExpected:\n%q\n", "Credential value of the \"Authorization\" header", 
@@ -138,7 +138,7 @@ func TestWithServerID(t *testing.T) {
         }
         if !present {
                 t.Errorf("%s %s", "GetIAMAuthElements should add a",
-                                "\"X-Vault-AWS-IAM-Server-ID\" header when serverID is not empty")
+			"\"X-Vault-AWS-IAM-Server-ID\" header when serverID is not empty")
         }
 }
 
@@ -204,7 +204,7 @@ func TestExpectedValues(t *testing.T) {
                                 t.Errorf("value of \"X-Amz-Date\" header returned by GetIAMAuthElements is malformed")
                         }
                 case "Authorization":
-                        validateAuthorization(t, elems.Headers[k][0], TestAccessKey)
+                        test.ValidateAuthorization(t, elems.Headers[k][0], TestAccessKey)
                 case "User-Agent":
                         continue
                 default:
