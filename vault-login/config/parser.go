@@ -56,7 +56,9 @@ func parseConfigFile() (*CredHelperConfig, error) {
         file, err := os.Open(path)
         if err != nil {
                 return nil, err
-        }
+	}
+	
+	defer file.Close()
 
         var cfg = new(CredHelperConfig)
         if err = jsonutil.DecodeJSONFromReader(file, cfg); err != nil {
