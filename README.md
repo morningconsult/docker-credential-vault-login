@@ -53,29 +53,34 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 This program requires a configuration file `config.json` in order to determine which authentication method to use. The program will search first search for this file at the path specified with by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, it will fail.
 
 The configuration file should include the following:
-* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `aws` or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `aws` is used, the application will retrieve AWS credentials and use them to log into Vault in order to retrieve a Vault token. If the `aws` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
-* `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `aws` authentication method. 
+* `vault_auth_method` (string: "") - Method by which this application should authenticate against Vault. The only two values that are accepted are `iam`, `ec2`, or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If `iam` is used, the application will retrieve AWS credentials and use them to log into Vault in order to obtain a Vault token. If `ec2` is used, it will retrieve the PKCS7 signature from the EC2 instance's metadata and log into Vault with it in order to obtain a token. If either the `iam` or `ec2` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
+* `vault_role` (string: "") - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `iam` and `ec2` authentication methods. 
 * `vault_secret_path` (string: "") - Path to the secret at which your docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
-* `vault_iam_server_id_header_value` (string: "") - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `aws` authentication method.
+* `vault_iam_server_id_header_value` (string: "") - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
 
 **Sample Configuration File**
 ```json
 {
-  "vault_auth_method": "aws",
+  "vault_auth_method": "iam",
   "vault_role": "dev-role-iam",
   "vault_secret_path": "secret/credentials/docker/myregistry",
   "vault_iam_server_id_header_value": "vault.example.com"
 }
 ```
 
-### AWS IAM Credentials
+### EC2 Authentication Method
 
-This program requires IAM credentials if the `aws` method of authentication is selected. You also have AWS credentials available in one of the standard locations:
+If the `ec2` authentication is chosen, be sure that the instance on which this application will run is indeed an EC2 instance and that the Vault role given in the `vault_role` field of the `config.json` file is bound to the AMI ID of the instance and that it has permission to authenticate via the EC2 method (see this [example](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-)).
+
+### IAM Authentication Method
+
+If the `iam` method of authentication is chosen, this program requires IAM credentials. You also have AWS credentials available in one of the standard locations:
 * The `~/.aws/credentials` file
 * The `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
 * An [IAM role for Amazon EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html)
 
 ### Environmental Variables
+
 Additionally, in order for the helper to work properly you must first set some Vault environmental variables on your system:
 * **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - (Required) Your Vault instance's URL
 * **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - (Note: This only applies if the `token` authentication method is chosen) A valid Vault token with permission to read your secret

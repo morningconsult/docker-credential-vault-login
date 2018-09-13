@@ -17,7 +17,7 @@ import (
 func TestReadsFileEnv(t *testing.T) {
         const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
         cfg := &CredHelperConfig{
-                Method:   VaultAuthMethodAWS,
+                Method:   VaultAuthMethodAWSIAM,
                 Role:     "dev-role-iam",
                 Secret:   "secret/foo/bar",
                 ServerID: "vault.example.com",
@@ -122,7 +122,7 @@ func TestConfigMissingSecret(t *testing.T) {
                 "* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
         
         cfg := &CredHelperConfig{
-                Method:   VaultAuthMethodAWS,
+                Method:   VaultAuthMethodAWSIAM,
                 Role:     "dev-role-iam",
                 ServerID: "vault.example.com",
         }
@@ -186,7 +186,7 @@ func TestConfigMissingRole(t *testing.T) {
                 "the AWS authentication method is chosen)")
         
         cfg := &CredHelperConfig{
-                Method:   VaultAuthMethodAWS,
+                Method:   VaultAuthMethodAWSIAM,
                 Secret:   "secret/foo/bar",
         }
         data := test.EncodeJSON(t, cfg)
@@ -217,7 +217,7 @@ func TestConfigBadAuthMethod(t *testing.T) {
         
         var expectedError = fmt.Sprintf("%s\n* %s",
                 fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-                fmt.Sprintf(`Unrecognized Vault authentication method ("vault_auth_method") value %q (must be either "aws" or "token")`, badMethod),
+                fmt.Sprintf(`Unrecognized Vault authentication method ("vault_auth_method") value %q (must be one of "iam", "ec2", or "token")`, badMethod),
         )
         
         cfg := &CredHelperConfig{
@@ -245,7 +245,7 @@ func TestConfigBadAuthMethod(t *testing.T) {
 func TestConfigAllowsTildeInPath(t *testing.T) {
 	const testFilePath = "~/docker-credential-vault-login-testfile-9.json"
 	cfg := &CredHelperConfig{
-		Method:   VaultAuthMethodAWS,
+		Method:   VaultAuthMethodAWSIAM,
 		Role:     "dev-role-iam",
 		Secret:   "secret/foo/bar",
 		ServerID: "vault.example.com",

@@ -11,7 +11,7 @@ import (
         test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
 )
 
-func TestNewClientFactoryAWSAuth_NewClient_Success(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
         const role = "test-iam-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: role})
@@ -23,7 +23,7 @@ func TestNewClientFactoryAWSAuth_NewClient_Success(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-        factory := NewClientFactoryAWSAuth(role, "")
+        factory := NewClientFactoryAWSIAMAuth(role, "")
         vaultClient, err := factory.NewClient()
         if err != nil {
                 t.Fatal(err)
@@ -36,11 +36,11 @@ func TestNewClientFactoryAWSAuth_NewClient_Success(t *testing.T) {
         }
 }
 
-// TestNewClientFactoryAWSAuth_NewClient_UnconfiguredRole checks that when
-// ClientFactoryAWSAuth.NewClient() is called for a Vault role that
+// TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole checks that when
+// ClientFactoryAWSIAMAuth.NewClient() is called for a Vault role that
 // has not been configured to login using the AWS IAM credentials
 // on the host machine, an error is returned.
-func TestNewClientFactoryAWSAuth_NewClient_UnconfiguredRole(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
         const badrole = "the-fake-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: "the-real-role"})
@@ -52,7 +52,7 @@ func TestNewClientFactoryAWSAuth_NewClient_UnconfiguredRole(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-        factory := NewClientFactoryAWSAuth(badrole, "")
+        factory := NewClientFactoryAWSIAMAuth(badrole, "")
         _, err := factory.NewClient()
         if err == nil {
                 t.Fatal("Expected to receive an error but didn't")
@@ -61,10 +61,10 @@ func TestNewClientFactoryAWSAuth_NewClient_UnconfiguredRole(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n\n")
 }
 
-// TestNewClientFactoryAWSAuth_NewClient_BadVaultAddr tests that the
-// incorrect VAULT_ADDR value is set, ClientFactoryAWSAuth.NewClient()
+// TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr tests that the
+// incorrect VAULT_ADDR value is set, ClientFactoryAWSIAMAuth.NewClient()
 // returns an error.
-func TestNewClientFactoryAWSAuth_NewClient_BadVaultAddr(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
         const role = "test-iam-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: role})
@@ -77,7 +77,7 @@ func TestNewClientFactoryAWSAuth_NewClient_BadVaultAddr(t *testing.T) {
         // Incorrect Vault test server URL
         os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
 
-        factory := NewClientFactoryAWSAuth(role, "")
+        factory := NewClientFactoryAWSIAMAuth(role, "")
         _, err := factory.NewClient()
         if err == nil {
                 t.Fatal("Expected to receive an error but didn't")
@@ -86,7 +86,7 @@ func TestNewClientFactoryAWSAuth_NewClient_BadVaultAddr(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), "Put http://127.0.0.1:12345/v1/auth/aws/login: dial tcp 127.0.0.1:12345: connect: connection refused")
 }
 
-func TestNewClientFactoryAWSAuth_WithClient_Success(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
         const role = "test-iam-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: role})
@@ -103,7 +103,7 @@ func TestNewClientFactoryAWSAuth_WithClient_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-        factory := NewClientFactoryAWSAuth(role, "")
+        factory := NewClientFactoryAWSIAMAuth(role, "")
         clientWithToken, err := factory.WithClient(clientNoToken)
         if err != nil {
                 t.Fatal(err)
@@ -116,10 +116,10 @@ func TestNewClientFactoryAWSAuth_WithClient_Success(t *testing.T) {
         }
 }
 
-// TestNewClientFactoryAWSAuth_WithClient_BadVaultAddr tests that the
-// incorrect VAULT_ADDR value is set, ClientFactoryAWSAuth.WithClient()
+// TestNewClientFactoryAWSIAMAuth_WithClient_BadVaultAddr tests that the
+// incorrect VAULT_ADDR value is set, ClientFactoryAWSIAMAuth.WithClient()
 // returns an error.
-func TestNewClientFactoryAWSAuth_WithClient_BadAddr(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
         const role = "test-iam-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: role})
@@ -137,7 +137,7 @@ func TestNewClientFactoryAWSAuth_WithClient_BadAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-        factory := NewClientFactoryAWSAuth(role, "")
+        factory := NewClientFactoryAWSIAMAuth(role, "")
         _, err = factory.WithClient(clientNoToken)
         if err == nil {
                 t.Error("Expected to receive an error but didn't")
@@ -146,11 +146,11 @@ func TestNewClientFactoryAWSAuth_WithClient_BadAddr(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), "Put http://127.0.0.1:12345/v1/auth/aws/login: dial tcp 127.0.0.1:12345: connect: connection refused")
 }
 
-// TestNewClientFactoryAWSAuth_WithClient_UnconfiguredRole checks that when
-// ClientFactoryAWSAuth.WithClient() is called for a Vault role that
+// TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole checks that when
+// ClientFactoryAWSIAMAuth.WithClient() is called for a Vault role that
 // has not been configured to login using the AWS IAM credentials
 // on the host machine, an error is returned.
-func TestNewClientFactoryAWSAuth_WithClient_UnconfiguredRole(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
         const badrole = "the-fake-role"
 
         server := test.MakeMockVaultServer(t, &test.TestVaultServerOptions{Role: "the-real-role"})
@@ -162,7 +162,7 @@ func TestNewClientFactoryAWSAuth_WithClient_UnconfiguredRole(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory := NewClientFactoryAWSAuth(badrole, "")
+	factory := NewClientFactoryAWSIAMAuth(badrole, "")
 	
 	clientNoToken, err := api.NewClient(nil)
 	if err != nil {
@@ -287,17 +287,17 @@ func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), fmt.Sprintf("parse %s: invalid URL escape \"%%&%%\"", badURL))
 }
 
-// TestNewClientFactoryAWSAuth_NewClient_BadURL tests that when
-// ClientFactoryAWSAuth.NewClient() is called but the VAULT_ADDR
+// TestNewClientFactoryAWSIAMAuth_NewClient_BadURL tests that when
+// ClientFactoryAWSIAMAuth.NewClient() is called but the VAULT_ADDR
 // value is a URL that cannot be parsed, an error is returned.
-func TestNewClientFactoryAWSAuth_NewClient_BadURL(t *testing.T) {
+func TestNewClientFactoryAWSIAMAuth_NewClient_BadURL(t *testing.T) {
 	const badURL = "$%&%$^(*@%$^("
 
 	oldEnv := awstesting.StashEnv()
         defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", badURL)
 
-	factory := NewClientFactoryAWSAuth("test-role", "")
+	factory := NewClientFactoryAWSIAMAuth("test-role", "")
 
 	_, err := factory.NewClient()
 	if err == nil {

@@ -51,8 +51,10 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// create a Vault API client factory based on the type of
 	// authentication method specified in the config file
 	switch cfg.Method {
-	case config.VaultAuthMethodAWS:
-		factory = vault.NewClientFactoryAWSAuth(cfg.Role, cfg.ServerID)
+	case config.VaultAuthMethodAWSIAM:
+		factory = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
+	case config.VaultAuthMethodAWSEC2:
+		factory = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
 	case config.VaultAuthMethodToken:
 		factory = vault.NewClientFactoryTokenAuth()
 	default:

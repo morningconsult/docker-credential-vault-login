@@ -17,7 +17,7 @@ type Client interface {
 }
 
 // DefaultClient is a wrapper for the Vault API client which
-// is guaranteed to possess a token
+// is guaranteed to possess a valid Vault token
 type DefaultClient struct {
         vaultAPI *api.Client
 }

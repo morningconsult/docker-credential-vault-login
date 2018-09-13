@@ -12,7 +12,9 @@ import (
 type VaultAuthMethod string
 
 const (
-        VaultAuthMethodAWS = VaultAuthMethod("aws")
+	VaultAuthMethodAWSIAM = VaultAuthMethod("iam")
+	
+	VaultAuthMethodAWSEC2 = VaultAuthMethod("ec2")
 
         VaultAuthMethodToken = VaultAuthMethod("token")
 
@@ -77,20 +79,19 @@ func (c *CredHelperConfig) validate() error {
         switch method {
         case "":
                 errors = append(errors, `No Vault authentication method ("vault_auth_method") is provided`)
-        case VaultAuthMethodAWS:
+        case VaultAuthMethodAWSIAM:
                 if c.Role == "" {
                         errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("vault_role") is`,
                                 "provided (required when the AWS authentication method is chosen)"))
-                }
+		}
         case VaultAuthMethodToken:
                 if v := os.Getenv("VAULT_TOKEN"); v == "" {
                         errors = append(errors, fmt.Sprintf("VAULT_TOKEN environment variable is not set"))
                 }
         default:
-                errors = append(errors, fmt.Sprintf("%s %s %q (must be either %q or %q)",
-                        "Unrecognized Vault authentication method",
-                        `("vault_auth_method") value`, method,
-                        VaultAuthMethodAWS, VaultAuthMethodToken))
+                errors = append(errors, fmt.Sprintf("%s %s %q (must be one of %q, %q, or %q)",
+			"Unrecognized Vault authentication method", `("vault_auth_method") value`,
+			method, VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2, VaultAuthMethodToken))
         }
 
         if c.Secret == "" {

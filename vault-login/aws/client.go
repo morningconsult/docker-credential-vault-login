@@ -1,12 +1,14 @@
 package aws
 
 import (
+	"fmt"
         "io/ioutil"
 
         log "github.com/cihub/seelog"
         "github.com/aws/aws-sdk-go/aws/session"
         "github.com/aws/aws-sdk-go/service/sts"
-        "github.com/aws/aws-sdk-go/aws/request"
+	"github.com/aws/aws-sdk-go/aws/request"
+	ec2 "github.com/aws/aws-sdk-go/aws/ec2metadata"
 )
 
 const DefaultSTSGetCallerIdentityBody string = "Action=GetCallerIdentity&Version=2011-06-15"
@@ -19,7 +21,8 @@ type IAMAuthElements struct {
 }
 
 type Client interface {
-        GetIAMAuthElements(string) (*IAMAuthElements, error)
+	GetIAMAuthElements(string) (*IAMAuthElements, error)
+	GetPKCS7Signature() (string, error)
 }
 
 type defaultClient struct {
@@ -29,7 +32,7 @@ type defaultClient struct {
 func NewDefaultClient() (*defaultClient, error) {
         sess, err := session.NewSession()
         if err != nil {
-                return nil, err
+                return nil, fmt.Errorf("error creating new AWS client: %v", err)
         }
 
         return &defaultClient{
@@ -49,7 +52,7 @@ func (d *defaultClient) GetIAMAuthElements(serverID string) (*IAMAuthElements, e
         service := sts.New(d.awsSession)
         req, _ := service.GetCallerIdentityRequest(nil)
         if err := req.Sign(); err != nil {
-                return nil, err
+                return nil, fmt.Errorf("error signing sts:GetCallerIdentityRequest: %v", err)
         }
 
         body, err := ioutil.ReadAll(req.HTTPRequest.Body)
@@ -66,6 +69,18 @@ func (d *defaultClient) GetIAMAuthElements(serverID string) (*IAMAuthElements, e
                 Body:    body,
                 Headers: req.HTTPRequest.Header,
         }, nil
+}
+
+// GetPKCS7Signature gets the EC2 instance's PKCS7 signature
+// from the instance metadata.
+func (d *defaultClient) GetPKCS7Signature() (string, error) {
+	service := ec2.New(d.awsSession)
+	pkcs7, err := service.GetDynamicData("instance-identity/pkcs7")
+	if err != nil {
+		return "", fmt.Errorf("error getting PKCS7 signature: %v", err)
+	}
+
+	return pkcs7, nil
 }
 
 func vaultServerHeaderHandler(serverID string) func(*request.Request) {

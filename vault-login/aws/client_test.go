@@ -7,7 +7,6 @@ import (
         "strings"
         "testing"
 
-        "github.com/aws/aws-sdk-go/aws/session"
         "github.com/aws/aws-sdk-go/awstesting"
         test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
 )
@@ -41,10 +40,6 @@ func TestNewClientFails(t *testing.T) {
         _, err := NewDefaultClient()
         if err == nil {
                 t.Fatalf("Expected an error but did not get an error")
-        }
-
-        if _, ok := err.(session.SharedConfigAssumeRoleError); !ok {
-                t.Errorf("Expected SharedConfigAssumeRoleError, but got %q instead", err.Error())
         }
 }
 

@@ -5,6 +5,7 @@ import (
         "encoding/base64"
         "os"
         "path"
+	"strings"
 
         "github.com/hashicorp/vault/api"
         "github.com/hashicorp/vault/helper/jsonutil"
@@ -16,7 +17,11 @@ type ClientFactory interface {
         NewClient() (Client, error)
 }
 
-type ClientFactoryAWSAuth struct {
+// ClientFactoryAWSEC2Auth is used to either create a new Vault
+// API client with a valid Vault token or to give an existing
+// Vault API client a valid token. The token is obtained by
+// authenticating against Vault via its AWS IAM endpoint.
+type ClientFactoryAWSIAMAuth struct {
         // (Required) role is the Vault role associated with the
         // IAM role used in the sts:GetCallerIdentity request. This
         // Vault role should have permission to read the secret
@@ -29,9 +34,8 @@ type ClientFactoryAWSAuth struct {
         serverID string
 }
 
-// NewClientFactoryAWSAuth creates a new Vault API client factory.
-func NewClientFactoryAWSAuth(role, serverID string) ClientFactory {
-        return &ClientFactoryAWSAuth{
+func NewClientFactoryAWSIAMAuth(role, serverID string) ClientFactory {
+        return &ClientFactoryAWSIAMAuth{
                 role:     role,
                 serverID: serverID,
         }
@@ -41,14 +45,14 @@ func NewClientFactoryAWSAuth(role, serverID string) ClientFactory {
 // authenticate against Vault via the AWS IAM endpoint. If authentication
 // is successful, it will set the Vault API client with the newly-created
 // client token and return a DefaultClient object.
-func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
+func (c *ClientFactoryAWSIAMAuth) NewClient() (Client, error) {
         // Create a new Vault API client
         vaultClient, err := api.NewClient(nil)
         if err != nil {
                 return nil, err
         }
 
-        // Built an sts:GetCallerIdentity request and login to
+        // Build an sts:GetCallerIdentity request and login to
         // Vault to obtain a token via Vault's AWS IAM endpoint
         if err = c.getAndSetToken(vaultClient); err != nil {
                 return nil, err
@@ -62,8 +66,8 @@ func (c *ClientFactoryAWSAuth) NewClient() (Client, error) {
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient 
 // object.
-func (c *ClientFactoryAWSAuth) WithClient(vaultClient *api.Client) (Client, error) {
-        // Built an sts:GetCallerIdentity request and login to
+func (c *ClientFactoryAWSIAMAuth) WithClient(vaultClient *api.Client) (Client, error) {
+        // Build an sts:GetCallerIdentity request and login to
         // Vault to obtain a token via Vault's AWS IAM endpoint
         if err := c.getAndSetToken(vaultClient); err != nil {
                 return nil, err
@@ -76,7 +80,7 @@ func (c *ClientFactoryAWSAuth) WithClient(vaultClient *api.Client) (Client, erro
 // request elements required to authenticate against the Vault AWS IAM auth
 // endpoint, makes the authentication request to Vault, and if successful it
 // sets the token of Vault API client with the newly-created Vault token. 
-func (c *ClientFactoryAWSAuth) getAndSetToken(vaultClient *api.Client) error {
+func (c *ClientFactoryAWSIAMAuth) getAndSetToken(vaultClient *api.Client) error {
         // Create a new AWS client
         awsClient, err := aws.NewDefaultClient()
         if err != nil {
@@ -117,6 +121,93 @@ func (c *ClientFactoryAWSAuth) getAndSetToken(vaultClient *api.Client) error {
         return nil
 }
 
+// ClientFactoryAWSEC2Auth is used to either create a new Vault
+// API client with a valid Vault token or to give an existing
+// Vault API client a valid token. The token is obtained by
+// authenticating against Vault via its AWS EC2 endpoint.
+type ClientFactoryAWSEC2Auth struct {
+	// (Required) role is the Vault role associated with the
+        // IAM role used in the sts:GetCallerIdentity request. This
+        // Vault role should have permission to read the secret
+        // specified in your config.json file.
+	role string
+}
+
+func NewClientFactoryAWSEC2Auth(role string) ClientFactory {
+	return &ClientFactoryAWSEC2Auth{role}
+}
+
+// NewClient creates a new Vault API client and uses it to attempt to
+// authenticate against Vault via the AWS EC2 endpoint. If authentication
+// is successful, it will set the Vault API client with the newly-created
+// client token and return a DefaultClient object.
+func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, error) {
+	// Create a new Vault API client
+        vaultClient, err := api.NewClient(nil)
+        if err != nil {
+                return nil, err
+        }
+
+        // Get the EC2 instance's PKCS7 signature and login to
+        // Vault to obtain a token via Vault's AWS EC2 endpoint
+        if err = c.getAndSetToken(vaultClient); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(vaultClient), nil
+}
+
+// WithClient receives a Vault API client that has already been initialized
+// and uses it to attempt to authenticate against Vault via the AWS EC2
+// endpoint. If authentication is successful, it will set the Vault API
+// client with the newly-created client token and return a DefaultClient 
+// object.
+func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, error) {
+        // Get the EC2 instance's PKCS7 signature and login to
+        // Vault to obtain a token via Vault's AWS EC2 endpoint
+        if err := c.getAndSetToken(vaultClient); err != nil {
+                return nil, err
+        }
+
+        return NewDefaultClient(vaultClient), nil
+}
+
+func (c *ClientFactoryAWSEC2Auth) getAndSetToken(vaultClient *api.Client) error {
+	// Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
+                return err
+        }
+
+	// Get the elements of the EC2 metadata required to
+	// authenticate against Vault
+        pkcs7, err := awsClient.GetPKCS7Signature()
+        if err != nil {
+                return err
+	}
+
+	// Create request payload
+        payload := map[string]interface{}{
+                "role":  c.role,
+                "pkcs7": strings.Replace(pkcs7, "\n", "", -1),
+        }
+
+        // Authenticate against Vault via the AWS EC2 endpoint
+        // in order to obtain a valid client token
+        secret, err := vaultClient.Logical().Write(path.Join("auth", "aws", "login"), payload)
+        if err != nil {
+                return err
+        }
+
+        // Set the client token to the API client
+        vaultClient.SetToken(secret.Auth.ClientToken)
+        return nil
+}
+
+// ClientFactoryTokenAuth is used to either create a new Vault
+// API client with a valid Vault token or to give an existing
+// Vault API client a valid token. The token is obtained from
+// the VAULT_TOKEN environment variable.
 type ClientFactoryTokenAuth struct {}
 
 func NewClientFactoryTokenAuth() ClientFactory {
