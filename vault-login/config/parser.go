@@ -79,7 +79,7 @@ func (c *CredHelperConfig) validate() error {
         switch method {
         case "":
                 errors = append(errors, `No Vault authentication method ("vault_auth_method") is provided`)
-        case VaultAuthMethodAWSIAM:
+        case VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2:
                 if c.Role == "" {
                         errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("vault_role") is`,
                                 "provided (required when the AWS authentication method is chosen)"))
