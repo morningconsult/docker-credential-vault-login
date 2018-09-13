@@ -17,39 +17,79 @@ import (
 type TestVaultServerOptions struct {
         SecretPath string
         Secret     map[string]interface{}
-        Role       string
+	Role       string
+	PKCS7      string
 }
 
-type TestAwsAuthReqPayload struct {
-        Role    string `json:"role"`
+type TestIAMAuthReqPayload struct {
+        Role    string
         Method  string `json:"iam_http_request_method"`
         Url     string `json:"iam_request_url"`
         Body    string `json:"iam_request_body"`
         Headers string `json:"iam_request_headers"`
 }
 
-// makeMockVaultServer creates a mock Vault server which mimics two HTTP endpoints - 
+type TestEC2AuthReqPayload struct {
+	Role  string
+	PKCS7 string
+}
+
+// MakeMockVaultServerIAMAuth creates a mock Vault server which mimics two HTTP endpoints - 
 // /v1/auth/aws/login and /v1/<secret_path>. The purpose of this mock Vault server
 // is to test Vault's AWS IAM authentication endpoint without having to actually
-// make a real STS GetCallerIdentity request to AWS. The behavior of the mimicked
+// make a real sts:GetCallerIdentity request to AWS. The behavior of the mimicked
 // endpoints is configured via the testVaultServerOptions parameter. The login
 // endpoint will only return 200 when the JSON payload of an HTTP request for this 
 // endpoint is properly structured and contains the expected data (see the IAM
 // authentication information provided at 
 // https://www.vaultproject.io/api/auth/aws/index.html#login) and when the 
 // "role" field of the JSON payload matches the "role" field of the 
-// testVaultServerOptions object passed to makeMockVaultServer. The value of
+// testVaultServerOptions object passed to MakeMockVaultServerIAMAuth. The value of
 // <secret_path> in the other endpoint is specified by the secretPath field of
 // the testVaultServerOptions object. For example, if opts.secretPath == "secret/foo",
 // your secret (specified via the "secret") field of the testVaultServerOptions
 // object can be read via GET http://127.0.0.1:<port>/v1/secret/foo.
-func MakeMockVaultServer(t *testing.T, opts *TestVaultServerOptions) *http.Server {
+func MakeMockVaultServerIAMAuth(t *testing.T, opts *TestVaultServerOptions) *http.Server {
         port, err := freeport.GetFreePort()
         if err != nil {
                 t.Fatal(err)
         }
         mux := http.NewServeMux()
-        mux.HandleFunc("/v1/auth/aws/login", awsAuthHandler(t, opts.Role, port))
+        mux.HandleFunc("/v1/auth/aws/login", iamAuthHandler(t, opts.Role, port))
+        if opts.SecretPath != "" {
+                mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
+        }
+        server := &http.Server{
+                Addr:    fmt.Sprintf(":%d", port),
+                Handler: mux,
+        }
+        return server
+}
+
+// MakeMockVaultServerEC2Auth creates a mock Vault server which mimics two HTTP 
+// endpoints - /v1/auth/aws/login and /v1/<secret_path>. The purpose of this mock
+// Vault server is to test Vault's AWS EC2 authentication endpoint without having
+// to actually make a real call to AWS. The behavior of the mimicked endpoints is
+// configured via the TestVaultServerOptions parameter. The login endpoint will
+// only return 200 when the JSON payload of an HTTP request for this endpoint
+// (1)is  properly structured, (2) contains the fields ("role" and "pkcs7"), 
+// (3) the pkcs7 signature matches the value of the pkcs7 signature passed to 
+// MakeMockVaultServerEC2Auth, and (4) the "role" field of the JSON payload matches
+//  the "role" field of the TestVaultServerOptions object passed to 
+// MakeMockVaultServerEC2Auth. This fourth condition mimics the behavior of Vault 
+// in requiring a given role attempting to login via the AWS EC2 endpoint to have
+// been explicitly configured to be able to do so. The value of <secret_path> in
+// the other endpoint is specified by the secretPath field of the
+// TestVaultServerOptions object. For example, if opts.secretPath == "secret/foo",
+// your secret (specified via the "secret") field of the TestVaultServerOptions
+// object can be read via GET http://127.0.0.1:<port>/v1/secret/foo.
+func MakeMockVaultServerEC2Auth(t *testing.T, opts *TestVaultServerOptions) *http.Server {
+        port, err := freeport.GetFreePort()
+        if err != nil {
+                t.Fatal(err)
+        }
+        mux := http.NewServeMux()
+        mux.HandleFunc("/v1/auth/aws/login", ec2AuthHandler(t, opts.Role, opts.PKCS7, port))
         if opts.SecretPath != "" {
                 mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
         }
@@ -101,13 +141,13 @@ func dockerSecretHandler(t *testing.T, secret map[string]interface{}, port int) 
         }
 }
 
-func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
+func iamAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
         return func(resp http.ResponseWriter, req *http.Request) {
                 switch req.Method {
                 case "POST", "PUT":
                         prefix := fmt.Sprintf("[ POST http://127.0.0.1:%d/v1/auth/aws/login ]", port)
 
-                        var data = new(TestAwsAuthReqPayload)
+                        var data = new(TestIAMAuthReqPayload)
                         if err := jsonutil.DecodeJSONFromReader(req.Body, data); err != nil {
                                 t.Errorf("%s error unmarshaling response: %v\n", prefix, err)
                                 http.Error(resp, "", 500)
@@ -116,7 +156,7 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
 
                         if strings.ToLower(data.Role) != strings.ToLower(role) {
                                 // t.Logf("%s role %q not configured for AWS authentication\n", prefix, role)
-                                http.Error(resp, "", 400)
+                                http.Error(resp, fmt.Sprintf("* entry for role %q not found", data.Role), 400)
                                 return
                         }
 
@@ -170,6 +210,60 @@ func awsAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
                                 http.Error(resp, "", 400)
                                 return
                         }
+                        // return the expected response with random uuid
+                        token, err := uuid.GenerateUUID()
+                        if err != nil {
+                                t.Errorf("%s failed to create a random UUID: %v\n", prefix, err)
+                                http.Error(resp, "", 500)
+                                return
+                        }
+
+                        respData := &api.Secret{
+                                Auth: &api.SecretAuth{
+                                        ClientToken: token,
+                                },
+                        }
+
+                        payload, err := jsonutil.EncodeJSON(respData)
+                        if err != nil {
+                                t.Errorf("%s error marshaling response payload: %v\n", prefix, err)
+                                http.Error(resp, "", 500)
+                                return
+                        }
+
+                        resp.Header().Set("Content-Type", "application/json")
+                        resp.Write(payload)
+                        return
+                default:
+                        http.Error(resp, "", 405)
+                        return
+                }
+        }
+}
+
+func ec2AuthHandler(t *testing.T, role, pkcs7 string, port int) http.HandlerFunc {
+        return func(resp http.ResponseWriter, req *http.Request) {
+                switch req.Method {
+                case "POST", "PUT":
+                        prefix := fmt.Sprintf("[ POST http://127.0.0.1:%d/v1/auth/aws/login ]", port)
+
+                        var data = new(TestEC2AuthReqPayload)
+                        if err := jsonutil.DecodeJSONFromReader(req.Body, data); err != nil {
+                                t.Errorf("%s error unmarshaling response: %v\n", prefix, err)
+                                http.Error(resp, "", 500)
+                                return
+                        }
+
+                        if strings.ToLower(data.Role) != strings.ToLower(role) {
+                                http.Error(resp, fmt.Sprintf("* entry for role %q not found", data.Role), 400)
+                                return
+                        }
+
+			if strings.Replace(pkcs7, "\n", "", -1) != data.PKCS7 {
+				http.Error(resp, "* client nonce mismatch", 400)
+				return
+			}
+
                         // return the expected response with random uuid
                         token, err := uuid.GenerateUUID()
                         if err != nil {

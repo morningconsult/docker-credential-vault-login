@@ -1,0 +1,5 @@
+{
+  "vault_auth_method": "ec2",
+  "vault_role": "dev-iam-role",
+  "vault_secret_path": "secret/foo/bar"
+}

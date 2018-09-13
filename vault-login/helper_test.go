@@ -33,13 +33,15 @@ const (
 )
 
 var (
-	testAwsConfigFile   string = filepath.Join("testdata", "config_aws.json")
+	testConfigFilename  string = filepath.Join("testdata", "shared_config")
+	testIAMConfigFile   string = filepath.Join("testdata", "config_iam.json")
+	testEC2ConfigFile   string = filepath.Join("testdata", "config_ec2.json")
 	testTokenConfigFile string = filepath.Join("testdata", "config_token.json")
 )
 
-func TestHelperGet_AWS_Success(t *testing.T) {
+func TestHelperGet_IAM_Success(t *testing.T) {
 	var (
-		testConfigFile = testAwsConfigFile
+		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
 			SecretPath: cfg.Secret,
@@ -51,7 +53,7 @@ func TestHelperGet_AWS_Success(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServer(t, opts)
+	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -80,13 +82,13 @@ func TestHelperGet_AWS_Success(t *testing.T) {
 	}
 }
 
-// TestHelperGet_AWS_BadPath tests that when a user does not provide
+// TestHelperGet_IAM_BadPath tests that when a user does not provide
 // the path to their Docker credentials in the "vault_secret_path"
 // field of the config.json file, the helper.Get() method returns
 // an error
-func TestHelperGet_AWS_BadPath(t *testing.T) {
+func TestHelperGet_IAM_BadPath(t *testing.T) {
 	var (
-		testConfigFile = testAwsConfigFile
+		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
 			// secretPath delibarately does not match the "vault_secret_path" field
@@ -101,7 +103,7 @@ func TestHelperGet_AWS_BadPath(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServer(t, opts)
+	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -124,13 +126,13 @@ func TestHelperGet_AWS_BadPath(t *testing.T) {
 	}
 }
 
-// TestHelperGet_AWS_NoSecret tests that when a user provides the path
+// TestHelperGet_IAM_NoSecret tests that when a user provides the path
 // to their Docker credentials in the "vault_secret_path" field of
 // the config.json file but no credentials are present at that location,
 // the helper.Get() method returns an error.
-func TestHelperGet_AWS_NoSecret(t *testing.T) {
+func TestHelperGet_IAM_NoSecret(t *testing.T) {
 	var (
-		testConfigFile = testAwsConfigFile
+		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
 			SecretPath: cfg.Secret,
@@ -142,7 +144,7 @@ func TestHelperGet_AWS_NoSecret(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServer(t, opts)
+	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -165,13 +167,13 @@ func TestHelperGet_AWS_NoSecret(t *testing.T) {
 	}
 }
 
-// TestHelperGet_AWS_BadRole tests that when a user provides a Vault role
+// TestHelperGet_IAM_BadRole tests that when a user provides a Vault role
 // in the "vault_role" field of the config.json file that has not been
 // configured with the IAM role used to authenticate againt AWS,
 // the helper.Get() method returns an error.
-func TestHelperGet_AWS_BadRole(t *testing.T) {
+func TestHelperGet_IAM_BadRole(t *testing.T) {
 	var (
-		testConfigFile = testAwsConfigFile
+		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
 			SecretPath: cfg.Secret,
@@ -180,7 +182,7 @@ func TestHelperGet_AWS_BadRole(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServer(t, opts)
+	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -203,7 +205,7 @@ func TestHelperGet_AWS_BadRole(t *testing.T) {
 	}
 }
 
-// TestHelperGet_AWS_MalformedSecret tests that when the Vault secret
+// TestHelperGet_IAM_MalformedSecret tests that when the Vault secret
 // representing the Docker credentials is not properly formatted,
 // the helper.Get() method returns an error. Note that this program
 // expects the Docker credentials to be stored in Vault as follows:
@@ -211,9 +213,9 @@ func TestHelperGet_AWS_BadRole(t *testing.T) {
 //      "username": "docker_user",
 //      "password": "password"
 // }
-func TestHelperGet_AWS_MalformedSecret(t *testing.T) {
+func TestHelperGet_IAM_MalformedSecret(t *testing.T) {
 	var (
-		testConfigFile = testAwsConfigFile
+		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
 			SecretPath: cfg.Secret,
@@ -226,7 +228,7 @@ func TestHelperGet_AWS_MalformedSecret(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServer(t, opts)
+	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -247,6 +249,56 @@ func TestHelperGet_AWS_MalformedSecret(t *testing.T) {
 	if err == nil {
 		t.Errorf("should have returned and error, but didn't.")
 	}
+}
+
+func TestHelperGet_IAM_FactoryError(t *testing.T) {
+	var testConfigFile = testIAMConfigFile
+
+	// Backwards compatibility with Shared config disabled
+	// assume role should not be built into the config.
+	oldEnv := initSessionTestEnv()
+	defer awstesting.PopEnv(oldEnv)
+
+	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", testConfigFilename)
+	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
+
+	// Set the environment variable informing the program where
+	// the config.json file is located
+	os.Setenv(config.EnvConfigFilePath, testConfigFile)
+
+	helper := NewHelper(nil)
+	_, _, err := helper.Get("")
+	if err == nil {
+		t.Fatal("should have returned and error, but didn't.")
+	}
+
+	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
+}
+
+func TestHelperGet_EC2_FactoryError(t *testing.T) {
+	var testConfigFile = testEC2ConfigFile
+
+	// Backwards compatibility with Shared config disabled
+	// assume role should not be built into the config.
+	oldEnv := initSessionTestEnv()
+	defer awstesting.PopEnv(oldEnv)
+
+	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", testConfigFilename)
+	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
+
+	// Set the environment variable informing the program where
+	// the config.json file is located
+	os.Setenv(config.EnvConfigFilePath, testConfigFile)
+
+	helper := NewHelper(nil)
+	_, _, err := helper.Get("")
+	if err == nil {
+		t.Fatal("should have returned and error, but didn't.")
+	}
+
+	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
 
 func TestHelperGet_Token_Success(t *testing.T) {
@@ -438,4 +490,12 @@ func readConfig(t *testing.T, testConfigFile string) *config.CredHelperConfig {
 		t.Fatal(err)
 	}
 	return cfg
+}
+
+func initSessionTestEnv() (oldEnv []string) {
+	oldEnv = awstesting.StashEnv()
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
+
+	return oldEnv
 }
