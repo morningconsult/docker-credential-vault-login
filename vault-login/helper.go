@@ -52,13 +52,18 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// authentication method specified in the config file
 	switch cfg.Method {
 	case config.VaultAuthMethodAWSIAM:
-		factory = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
+		factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
 	case config.VaultAuthMethodAWSEC2:
-		factory = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
+		factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
 	case config.VaultAuthMethodToken:
 		factory = vault.NewClientFactoryTokenAuth()
 	default:
 		log.Errorf("Unknown authentication method: %q", cfg.Method)
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+
+	if err != nil {
+		log.Errorf("Error creating new client factory: %v", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 

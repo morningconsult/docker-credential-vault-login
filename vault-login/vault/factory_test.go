@@ -23,7 +23,11 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-        factory := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
         vaultClient, err := factory.NewClient()
         if err != nil {
                 t.Fatal(err)
@@ -52,8 +56,12 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-        factory := NewClientFactoryAWSIAMAuth(badrole, "")
-        _, err := factory.NewClient()
+	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+        _, err = factory.NewClient()
         if err == nil {
                 t.Fatal("Expected to receive an error but didn't")
         }
@@ -77,8 +85,12 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
         // Incorrect Vault test server URL
         os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
 
-        factory := NewClientFactoryAWSIAMAuth(role, "")
-        _, err := factory.NewClient()
+	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+        _, err = factory.NewClient()
         if err == nil {
                 t.Fatal("Expected to receive an error but didn't")
 	}
@@ -103,7 +115,11 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-        factory := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
         clientWithToken, err := factory.WithClient(clientNoToken)
         if err != nil {
                 t.Fatal(err)
@@ -137,7 +153,11 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-        factory := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
         _, err = factory.WithClient(clientNoToken)
         if err == nil {
                 t.Error("Expected to receive an error but didn't")
@@ -162,7 +182,10 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
         test.SetTestAWSEnvVars()
         os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory := NewClientFactoryAWSIAMAuth(badrole, "")
+	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	if err != nil {
+		t.Fatal(err)
+	}
 	
 	clientNoToken, err := api.NewClient(nil)
 	if err != nil {
@@ -186,7 +209,7 @@ func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
         }
         os.Setenv("VAULT_TOKEN", token)
 
-        factory := NewClientFactoryTokenAuth()
+	factory := NewClientFactoryTokenAuth()
         client, err := factory.NewClient()
         if err != nil {
                 t.Fatal(err)
@@ -208,7 +231,7 @@ func TestNewClientFactoryTokenAuth_NewClient_NoToken(t *testing.T) {
         defer awstesting.PopEnv(oldEnv)
         os.Unsetenv("VAULT_TOKEN")
 
-        factory := NewClientFactoryTokenAuth()
+	factory := NewClientFactoryTokenAuth()
         _, err := factory.NewClient()
         if err == nil {
                 t.Fatal("Expected to receive an error but didn't")
@@ -227,7 +250,6 @@ func TestNewClientFactoryTokenAuth_WithClient_Success(t *testing.T) {
         os.Setenv("VAULT_TOKEN", token)
 
 	factory := NewClientFactoryTokenAuth()
-
 	client, err := api.NewClient(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +275,6 @@ func TestNewClientFactoryTokenAuth_WithClient_NoToken(t *testing.T) {
 	os.Unsetenv("VAULT_TOKEN")
 
 	factory := NewClientFactoryTokenAuth()
-
 	client, err := api.NewClient(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -278,7 +299,6 @@ func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
 	os.Setenv("VAULT_ADDR", badURL)
 
 	factory := NewClientFactoryTokenAuth()
-
 	_, err := factory.NewClient()
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
@@ -297,9 +317,12 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadURL(t *testing.T) {
         defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", badURL)
 
-	factory := NewClientFactoryAWSIAMAuth("test-role", "")
+	factory, err := NewClientFactoryAWSIAMAuth("test-role", "")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, err := factory.NewClient()
+	_, err = factory.NewClient()
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}

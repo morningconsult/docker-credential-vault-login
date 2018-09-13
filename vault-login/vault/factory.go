@@ -22,7 +22,12 @@ type ClientFactory interface {
 // Vault API client a valid token. The token is obtained by
 // authenticating against Vault via its AWS IAM endpoint.
 type ClientFactoryAWSIAMAuth struct {
-        // (Required) role is the Vault role associated with the
+        // awsClient is used to call AWS functions as needed
+        // to obtain the information necessary to authenticate
+        // against Vault via the AWS login endpoint
+        awsClient aws.Client
+
+        // role is the Vault role associated with the
         // IAM role used in the sts:GetCallerIdentity request. This
         // Vault role should have permission to read the secret
         // specified in your config.json file.
@@ -34,11 +39,18 @@ type ClientFactoryAWSIAMAuth struct {
         serverID string
 }
 
-func NewClientFactoryAWSIAMAuth(role, serverID string) ClientFactory {
-        return &ClientFactoryAWSIAMAuth{
-                role:     role,
-                serverID: serverID,
+func NewClientFactoryAWSIAMAuth(role, serverID string) (ClientFactory, error) {
+        // Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
+                return nil, err
         }
+
+        return &ClientFactoryAWSIAMAuth{
+                awsClient: awsClient,
+                role:      role,
+                serverID:  serverID,
+        }, nil
 }
 
 // NewClient creates a new Vault API client and uses it to attempt to
@@ -81,15 +93,9 @@ func (c *ClientFactoryAWSIAMAuth) WithClient(vaultClient *api.Client) (Client, e
 // endpoint, makes the authentication request to Vault, and if successful it
 // sets the token of Vault API client with the newly-created Vault token. 
 func (c *ClientFactoryAWSIAMAuth) getAndSetToken(vaultClient *api.Client) error {
-        // Create a new AWS client
-        awsClient, err := aws.NewDefaultClient()
-        if err != nil {
-                return err
-        }
-
         // Create an sts:GetCallerIdentity request and return the elements
         // of the request needed for Vault to authenticate against IAM
-        elems, err := awsClient.GetIAMAuthElements(c.serverID)
+        elems, err := c.awsClient.GetIAMAuthElements(c.serverID)
         if err != nil {
                 return err
         }
@@ -126,15 +132,29 @@ func (c *ClientFactoryAWSIAMAuth) getAndSetToken(vaultClient *api.Client) error 
 // Vault API client a valid token. The token is obtained by
 // authenticating against Vault via its AWS EC2 endpoint.
 type ClientFactoryAWSEC2Auth struct {
-	// (Required) role is the Vault role associated with the
+        // awsClient is used to call AWS functions as needed
+        // to obtain the information necessary to authenticate
+        // against Vault via the AWS login endpoint
+        awsClient aws.Client
+        
+	// role is the Vault role associated with the
         // IAM role used in the sts:GetCallerIdentity request. This
         // Vault role should have permission to read the secret
         // specified in your config.json file.
 	role string
 }
 
-func NewClientFactoryAWSEC2Auth(role string) ClientFactory {
-	return &ClientFactoryAWSEC2Auth{role}
+func NewClientFactoryAWSEC2Auth(role string) (ClientFactory, error) {
+        // Create a new AWS client
+        awsClient, err := aws.NewDefaultClient()
+        if err != nil {
+                return nil, err
+        }
+
+	return &ClientFactoryAWSEC2Auth{
+                awsClient: awsClient,
+                role:      role,
+        }, nil
 }
 
 // NewClient creates a new Vault API client and uses it to attempt to
@@ -173,15 +193,9 @@ func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, e
 }
 
 func (c *ClientFactoryAWSEC2Auth) getAndSetToken(vaultClient *api.Client) error {
-	// Create a new AWS client
-        awsClient, err := aws.NewDefaultClient()
-        if err != nil {
-                return err
-        }
-
 	// Get the elements of the EC2 metadata required to
 	// authenticate against Vault
-        pkcs7, err := awsClient.GetPKCS7Signature()
+        pkcs7, err := c.awsClient.GetPKCS7Signature()
         if err != nil {
                 return err
 	}
