@@ -68,6 +68,8 @@ The configuration file should include the following:
 }
 ```
 
+## Usage
+
 ### EC2 Authentication Method
 
 If the `ec2` authentication is chosen, be sure that the instance on which this application will run is indeed an EC2 instance and that the Vault role given in the `vault_role` field of the `config.json` file is bound to the AMI ID of the instance and that it has permission to authenticate via the EC2 method (see this [example](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-)). 
