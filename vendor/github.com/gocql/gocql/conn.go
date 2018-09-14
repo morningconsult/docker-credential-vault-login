@@ -124,8 +124,10 @@ var TimeoutLimit int64 = 0
 // queries, but users are usually advised to use a more reliable, higher
 // level API.
 type Conn struct {
-	conn          net.Conn
-	r             *bufio.Reader
+	conn net.Conn
+	r    *bufio.Reader
+	w    io.Writer
+
 	timeout       time.Duration
 	cfg           *ConnConfig
 	frameObserver FrameHeaderObserver
@@ -208,6 +210,10 @@ func (s *Session) dial(host *HostInfo, cfg *ConnConfig, errorHandler ConnErrorHa
 		streams:       streams.New(cfg.ProtoVersion),
 		host:          host,
 		frameObserver: s.frameObserver,
+		w: &deadlineWriter{
+			w:       conn,
+			timeout: cfg.Timeout,
+		},
 	}
 
 	var (
@@ -215,9 +221,9 @@ func (s *Session) dial(host *HostInfo, cfg *ConnConfig, errorHandler ConnErrorHa
 		cancel func()
 	)
 	if cfg.ConnectTimeout > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), cfg.ConnectTimeout)
+		ctx, cancel = context.WithTimeout(context.TODO(), cfg.ConnectTimeout)
 	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, cancel = context.WithCancel(context.TODO())
 	}
 	defer cancel()
 
@@ -257,17 +263,23 @@ func (s *Session) dial(host *HostInfo, cfg *ConnConfig, errorHandler ConnErrorHa
 		return nil, errors.New("gocql: no response to connection startup within timeout")
 	}
 
+	// dont coalesce startup frames
+	if s.cfg.WriteCoalesceWaitTime > 0 {
+		w := &writeCoalescer{
+			cond: sync.NewCond(&sync.Mutex{}),
+			w:    c.w,
+		}
+		go w.writeFlusher(s.cfg.WriteCoalesceWaitTime, c.quit)
+		c.w = w
+	}
+
 	go c.serve()
 
 	return c, nil
 }
 
-func (c *Conn) Write(p []byte) (int, error) {
-	if c.timeout > 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
-	}
-
-	return c.conn.Write(p)
+func (c *Conn) Write(p []byte) (n int, err error) {
+	return c.w.Write(p)
 }
 
 func (c *Conn) Read(p []byte) (n int, err error) {
@@ -584,11 +596,82 @@ type callReq struct {
 	timer *time.Timer
 }
 
-func (c *Conn) exec(ctx context.Context, req frameWriter, tracer Tracer) (*framer, error) {
-	if ctx != nil && ctx.Err() != nil {
-		return nil, ctx.Err()
+type deadlineWriter struct {
+	w interface {
+		SetWriteDeadline(time.Time) error
+		io.Writer
+	}
+	timeout time.Duration
+}
+
+func (c *deadlineWriter) Write(p []byte) (int, error) {
+	if c.timeout > 0 {
+		c.w.SetWriteDeadline(time.Now().Add(c.timeout))
+	}
+	return c.w.Write(p)
+}
+
+type writeCoalescer struct {
+	w io.Writer
+
+	cond    *sync.Cond
+	buffers net.Buffers
+
+	// result of the write
+	err error
+}
+
+func (w *writeCoalescer) flush() {
+	w.cond.L.Lock()
+	defer w.cond.L.Unlock()
+
+	if len(w.buffers) == 0 {
+		return
 	}
 
+	// Given we are going to do a fanout n is useless and according to
+	// the docs WriteTo should return 0 and err or bytes written and
+	// no error.
+	_, w.err = w.buffers.WriteTo(w.w)
+	if w.err != nil {
+		w.buffers = nil
+	}
+	w.cond.Broadcast()
+}
+
+func (w *writeCoalescer) Write(p []byte) (int, error) {
+	w.cond.L.Lock()
+	w.buffers = append(w.buffers, p)
+	for len(w.buffers) != 0 {
+		w.cond.Wait()
+	}
+
+	err := w.err
+	w.cond.L.Unlock()
+
+	if err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (w *writeCoalescer) writeFlusher(interval time.Duration, quit chan struct{}) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	defer w.flush()
+
+	for {
+		select {
+		case <-quit:
+			return
+		case <-ticker.C:
+		}
+
+		w.flush()
+	}
+}
+
+func (c *Conn) exec(ctx context.Context, req frameWriter, tracer Tracer) (*framer, error) {
 	// TODO: move tracer onto conn
 	stream, ok := c.streams.GetStream()
 	if !ok {
@@ -725,6 +808,9 @@ func (c *Conn) prepareStatement(ctx context.Context, stmt string, tracer Tracer)
 	prep := &writePrepareFrame{
 		statement: stmt,
 	}
+	if c.version > protoVersion4 {
+		prep.keyspace = c.currentKeyspace
+	}
 
 	framer, err := c.exec(ctx, prep, tracer)
 	if err != nil {
@@ -794,41 +880,6 @@ func marshalQueryValue(typ TypeInfo, value interface{}, dst *queryValues) error 
 }
 
 func (c *Conn) executeQuery(qry *Query) *Iter {
-	ctx := qry.context
-	if rt, ok := qry.rt.(RetryPolicyWithAttemptTimeout); ok && rt.AttemptTimeout() > 0 {
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		var cancel func()
-		ctx, cancel = context.WithCancel(ctx)
-		defer cancel()
-		if qry.attemptTimeoutTimer == nil {
-			qry.attemptTimeoutTimer = time.NewTimer(0)
-			<-qry.attemptTimeoutTimer.C
-		} else {
-			if !qry.attemptTimeoutTimer.Stop() {
-				select {
-				case <-qry.attemptTimeoutTimer.C:
-				default:
-				}
-			}
-		}
-
-		qry.attemptTimeoutTimer.Reset(rt.AttemptTimeout())
-		timeoutCh := qry.attemptTimeoutTimer.C
-
-		go func() {
-			select {
-			case <-ctx.Done():
-				qry.attemptTimeoutTimer.Stop()
-				break
-			case <-timeoutCh:
-				break
-			}
-			cancel()
-		}()
-	}
-
 	params := queryParams{
 		consistency: qry.cons,
 	}
@@ -844,6 +895,9 @@ func (c *Conn) executeQuery(qry *Query) *Iter {
 	if qry.pageSize > 0 {
 		params.pageSize = qry.pageSize
 	}
+	if c.version > protoVersion4 {
+		params.keyspace = c.currentKeyspace
+	}
 
 	var (
 		frame frameWriter
@@ -853,7 +907,7 @@ func (c *Conn) executeQuery(qry *Query) *Iter {
 	if qry.shouldPrepare() {
 		// Prepare all DML queries. Other queries can not be prepared.
 		var err error
-		info, err = c.prepareStatement(ctx, qry.stmt, qry.trace)
+		info, err = c.prepareStatement(qry.context, qry.stmt, qry.trace)
 		if err != nil {
 			return &Iter{err: err}
 		}
@@ -892,17 +946,19 @@ func (c *Conn) executeQuery(qry *Query) *Iter {
 		params.skipMeta = !(c.session.cfg.DisableSkipMetadata || qry.disableSkipMetadata)
 
 		frame = &writeExecuteFrame{
-			preparedID: info.id,
-			params:     params,
+			preparedID:    info.id,
+			params:        params,
+			customPayload: qry.customPayload,
 		}
 	} else {
 		frame = &writeQueryFrame{
-			statement: qry.stmt,
-			params:    params,
+			statement:     qry.stmt,
+			params:        params,
+			customPayload: qry.customPayload,
 		}
 	}
 
-	framer, err := c.exec(ctx, frame, qry.trace)
+	framer, err := c.exec(qry.context, frame, qry.trace)
 	if err != nil {
 		return &Iter{err: err}
 	}
@@ -1039,6 +1095,7 @@ func (c *Conn) executeBatch(batch *Batch) *Iter {
 		serialConsistency:     batch.serialCons,
 		defaultTimestamp:      batch.defaultTimestamp,
 		defaultTimestampValue: batch.defaultTimestampValue,
+		customPayload:         batch.CustomPayload,
 	}
 
 	stmts := make(map[string]string, len(batch.Entries))

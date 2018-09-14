@@ -7,6 +7,7 @@ package gocql
 import (
 	"fmt"
 	"math/big"
+	"net"
 	"reflect"
 	"strings"
 	"time"
@@ -59,6 +60,8 @@ func goType(t TypeInfo) reflect.Type {
 		return reflect.TypeOf(make(map[string]interface{}))
 	case TypeDate:
 		return reflect.TypeOf(*new(time.Time))
+	case TypeDuration:
+		return reflect.TypeOf(*new(Duration))
 	default:
 		return nil
 	}
@@ -129,11 +132,7 @@ func getCassandraType(name string) TypeInfo {
 			Elem:       getCassandraType(strings.TrimPrefix(name[:len(name)-1], "list<")),
 		}
 	} else if strings.HasPrefix(name, "map<") {
-		names := strings.Split(strings.TrimPrefix(name[:len(name)-1], "map<"), ", ")
-		if len(names) != 2 {
-			panic(fmt.Sprintf("invalid map type: %v", name))
-		}
-
+		names := strings.SplitN(strings.TrimPrefix(name[:len(name)-1], "map<"), ", ", 2)
 		return CollectionType{
 			NativeType: NativeType{typ: TypeMap},
 			Key:        getCassandraType(names[0]),
@@ -202,6 +201,8 @@ func getApacheCassandraType(class string) Type {
 		return TypeSet
 	case "TupleType":
 		return TypeTuple
+	case "DurationType":
+		return TypeDuration
 	default:
 		return TypeCustom
 	}
@@ -362,4 +363,14 @@ func copyBytes(p []byte) []byte {
 	b := make([]byte, len(p))
 	copy(b, p)
 	return b
+}
+
+var failDNS = false
+
+func LookupIP(host string) ([]net.IP, error) {
+	if failDNS {
+		return nil, &net.DNSError{}
+	}
+	return net.LookupIP(host)
+
 }
