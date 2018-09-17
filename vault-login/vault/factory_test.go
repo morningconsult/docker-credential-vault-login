@@ -9,8 +9,8 @@ import (
 	"github.com/golang/mock/gomock"
         uuid "github.com/hashicorp/go-uuid"
 	"github.com/aws/aws-sdk-go/awstesting"
-	"gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws/mocks"
-        test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws/mocks"
+        test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
 func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {

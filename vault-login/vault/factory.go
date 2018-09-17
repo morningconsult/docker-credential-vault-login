@@ -9,7 +9,7 @@ import (
 
         "github.com/hashicorp/vault/api"
         "github.com/hashicorp/vault/helper/jsonutil"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/aws"
+        "github.com/morningconsult/docker-credential-vault-login/vault-login/aws"
 )
 
 type ClientFactory interface {

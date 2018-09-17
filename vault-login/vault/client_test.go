@@ -3,7 +3,7 @@ package vault
 import (
         "fmt"
         "testing"
-        test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
+        test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
 func TestGetCredentials_Success(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 	"github.com/mitchellh/go-homedir"
-	test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
+	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
 // TestReadsFileEnv tests that the GetCredHelperConfig function

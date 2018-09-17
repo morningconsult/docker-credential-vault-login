@@ -8,7 +8,7 @@ import (
         "testing"
 
         "github.com/aws/aws-sdk-go/awstesting"
-        test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
+        test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
 const (

@@ -18,17 +18,33 @@ Within Vault, you should store your Docker credentials in the following format:
 Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
-Note: If you're pulling from Morning Consult's private GitLab, run the following in order to enable `go get`:
-```bash
-$ git config --global url."git@gitlab.morningconsult.com:".insteadOf "https://gitlab.morningconsult.com/
-```
+
+### Building binary with `go get`
 
 You can install this via `go get` with:
 ```bash
-$ go get -u gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/cli/docker-credential-vault-login
+$ go get -u github.com/morningconsult/docker-credential-vault-login/vault-login/cli/docker-credential-vault-login
 ```
 
-Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`. Place the `docker-credential-vault-login` binary on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
+Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
+
+### Building binary with Docker
+
+If you do not have Go installed locally, you can still build the binary if you have Docker installed. Simply clone this repository and run `make docker` to build the binary within the Docker container and output it to the local directory.
+
+You can cross-compile the binary using the `TARGET_GOOS` and `TARGET_GOARCH` environment variables. For example, if you wish to compile the binary for a 64-bit (x86-64) Windows machine, run the following command:
+
+```shell
+$ export TARGET_GOOS="windows"
+$ export TARGET_GOARCH="amd64"
+$ make docker
+```
+
+The binary will be output to `bin/local` of the local directory.
+
+### Docker configuration
+
+Once the `docker-credential-vault-login` binary has been built, place it on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
 ```json
 {

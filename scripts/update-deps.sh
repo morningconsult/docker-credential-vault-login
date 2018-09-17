@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # ORIGIN=$(pwd)
-GITLAB="gitlab.morningconsult.com/mci"
+ORG="github.com/morningconsult"
 TOOL="docker-credential-vault-login"
 
 ## Make a temporary directory
@@ -13,10 +13,10 @@ export PATH="${GOPATH}/bin:${PATH}"
 cd $TEMPDIR
 
 ## Get repo
-mkdir -p "src/${GITLAB}"
-cd "src/${GITLAB}"
+mkdir -p "src/${ORG}"
+cd "src/${ORG}"
 echo "Fetching ${TOOL}..."
-git clone git@gitlab.morningconsult.com:mci/${TOOL}
+git clone git@github.com:morningconsult/${TOOL}
 cd ${TOOL}
 
 ## Clean out earlier vendoring
@@ -31,4 +31,4 @@ govendor init
 echo "Fetching dependencies. This will take some time..."
 govendor fetch +missing
 
-printf "Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${GITLAB}/${TOOL}\n\n"
+printf "Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${ORG}/${TOOL}\n\n"

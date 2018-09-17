@@ -6,8 +6,8 @@ import (
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
-	"gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
-	"gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/vault"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/vault"
 )
 
 var notImplementedError = fmt.Errorf("not implemented")

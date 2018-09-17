@@ -13,9 +13,9 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 
-	"gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/config"
-	logger "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/logging"
-	test "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/testing"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
+	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
 const (

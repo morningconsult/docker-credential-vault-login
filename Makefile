@@ -1,6 +1,6 @@
 
 BIN_DIR := $(shell pwd)/bin
-REPO=gitlab.morningconsult.com/mci/docker-credential-vault-login
+REPO=github.com/morningconsult/docker-credential-vault-login
 SOURCES := $(shell find . -name '*.go')
 VERSION := $(shell cat VERSION)
 GITCOMMIT_SHA := $(shell git rev-parse HEAD)

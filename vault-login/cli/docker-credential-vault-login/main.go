@@ -7,9 +7,9 @@ import (
 
         log "github.com/cihub/seelog"
         "github.com/docker/docker-credential-helpers/credentials"
-        helper "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/logging"
-        "gitlab.morningconsult.com/mci/docker-credential-vault-login/vault-login/version"
+        helper "github.com/morningconsult/docker-credential-vault-login/vault-login"
+        "github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
+        "github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
 const banner = "Docker Credential Helper for Vault Storage v%s ('%s')\n"
