@@ -1,3 +1,4 @@
+FLY := $(shell which fly)
 
 BIN_DIR := $(shell pwd)/bin
 REPO=github.com/morningconsult/docker-credential-vault-login
@@ -54,3 +55,36 @@ mocktools:
 build_mocks: mocktools
 	PATH=$$PATH:$$$(CURDIR)/scripts/generate scripts/build-mocks.sh
 .PHONY: build_mocks
+
+
+#=============================================================================
+# Release and Deployment tasks
+
+CONCOURSE_PIPELINE := DOCKER-CREDENTIAL-VAULT-LOGIN
+
+
+check_fly:
+	if [ -z "$(FLY)" ]; then \
+		sudo mkdir -p /usr/local/bin; \
+		sudo wget -O /usr/local/bin/fly https://github.com/concourse/concourse/releases/download/v3.13.0/fly_linux_amd64; \
+		sudo chmod a+x /usr/local/bin/fly; \
+	fi
+.PHONY: check_fly
+
+
+set_pipeline: check_fly
+	$(FLY) --target mci-ci set-pipeline \
+		--config ci/pipeline.yml \
+		--pipeline $(CONCOURSE_PIPELINE) \
+		--non-interactive \
+		-v gitlab-repo="$$(git config remote.origin.url)"
+
+	$(FLY) --target mci-ci unpause-pipeline \
+		--pipeline $(CONCOURSE_PIPELINE)
+
+	$(FLY) --target mci-ci check-resource \
+		--resource $(CONCOURSE_PIPELINE)/email-api
+
+	$(FLY) --target mci-ci check-resource \
+		--resource $(CONCOURSE_PIPELINE)/test-merge-request
+.PHONY: set_pipeline
