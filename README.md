@@ -35,9 +35,7 @@ If you do not have Go installed locally, you can still build the binary if you h
 You can cross-compile the binary using the `TARGET_GOOS` and `TARGET_GOARCH` environment variables. For example, if you wish to compile the binary for a 64-bit (x86-64) Windows machine, run the following command:
 
 ```shell
-$ export TARGET_GOOS="windows"
-$ export TARGET_GOARCH="amd64"
-$ make docker
+$ TARGET_GOOS="windows" TARGET_GOARCH="amd64" make docker
 ```
 
 The binary will be output to `bin/local` of the local directory.
