@@ -11,8 +11,8 @@ You must also have an operational instance of Vault (version 0.10 or newer).
 Within Vault, you should store your Docker credentials in the following format:
 ```json
 {
-    "username": "docker@registry.user",
-    "password": "my-secure-password"
+  "username": "docker@registry.user",
+  "password": "my-secure-password"
 }
 ```
 Note that the Vault path where you store these credentials will be used as the value of the `vault_secret_path` field of your `config.json` file (see the [Configuration File](#configuration-file) section).
@@ -46,7 +46,7 @@ Once the `docker-credential-vault-login` binary has been built, place it on your
 
 ```json
 {
-	  "credsStore": "vault-login"
+  "credsStore": "vault-login"
 }
 ```
 
@@ -55,9 +55,9 @@ This configures the Docker daemon to use the credential helper for all registrie
 With Docker 1.13.0 or greater, you can configure Docker to use different credential helpers for different registries. To use this credential helper for a specific registry, create a credHelpers section with the URI of your registry:
 ```json
 {
-	  "credHelpers": {
-		    "my.docker.registry.com": "vault-login"
-	  }
+  "credHelpers": {
+    "my.docker.registry.com": "vault-login"
+  }
 }
 ```
 
