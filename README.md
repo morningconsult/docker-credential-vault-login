@@ -109,6 +109,6 @@ If your Vault instance uses TLS, you must also set the following environment var
 
 Once you've set these environmental variables, your Docker daemon will automatically look up the credentials in Vault at the path specified in the `vault_secret_path` field of your `config.json` file and use them to authenticate against your Docker registries.
 
-### Error Logs
+## Error Logs
 
 All error logs will be output to `~/.docker-credential-vault-login/log/vault-login.log` by default. If you wish to store logs in a different directory, you can specify the desired directory with the `DOCKER_CREDS_CACHE_DIR` environmental variable.
