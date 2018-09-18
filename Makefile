@@ -3,8 +3,6 @@ FLY := $(shell which fly)
 BIN_DIR := $(shell pwd)/bin
 REPO=github.com/morningconsult/docker-credential-vault-login
 SOURCES := $(shell find . -name '*.go')
-VERSION := $(shell cat VERSION)
-GITCOMMIT_SHA := $(shell git rev-parse HEAD)
 BINARY_NAME=docker-credential-vault-login
 LOCAL_BINARY=bin/local/$(BINARY_NAME)
 EXTERNAL_TOOLS=\
@@ -41,7 +39,7 @@ test:
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
+	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell cat VERSION)' '$(shell git rev-parse HEAD)' '$(REPO)'"
 	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
 mocktools:
