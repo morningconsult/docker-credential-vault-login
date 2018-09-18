@@ -28,10 +28,14 @@ func NewDefaultClient(vaultClient *api.Client) Client {
 	}
 }
 
+// RawClient returns the Vault API client
 func (d *DefaultClient) RawClient() *api.Client {
 	return d.vaultAPI
 }
 
+// GetCredentials uses the Vault API client to attempt
+// to read the secret at `path` and returns the username
+// and password, if present.
 func (d *DefaultClient) GetCredentials(path string) (*Credentials, error) {
 	var (
 		username, password string

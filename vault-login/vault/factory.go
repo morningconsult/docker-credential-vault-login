@@ -77,7 +77,7 @@ func (c *ClientFactoryAWSIAMAuth) NewClient() (Client, error) {
 // and uses it to attempt to authenticate against Vault via the AWS IAM
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient
-// object.
+// object. This function is primarily used for testing purposes.
 func (c *ClientFactoryAWSIAMAuth) WithClient(vaultClient *api.Client) (Client, error) {
 	// Build an sts:GetCallerIdentity request and login to
 	// Vault to obtain a token via Vault's AWS IAM endpoint
@@ -181,7 +181,7 @@ func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, error) {
 // and uses it to attempt to authenticate against Vault via the AWS EC2
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient
-// object.
+// object. This function is primarily used for testing purposes.
 func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, error) {
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
@@ -254,7 +254,8 @@ func (c *ClientFactoryTokenAuth) NewClient() (Client, error) {
 // WithClient retrieves the environment variable set by the VAULT_TOKEN
 // environment variable and sets the Vault API client with this token
 // and returns a DefaultClient object. Note that this will overwrite
-// the client's existing token if it has one.
+// the client's existing token if it has one. This function is primarily
+// used for testing purposes.
 func (c *ClientFactoryTokenAuth) WithClient(client *api.Client) (Client, error) {
 	if v := os.Getenv(api.EnvVaultToken); v != "" {
 		client.SetToken(v)
