@@ -1,6 +1,6 @@
 # Docker Credential Helper for Vault-stored Credentials
 
-This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon that retrieves credentials from [Vault](https://www.vaultproject.io/).
+This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon that automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) when you call `docker pull`.
 
 ## Prerequisites
 
