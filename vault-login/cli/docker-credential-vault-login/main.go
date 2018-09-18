@@ -1,8 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"flag"
+	"fmt"
 	"os"
 
 	log "github.com/cihub/seelog"
@@ -27,6 +27,6 @@ func main() {
 
 	defer log.Flush()
 	logging.SetupLogger()
-	
+
 	credentials.Serve(helper.NewHelper(nil))
 }

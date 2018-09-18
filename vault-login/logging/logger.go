@@ -2,18 +2,18 @@ package logging
 
 import (
 	"fmt"
-	"path/filepath"
 	"os"
+	"path/filepath"
 
 	log "github.com/cihub/seelog"
 	homedir "github.com/mitchellh/go-homedir"
 )
 
 const (
-	EnvCacheDir string = "DOCKER_CREDS_CACHE_DIR"
-	DefaultCacheDir string = "~/.docker-credential-vault-login"
+	EnvCacheDir        string = "DOCKER_CREDS_CACHE_DIR"
+	DefaultCacheDir    string = "~/.docker-credential-vault-login"
 	DefaultLogFilename string = "vault-login.log"
-	BackupLogFilename string = "/tmp/.docker-credential-vault-login/log/vault-login.log"
+	BackupLogFilename  string = "/tmp/.docker-credential-vault-login/log/vault-login.log"
 )
 
 func SetupLogger() {
@@ -38,7 +38,7 @@ func getMainLoggerConfig() string {
 	if v := os.Getenv(EnvCacheDir); v != "" {
 		cacheDir = v
 	}
-	
+
 	reducedFilename := filepath.Join(cacheDir, "log", DefaultLogFilename)
 	logfile, err := homedir.Expand(reducedFilename)
 	if err != nil {

@@ -5,10 +5,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hashicorp/vault/api"
+	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/golang/mock/gomock"
 	uuid "github.com/hashicorp/go-uuid"
-	"github.com/aws/aws-sdk-go/awstesting"
+	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws/mocks"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -68,7 +68,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \"" + badrole + "\" not found\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \""+badrole+"\" not found\n")
 }
 
 // TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr tests that the
@@ -96,7 +96,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
-	
+
 	test.ErrorsEqual(t, err.Error(), "Put http://127.0.0.1:12345/v1/auth/aws/login: dial tcp 127.0.0.1:12345: connect: connection refused")
 }
 
@@ -164,7 +164,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 	if err == nil {
 		t.Error("Expected to receive an error but didn't")
 	}
-	
+
 	test.ErrorsEqual(t, err.Error(), "Put http://127.0.0.1:12345/v1/auth/aws/login: dial tcp 127.0.0.1:12345: connect: connection refused")
 }
 
@@ -188,7 +188,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	clientNoToken, err := api.NewClient(nil)
 	if err != nil {
 		t.Fatal(err)
@@ -199,7 +199,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \"" + badrole + "\" not found\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \""+badrole+"\" not found\n")
 }
 
 func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
@@ -216,7 +216,7 @@ func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	c, _ := client.(*DefaultClient)
 
 	if v := c.RawClient().Token(); v == "" {
@@ -238,7 +238,7 @@ func TestNewClientFactoryTokenAuth_NewClient_NoToken(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
-	
+
 	test.ErrorsEqual(t, err.Error(), "Vault API client has no token. Make sure to set the token using the VAULT_TOKEN environment variable")
 }
 
@@ -261,13 +261,14 @@ func TestNewClientFactoryTokenAuth_WithClient_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	c, _ := defaultClient.(*DefaultClient)
 
 	if v := c.RawClient().Token(); v == "" {
 		t.Errorf("factory.NewClient() should have obtained a Vault token, but it didn't")
 	}
 }
+
 // TestNewClientFactoryTokenAuth_WithClient_NoToken test that when
 // ClientFactoryTokenAuth.WithClient() is called but the VAULT_TOKEN
 // environment variable is not set, an error is returned.
@@ -305,7 +306,7 @@ func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
-	
+
 	test.ErrorsEqual(t, err.Error(), fmt.Sprintf("parse %s: invalid URL escape \"%%&%%\"", badURL))
 }
 
@@ -357,7 +358,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -366,7 +367,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
@@ -399,7 +400,7 @@ XXav94EyMzVLpU677g2tnVswQQMwCQYHKoZIzjgEAwQuMCwCFFi2iMURcqtcbbWWuUxHSuui/QPU
 AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	const (
-		role = "dev-role-ec2"
+		role    = "dev-role-ec2"
 		badrole = "wrong-role"
 	)
 
@@ -409,7 +410,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -418,7 +419,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      badrole,
@@ -429,12 +430,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \"" + badrole + "\" not found\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \""+badrole+"\" not found\n")
 }
 
 // TestClientFactoryAWSEC2Auth_NewClient_BadPKCS7 tests that if
 // the PKCS7 signature returned by aws.Client.GetPKCS7Signature()
-// does not match the AMI ID bound to the role then then the 
+// does not match the AMI ID bound to the role then then the
 // appropriate error is returned.
 func TestClientFactoryAWSEC2Auth_NewClient_BadPKCS7(t *testing.T) {
 	const pkcs7 = `MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAaCAJIAEggHdewog
@@ -461,7 +462,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return("i am not the configured pkcs7 signature!", nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -470,7 +471,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
@@ -481,7 +482,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* client nonce mismatch\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* client nonce mismatch\n")
 }
 
 // TestClientFactoryAWSEC2Auth_NewClient_NonEC2 simulates
@@ -501,7 +502,7 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 	awsClient.EXPECT().GetPKCS7Signature().Return("", pkcs7Error)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: "hello darkness my old friend",
 	})
 	go server.ListenAndServe()
@@ -510,7 +511,7 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
@@ -549,7 +550,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -558,7 +559,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
@@ -596,7 +597,7 @@ XXav94EyMzVLpU677g2tnVswQQMwCQYHKoZIzjgEAwQuMCwCFFi2iMURcqtcbbWWuUxHSuui/QPU
 AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	const (
-		role = "dev-role-ec2"
+		role    = "dev-role-ec2"
 		badrole = "wrong-role"
 	)
 
@@ -606,7 +607,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -615,7 +616,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      badrole,
@@ -631,12 +632,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \"" + badrole + "\" not found\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \""+badrole+"\" not found\n")
 }
 
 // // TestClientFactoryAWSEC2Auth_WithClient_BadPKCS7 tests that if
 // // the PKCS7 signature returned by aws.Client.GetPKCS7Signature()
-// // does not match the AMI ID bound to the role then then the 
+// // does not match the AMI ID bound to the role then then the
 // // appropriate error is returned.
 func TestClientFactoryAWSEC2Auth_WithClient_BadPKCS7(t *testing.T) {
 	const pkcs7 = `MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAaCAJIAEggHdewog
@@ -663,7 +664,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient.EXPECT().GetPKCS7Signature().Return("i am not the configured pkcs7 signature!", nil)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: pkcs7,
 	})
 	go server.ListenAndServe()
@@ -672,7 +673,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
@@ -688,7 +689,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal("Expected to receive an error but didn't")
 	}
 
-	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1" + server.Addr + "/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* client nonce mismatch\n")
+	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* client nonce mismatch\n")
 }
 
 // // TestClientFactoryAWSEC2Auth_WithClient_NonEC2 simulates
@@ -708,7 +709,7 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 	awsClient.EXPECT().GetPKCS7Signature().Return("", pkcs7Error)
 
 	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
-		Role: role,
+		Role:  role,
 		PKCS7: "hello darkness my old friend",
 	})
 	go server.ListenAndServe()
@@ -717,7 +718,7 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 	oldEnv := awstesting.StashEnv()
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	
+
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,

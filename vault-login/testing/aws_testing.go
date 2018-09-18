@@ -15,7 +15,7 @@ const (
 	TestAccessKey string = "AKIAIJWPJLKME2OBDB6Q"
 
 	TestSecretKey string = "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"
-	
+
 	AuthHMACMethod string = "AWS4-HMAC-SHA256"
 
 	AuthSignedHeaders string = "content-length;content-type;host;x-amz-date;x-vault-aws-iam-server-id"
@@ -124,6 +124,6 @@ func ExtractAccessKeyIDFromHeaders(t *testing.T, headers map[string][]string) st
 	if start == -1 {
 		t.Fatalf("Malformed \"Authorization\" header in sts:GetCallerIdentity request")
 	}
-	cred = cred[start + 1:]
+	cred = cred[start+1:]
 	return strings.Split(cred, "/")[0]
 }

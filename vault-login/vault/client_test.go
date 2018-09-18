@@ -2,16 +2,16 @@ package vault
 
 import (
 	"fmt"
-	"testing"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
+	"testing"
 )
 
 func TestGetCredentials_Success(t *testing.T) {
 	var (
-		username = "frodo.baggins@theshire.com"
-		password = "potatoes"
+		username   = "frodo.baggins@theshire.com"
+		password   = "potatoes"
 		secretPath = "secret/foo/bar"
-		secret = map[string]interface{}{
+		secret     = map[string]interface{}{
 			"username": username,
 			"password": password,
 		}
@@ -68,8 +68,8 @@ func TestGetCredentials_WrongPath(t *testing.T) {
 func TestGetCredentials_NoUsername(t *testing.T) {
 	var (
 		secretPath = "secret/foo/bar"
-		secret = map[string]interface{}{
-			"user": "frodo.baggins@theshire.com",
+		secret     = map[string]interface{}{
+			"user":     "frodo.baggins@theshire.com",
 			"password": "potatoes",
 		}
 	)
@@ -100,9 +100,9 @@ func TestGetCredentials_NoUsername(t *testing.T) {
 func TestGetCredentials_NoPassword(t *testing.T) {
 	var (
 		secretPath = "secret/foo/bar"
-		secret = map[string]interface{}{
+		secret     = map[string]interface{}{
 			"username": "frodo.baggins@theshire.com",
-			"pw": "potatoes",
+			"pw":       "potatoes",
 		}
 	)
 
@@ -133,9 +133,9 @@ func TestGetCredentials_NoPassword(t *testing.T) {
 func TestGetCredentials_NoCreds(t *testing.T) {
 	var (
 		secretPath = "secret/foo/bar"
-		secret = map[string]interface{}{
+		secret     = map[string]interface{}{
 			"user": "frodo.baggins@theshire.com",
-			"pw": "potatoes",
+			"pw":   "potatoes",
 		}
 	)
 

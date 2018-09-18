@@ -1,18 +1,18 @@
 // Tests to write:
-// * Order of file reading 
+// * Order of file reading
 
 package config
 
 import (
 	"fmt"
-	"os"
-	"testing"
 	"github.com/mitchellh/go-homedir"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
+	"os"
+	"testing"
 )
 
 // TestReadsFileEnv tests that the GetCredHelperConfig function
-// looks for and parses the config file specified by the 
+// looks for and parses the config file specified by the
 // DOCKER_CREDS_CONFIG_FILE environment variable
 func TestReadsFileEnv(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
@@ -31,13 +31,13 @@ func TestReadsFileEnv(t *testing.T) {
 	defer os.Setenv(EnvConfigFilePath, path)
 
 	if _, err := GetCredHelperConfig(); err != nil {
-		t.Errorf("Failed to read config file specified by environment variable %s", 
+		t.Errorf("Failed to read config file specified by environment variable %s",
 			EnvConfigFilePath)
 	}
 }
 
 // TestConfigFileMissing tests that if the config file located
-// at either the default path or the path given by the 
+// at either the default path or the path given by the
 // DOCKER_CREDS_CONFIG_FILE environment variable does not exist,
 // GetCredHelperConfig() throws the appropriate error
 func TestConfigFileMissing(t *testing.T) {
@@ -49,8 +49,8 @@ func TestConfigFileMissing(t *testing.T) {
 
 	if _, err := GetCredHelperConfig(); err != nil {
 		if !os.IsNotExist(err) {
-			t.Errorf("%s (expected os.ErrNotExist, got %v)", 
-				"GetCredHelperConfig() returned unexpected error", 
+			t.Errorf("%s (expected os.ErrNotExist, got %v)",
+				"GetCredHelperConfig() returned unexpected error",
 				err)
 		}
 	} else {
@@ -81,7 +81,7 @@ func TestEmptyConfigFile(t *testing.T) {
 	}
 }
 
-// TestConfigMissingMethod tests that GetCredHelperConfig 
+// TestConfigMissingMethod tests that GetCredHelperConfig
 // return the expected error message when no authentication
 // method is provided in the configuration file.
 func TestConfigMissingMethod(t *testing.T) {
@@ -89,7 +89,7 @@ func TestConfigMissingMethod(t *testing.T) {
 	var expectedError = fmt.Sprintf("%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
 		"* No Vault authentication method (\"vault_auth_method\") is provided")
-	
+
 	cfg := &CredHelperConfig{
 		Role:     "dev-role-iam",
 		Secret:   "secret/foo/bar",
@@ -110,17 +110,17 @@ func TestConfigMissingMethod(t *testing.T) {
 	}
 }
 
-// TestConfigMissingSecret tests that GetCredHelperConfig 
+// TestConfigMissingSecret tests that GetCredHelperConfig
 // returns the expected error message when no path to a Vault
-// secret is provided in the configuration file. This secret 
-// is the location in Vault at which your Docker credentials 
+// secret is provided in the configuration file. This secret
+// is the location in Vault at which your Docker credentials
 // are stored
 func TestConfigMissingSecret(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile-5.json"
 	var expectedError = fmt.Sprintf("%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
 		"* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
-	
+
 	cfg := &CredHelperConfig{
 		Method:   VaultAuthMethodAWSIAM,
 		Role:     "dev-role-iam",
@@ -150,10 +150,10 @@ func TestConfigMissingToken(t *testing.T) {
 	var expectedError = fmt.Sprintf("%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
 		"* VAULT_TOKEN environment variable is not set")
-	
+
 	cfg := &CredHelperConfig{
-		Method:   VaultAuthMethodToken,
-		Secret:   "secret/foo/bar",
+		Method: VaultAuthMethodToken,
+		Secret: "secret/foo/bar",
 	}
 	data := test.EncodeJSON(t, cfg)
 	test.MakeFile(t, testFilePath, data)
@@ -174,7 +174,7 @@ func TestConfigMissingToken(t *testing.T) {
 	}
 }
 
-// TestConfigMissingRole tests that GetCredHelperConfig 
+// TestConfigMissingRole tests that GetCredHelperConfig
 // returns the expected error message when no Vault role
 // is provided in the configuration file when the AWS auth
 // method is chosen
@@ -184,10 +184,10 @@ func TestConfigMissingRole(t *testing.T) {
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
 		"* No Vault role (\"vault_role\") is provided (required when ",
 		"the AWS authentication method is chosen)")
-	
+
 	cfg := &CredHelperConfig{
-		Method:   VaultAuthMethodAWSIAM,
-		Secret:   "secret/foo/bar",
+		Method: VaultAuthMethodAWSIAM,
+		Secret: "secret/foo/bar",
 	}
 	data := test.EncodeJSON(t, cfg)
 	test.MakeFile(t, testFilePath, data)
@@ -211,17 +211,17 @@ func TestConfigMissingRole(t *testing.T) {
 func TestConfigBadAuthMethod(t *testing.T) {
 	const (
 		testFilePath = "/tmp/docker-credential-vault-login-testfile-8.json"
-		badMethod = "potato"
+		badMethod    = "potato"
 	)
-	
+
 	var expectedError = fmt.Sprintf("%s\n* %s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
 		fmt.Sprintf(`Unrecognized Vault authentication method ("vault_auth_method") value %q (must be one of "iam", "ec2", or "token")`, badMethod),
 	)
-	
+
 	cfg := &CredHelperConfig{
-		Method:   VaultAuthMethod("potato"),
-		Secret:   "secret/foo/bar",
+		Method: VaultAuthMethod("potato"),
+		Secret: "secret/foo/bar",
 	}
 	data := test.EncodeJSON(t, cfg)
 	test.MakeFile(t, testFilePath, data)
@@ -249,7 +249,7 @@ func TestConfigAllowsTildeInPath(t *testing.T) {
 		Secret:   "secret/foo/bar",
 		ServerID: "vault.example.com",
 	}
-	
+
 	pathExpanded, err := homedir.Expand(testFilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +265,7 @@ func TestConfigAllowsTildeInPath(t *testing.T) {
 	defer os.Setenv(EnvConfigFilePath, path)
 
 	if _, err := GetCredHelperConfig(); err != nil {
-		t.Errorf("Failed to read config file specified by environment variable %s", 
+		t.Errorf("Failed to read config file specified by environment variable %s",
 			EnvConfigFilePath)
 	}
 }

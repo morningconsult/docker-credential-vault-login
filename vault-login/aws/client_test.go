@@ -71,9 +71,9 @@ func TestReadsEnvFirst(t *testing.T) {
 		t.Fatalf("error creating sts:GetCallerIdentity request: %v", err)
 	}
 	accessKey := test.ExtractAccessKeyIDFromHeaders(t, elems.Headers)
-	
+
 	if accessKey != TestAccessKey {
-		t.Errorf("%s %s\nGot:\n%q\n\nExpected:\n%q\n", "Credential value of the \"Authorization\" header", 
+		t.Errorf("%s %s\nGot:\n%q\n\nExpected:\n%q\n", "Credential value of the \"Authorization\" header",
 			"of the sts:GetCallerIdentity request has the wrong AWS Access Key ID:\n",
 			accessKey, TestAccessKey)
 	}
@@ -139,17 +139,17 @@ func TestWithServerID(t *testing.T) {
 
 // TestExpectedValues tests that GetIAMAuthElements creates an
 // IAMAuthElements struct with expected values when provided AWS
-// credentials (via environment variables in this unit test) 
+// credentials (via environment variables in this unit test)
 // and a server ID.
 func TestExpectedValues(t *testing.T) {
 	var (
 		serverID = "vault.example.com"
 		expected = IAMAuthElements{
-			Method:  "POST",
-			URL:     "https://sts.amazonaws.com/",
-			Body:    []byte("Action=GetCallerIdentity&Version=2011-06-15"),
+			Method: "POST",
+			URL:    "https://sts.amazonaws.com/",
+			Body:   []byte("Action=GetCallerIdentity&Version=2011-06-15"),
 			Headers: map[string][]string{
-				"Content-Type":              []string{
+				"Content-Type": []string{
 					"application/x-www-form-urlencoded; charset=utf-8",
 				},
 				"Content-Length":            []string{"43"},
@@ -175,11 +175,11 @@ func TestExpectedValues(t *testing.T) {
 	}
 
 	if elems.Method != expected.Method {
-		t.Errorf("got unexpected HTTP request method (Got: %q; Expected: %q)", 
+		t.Errorf("got unexpected HTTP request method (Got: %q; Expected: %q)",
 			elems.Method, expected.Method)
 	}
 	if elems.URL != expected.URL {
-		t.Errorf("got unexpected HTTP request URL (Got: %q; Expected: %q)", 
+		t.Errorf("got unexpected HTTP request URL (Got: %q; Expected: %q)",
 			elems.URL, expected.URL)
 	}
 	if string(elems.Body) != string(expected.Body) {

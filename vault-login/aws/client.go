@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	log "github.com/cihub/seelog"
+	ec2 "github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/request"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
-	"github.com/aws/aws-sdk-go/aws/request"
-	ec2 "github.com/aws/aws-sdk-go/aws/ec2metadata"
+	log "github.com/cihub/seelog"
 )
 
 const DefaultSTSGetCallerIdentityBody string = "Action=GetCallerIdentity&Version=2011-06-15"
@@ -57,7 +57,7 @@ func (d *defaultClient) GetIAMAuthElements(serverID string) (*IAMAuthElements, e
 
 	body, err := ioutil.ReadAll(req.HTTPRequest.Body)
 	if err != nil {
-		log.Debugf("Error reading sts:GetCallerIdentity request body. Using default value %q instead. Error message:\n%v", 
+		log.Debugf("Error reading sts:GetCallerIdentity request body. Using default value %q instead. Error message:\n%v",
 			DefaultSTSGetCallerIdentityBody)
 	} else {
 		body = []byte(DefaultSTSGetCallerIdentityBody)

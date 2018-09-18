@@ -1,9 +1,9 @@
 package test
 
 import (
+	"github.com/hashicorp/vault/helper/jsonutil"
 	"os"
 	"testing"
-	"github.com/hashicorp/vault/helper/jsonutil"
 )
 
 func ErrorsEqual(t *testing.T, got interface{}, expected string) {
@@ -21,7 +21,7 @@ func ErrorsEqual(t *testing.T, got interface{}, expected string) {
 	default:
 		t.Fatalf("bad type passed to test.ErrorsEqual()")
 	}
-	
+
 }
 
 func MakeFile(t *testing.T, name string, data []byte) {

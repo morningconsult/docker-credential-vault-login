@@ -5,15 +5,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/mitchellh/go-homedir"
 )
 
 type VaultAuthMethod string
 
 const (
 	VaultAuthMethodAWSIAM = VaultAuthMethod("iam")
-	
+
 	VaultAuthMethodAWSEC2 = VaultAuthMethod("ec2")
 
 	VaultAuthMethodToken = VaultAuthMethod("token")
@@ -59,7 +59,7 @@ func parseConfigFile() (*CredHelperConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	defer file.Close()
 
 	var cfg = new(CredHelperConfig)
@@ -100,7 +100,7 @@ func (c *CredHelperConfig) validate() error {
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("Configuration file %s has the following errors:\n* %s", 
+		return fmt.Errorf("Configuration file %s has the following errors:\n* %s",
 			c.Path, strings.Join(errors, "\n* "))
 	}
 	return nil

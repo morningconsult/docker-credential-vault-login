@@ -8,10 +8,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/hashicorp/vault/api"
 	uuid "github.com/hashicorp/go-uuid"
-	"github.com/phayes/freeport"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/phayes/freeport"
 )
 
 type TestVaultServerOptions struct {
@@ -34,16 +34,16 @@ type TestEC2AuthReqPayload struct {
 	PKCS7 string
 }
 
-// MakeMockVaultServerIAMAuth creates a mock Vault server which mimics two HTTP endpoints - 
+// MakeMockVaultServerIAMAuth creates a mock Vault server which mimics two HTTP endpoints -
 // /v1/auth/aws/login and /v1/<secret_path>. The purpose of this mock Vault server
 // is to test Vault's AWS IAM authentication endpoint without having to actually
 // make a real sts:GetCallerIdentity request to AWS. The behavior of the mimicked
 // endpoints is configured via the testVaultServerOptions parameter. The login
-// endpoint will only return 200 when the JSON payload of an HTTP request for this 
+// endpoint will only return 200 when the JSON payload of an HTTP request for this
 // endpoint is properly structured and contains the expected data (see the IAM
-// authentication information provided at 
-// https://www.vaultproject.io/api/auth/aws/index.html#login) and when the 
-// "role" field of the JSON payload matches the "role" field of the 
+// authentication information provided at
+// https://www.vaultproject.io/api/auth/aws/index.html#login) and when the
+// "role" field of the JSON payload matches the "role" field of the
 // testVaultServerOptions object passed to MakeMockVaultServerIAMAuth. The value of
 // <secret_path> in the other endpoint is specified by the secretPath field of
 // the testVaultServerOptions object. For example, if opts.secretPath == "secret/foo",
@@ -66,17 +66,17 @@ func MakeMockVaultServerIAMAuth(t *testing.T, opts *TestVaultServerOptions) *htt
 	return server
 }
 
-// MakeMockVaultServerEC2Auth creates a mock Vault server which mimics two HTTP 
+// MakeMockVaultServerEC2Auth creates a mock Vault server which mimics two HTTP
 // endpoints - /v1/auth/aws/login and /v1/<secret_path>. The purpose of this mock
 // Vault server is to test Vault's AWS EC2 authentication endpoint without having
 // to actually make a real call to AWS. The behavior of the mimicked endpoints is
 // configured via the TestVaultServerOptions parameter. The login endpoint will
 // only return 200 when the JSON payload of an HTTP request for this endpoint
-// (1)is  properly structured, (2) contains the fields ("role" and "pkcs7"), 
-// (3) the pkcs7 signature matches the value of the pkcs7 signature passed to 
+// (1)is  properly structured, (2) contains the fields ("role" and "pkcs7"),
+// (3) the pkcs7 signature matches the value of the pkcs7 signature passed to
 // MakeMockVaultServerEC2Auth, and (4) the "role" field of the JSON payload matches
-//  the "role" field of the TestVaultServerOptions object passed to 
-// MakeMockVaultServerEC2Auth. This fourth condition mimics the behavior of Vault 
+//  the "role" field of the TestVaultServerOptions object passed to
+// MakeMockVaultServerEC2Auth. This fourth condition mimics the behavior of Vault
 // in requiring a given role attempting to login via the AWS EC2 endpoint to have
 // been explicitly configured to be able to do so. The value of <secret_path> in
 // the other endpoint is specified by the secretPath field of the
@@ -136,7 +136,7 @@ func dockerSecretHandler(t *testing.T, secret map[string]interface{}, port int) 
 			return
 		default:
 			http.Error(resp, "", 405)
-			return 
+			return
 		}
 	}
 }
@@ -190,7 +190,7 @@ func iamAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
 				http.Error(resp, "", 400)
 				return
 			}
-			
+
 			var headers = make(map[string][]string)
 			if err = jsonutil.DecodeJSON(headersBuf, &headers); err != nil {
 				http.Error(resp, "", 400)
