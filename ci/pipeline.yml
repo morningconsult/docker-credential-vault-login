@@ -8,12 +8,16 @@ jobs:
     trigger: true
   - get: golang
   - task: test-pr
-    image: golang
+    image:
+      name: golang
+      tag: 1.11-alpine3.8
     file: test-pull-request/ci/tasks/test-pull-request.yml
 
 - name: test-pull-request
   type: pull-request
   source:
+    private_key: ((github-private-key))
+    access_token: ((github-access-token))
     repo: morningconsult/docker-credential-vault-login
     uri: ((github-repo))
     base: master

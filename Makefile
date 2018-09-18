@@ -36,7 +36,7 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	@go test -v -cover  $(go list ./vault-login/... | grep -v testing)
+	@go test -v -cover $(shell go list ./vault-login/... | grep -v testing)
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
