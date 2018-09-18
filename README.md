@@ -86,7 +86,7 @@ The configuration file should include the following:
 
 ### EC2 Authentication Method
 
-If the `ec2` authentication is chosen, the process will attempt to authenticate against Vault using Vault's [EC2 auth method](https://www.vaultproject.io/docs/auth/aws.html#ec2-auth-method). Specifically, it will attempt to obtain the PKCS#7 signature from the EC2 instance metadata and attempt to authenticate against Vault with it. Be sure that the instance on which this application will run is indeed an EC2 instance and that the Vault role given in the `vault_role` field of the `config.json` file is bound to the AMI ID of the instance and that it has permission to authenticate via the EC2 method (see this [example](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-)). 
+If the `ec2` authentication is chosen, the process will attempt to authenticate against Vault using Vault's [EC2 auth method](https://www.vaultproject.io/docs/auth/aws.html#ec2-auth-method). Specifically, it will attempt to obtain the PKCS#7 signature from the EC2 instance metadata and authenticate against Vault with it. Be sure that the instance on which this application will run is indeed an EC2 instance and that the Vault role given in the `vault_role` field of the `config.json` file is bound to the AMI ID of the instance and that it has permission to authenticate via the EC2 method (see this [example](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-)). 
 
 ### IAM Authentication Method
 
