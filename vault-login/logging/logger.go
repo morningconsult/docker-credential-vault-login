@@ -1,31 +1,31 @@
 package logging
 
 import (
-        "fmt"
-        "path/filepath"
-        "os"
+	"fmt"
+	"path/filepath"
+	"os"
 
-        log "github.com/cihub/seelog"
-        homedir "github.com/mitchellh/go-homedir"
+	log "github.com/cihub/seelog"
+	homedir "github.com/mitchellh/go-homedir"
 )
 
 const (
-        EnvCacheDir string = "DOCKER_CREDS_CACHE_DIR"
-        DefaultCacheDir string = "~/.docker-credential-vault-login"
-        DefaultLogFilename string = "vault-login.log"
-        BackupLogFilename string = "/tmp/.docker-credential-vault-login/log/vault-login.log"
+	EnvCacheDir string = "DOCKER_CREDS_CACHE_DIR"
+	DefaultCacheDir string = "~/.docker-credential-vault-login"
+	DefaultLogFilename string = "vault-login.log"
+	BackupLogFilename string = "/tmp/.docker-credential-vault-login/log/vault-login.log"
 )
 
 func SetupLogger() {
-        SetupLoggerWithConfig(getMainLoggerConfig())
+	SetupLoggerWithConfig(getMainLoggerConfig())
 }
 
 func SetupTestLogger() {
-        SetupLoggerWithConfig(getTestLoggerConfig())
+	SetupLoggerWithConfig(getTestLoggerConfig())
 }
 
 func SetupLoggerWithConfig(config string) {
-        logger, err := log.LoggerFromConfigAsString(config)
+	logger, err := log.LoggerFromConfigAsString(config)
 	if err == nil {
 		log.ReplaceLogger(logger)
 	} else {
@@ -34,22 +34,22 @@ func SetupLoggerWithConfig(config string) {
 }
 
 func getMainLoggerConfig() string {
-        var cacheDir = DefaultCacheDir
-        if v := os.Getenv(EnvCacheDir); v != "" {
-                cacheDir = v
-        }
-        
-        reducedFilename := filepath.Join(cacheDir, "log", DefaultLogFilename)
-        logfile, err := homedir.Expand(reducedFilename)
-        if err != nil {
-                fmt.Printf("Failed to create log file at %q.\nCreating log file at %q instead.\n",
-                        reducedFilename, BackupLogFilename)
-                logfile = BackupLogFilename
-        }
+	var cacheDir = DefaultCacheDir
+	if v := os.Getenv(EnvCacheDir); v != "" {
+		cacheDir = v
+	}
+	
+	reducedFilename := filepath.Join(cacheDir, "log", DefaultLogFilename)
+	logfile, err := homedir.Expand(reducedFilename)
+	if err != nil {
+		fmt.Printf("Failed to create log file at %q.\nCreating log file at %q instead.\n",
+			reducedFilename, BackupLogFilename)
+		logfile = BackupLogFilename
+	}
 
-        logfile = filepath.Clean(logfile)
+	logfile = filepath.Clean(logfile)
 
-        return `
+	return `
 	<seelog type="asyncloop" minlevel="debug">
 		<outputs formatid="main">
 			<rollingfile filename="` + logfile + `" type="date"
@@ -66,12 +66,12 @@ func getMainLoggerConfig() string {
 }
 
 func getTestLoggerConfig() string {
-        return `
-        <seelog type="asyncloop">
-                <outputs>
-                        <rollingfile filename="/dev/null" type="date" 
-                        datepattern="2006-01-02-15" archivetype="none" maxrolls="2" />
-                </outputs>
-        </seelog>
+	return `
+	<seelog type="asyncloop">
+		<outputs>
+			<rollingfile filename="/dev/null" type="date" 
+			datepattern="2006-01-02-15" archivetype="none" maxrolls="2" />
+		</outputs>
+	</seelog>
 `
 }

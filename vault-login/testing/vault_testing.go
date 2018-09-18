@@ -1,32 +1,32 @@
 package test
 
 import (
-        "fmt"
-        "net/http"
-        "testing"
-        "github.com/hashicorp/vault/vault"
-        log "github.com/hashicorp/go-hclog"
-        "github.com/hashicorp/vault/helper/logging"
-        vaulthttp "github.com/hashicorp/vault/http"
-        "github.com/hashicorp/vault/api"
+	"fmt"
+	"net/http"
+	"testing"
+	"github.com/hashicorp/vault/vault"
+	log "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/helper/logging"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/api"
 )
 
 func StartTestCluster(t *testing.T) *vault.TestCluster {
-        base := &vault.CoreConfig{
-                Logger: logging.NewVaultLogger(log.Error),
+	base := &vault.CoreConfig{
+		Logger: logging.NewVaultLogger(log.Error),
 	}
 
 	cluster := vault.NewTestCluster(t, base, &vault.TestClusterOptions{
 		HandlerFunc: vaulthttp.Handler,
 	})
-        cluster.Start()
-        return cluster
+	cluster.Start()
+	return cluster
 }
 
 // NewPreConfiguredVaultClient creates a new Vault API client and configures it to use
 // the same settings as the vault.TestCluster 
 func NewPreConfiguredVaultClient(t *testing.T, cluster *vault.TestCluster) *api.Client {
-        cores := cluster.Cores
+	cores := cluster.Cores
 
 	core := cores[0].Core
 	vault.TestWaitActive(t, core)
@@ -39,13 +39,13 @@ func NewPreConfiguredVaultClient(t *testing.T, cluster *vault.TestCluster) *api.
 	if err != nil {
 		t.Fatal(err)
 	}
-        client.SetToken(cluster.RootToken)
-        return client
+	client.SetToken(cluster.RootToken)
+	return client
 }
 
 func WriteSecret(t *testing.T, client *api.Client, secretPath string, secret map[string]interface{}) {
 	if _, err := client.Logical().Write(secretPath, secret); err != nil {
 		t.Fatal(err)
-        }
+	}
 }
 
