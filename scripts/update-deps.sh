@@ -29,6 +29,6 @@ govendor init
 
 ## Fetch dependencies
 echo "Fetching dependencies. This will take some time..."
-govendor add +external
+govendor fetch +missing
 
 printf "Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${ORG}/${TOOL}\n\n"
