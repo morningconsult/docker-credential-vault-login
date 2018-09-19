@@ -24,41 +24,41 @@ const (
 )
 
 type CredHelperConfig struct {
-        // Method is the method Vault will use to
-        // authenticate a user. Accepted values include
-        // "token", "iam", and "ec2". This field is
-        // always required
-        Method VaultAuthMethod `json:"vault_auth_method"`
+	// Method is the method Vault will use to
+	// authenticate a user. Accepted values include
+	// "token", "iam", and "ec2". This field is
+	// always required
+	Method VaultAuthMethod `json:"vault_auth_method"`
 
-        // Role is the Vault role which has been configured
-        // to be able to authenticate via the EC2 or IAM
-        // method (this field is only required when either
-        // "iam" or "ec2" is chosen as the authentication 
-        // method).
-        Role string `json:"vault_role"`
+	// Role is the Vault role which has been configured
+	// to be able to authenticate via the EC2 or IAM
+	// method (this field is only required when either
+	// "iam" or "ec2" is chosen as the authentication
+	// method).
+	Role string `json:"vault_role"`
 
-        // Secret is the path in Vault at which the Docker
-        // credentials are stored (e.g. "secret/foo/bar").
-        // This field is always required.
-        Secret string `json:"vault_secret_path"`
+	// Secret is the path in Vault at which the Docker
+	// credentials are stored (e.g. "secret/foo/bar").
+	// This field is always required.
+	Secret string `json:"vault_secret_path"`
 
-        // ServerID is used as the value of the
-        // X-Vault-AWS-IAM-Server-ID when Vault makes an
-        // sts:GetCallerIdentity request to AWS. This field
-        // is optional and is only used when "iam" is chosen
-        // as the authentication method.
-        ServerID string `json:"vault_iam_server_id_header_value"`
+	// ServerID is used as the value of the
+	// X-Vault-AWS-IAM-Server-ID when Vault makes an
+	// sts:GetCallerIdentity request to AWS. This field
+	// is optional and is only used when "iam" is chosen
+	// as the authentication method.
+	ServerID string `json:"vault_iam_server_id_header_value"`
 
-        // Path is the full path to the config.json file.
-        // This field is primarily used for error logging.
+	// Path is the full path to the config.json file.
+	// This field is primarily used for error logging.
 	Path string `json:"-"`
 }
 
 // GetCredHelperConfig first searches for the config.json
 // file at the DOCKER_CREDS_CONFIG_FILE environment variable
-// if it is set, otherwise it searches for it at the 
+// if it is set, otherwise it searches for it at the
 // DefaultConfigFilePath location. If it is found in neither
-// location, GetCredHelperConfig will return an error. 
+// location, GetCredHelperConfig will return an error.
 // If it finds the config.json file, GetCredHelperConfig
 // will parse and validate it.
 func GetCredHelperConfig() (*CredHelperConfig, error) {
