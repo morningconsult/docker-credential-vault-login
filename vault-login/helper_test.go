@@ -13,8 +13,8 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 
+	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
-	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
@@ -326,7 +326,9 @@ func TestHelperGet_Token_Success(t *testing.T) {
 	// assigned to the client (to conform with ClientFactory behavior)
 	os.Setenv(api.EnvVaultToken, client.Token())
 
-	helper := NewHelper(client)
+	helper := NewHelper(&HelperOptions{
+                VaultClient: client,
+        })
 	user, pw, err := helper.Get("")
 	if err != nil {
 		t.Fatal(err)
@@ -370,7 +372,9 @@ func TestHelperGet_Token_BadPath(t *testing.T) {
 	// behavior)
 	os.Setenv(api.EnvVaultToken, client.Token())
 
-	helper := NewHelper(client)
+	helper := NewHelper(&HelperOptions{
+                VaultClient: client,
+        })
 	_, _, err := helper.Get("")
 	if err == nil {
 		t.Error("should have returned an error, but didn't")
@@ -389,6 +393,7 @@ func TestHelperGet_Token_MalformedSecret(t *testing.T) {
 	var (
 		testConfigFile = testTokenConfigFile
 		secret         = map[string]interface{}{
+                        // Malformed "username" field
 			"usename":  "frodo.baggins@theshire.com",
 			"password": "potato",
 		}
@@ -412,7 +417,9 @@ func TestHelperGet_Token_MalformedSecret(t *testing.T) {
 	// behavior)
 	os.Setenv(api.EnvVaultToken, client.Token())
 
-	helper := NewHelper(client)
+	helper := NewHelper(&HelperOptions{
+                VaultClient: client,
+        })
 	_, _, err := helper.Get("")
 	if err == nil {
 		t.Error("should have returned an error, but didn't")

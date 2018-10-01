@@ -8,7 +8,8 @@ import (
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	helper "github.com/morningconsult/docker-credential-vault-login/vault-login"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
@@ -25,8 +26,13 @@ func main() {
 		os.Exit(0)
 	}
 
-	defer log.Flush()
-	logging.SetupLogger()
+	cacheUtil := cache.NewCacheUtil()
 
-	credentials.Serve(helper.NewHelper(nil))
+	defer log.Flush()
+	logging.SetupLogger(cacheUtil.GetCacheDir())
+
+	credentials.Serve(helper.NewHelper(&helper.HelperOptions{
+		VaultClient: nil,
+		CacheUtil:   cacheUtil,
+	}))
 }

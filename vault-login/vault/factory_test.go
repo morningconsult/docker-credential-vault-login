@@ -10,7 +10,8 @@ import (
 	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws/mocks"
-	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
+        test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
+        "github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 )
 
 func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
@@ -25,7 +26,11 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role: role,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +63,11 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role:     badrole,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +96,11 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 	// Incorrect Vault test server URL
 	os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role: role,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +130,11 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role:     role,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +172,11 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role:     role,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -184,7 +205,11 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role:     badrole,
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +345,11 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadURL(t *testing.T) {
 	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", badURL)
 
-	factory, err := NewClientFactoryAWSIAMAuth("test-role", "")
+	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
+                Role:     "test-role",
+                ServerID: "",
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +399,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -422,7 +452,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      badrole,
+                role:      badrole,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -474,7 +505,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -514,7 +546,8 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -562,7 +595,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -619,7 +653,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      badrole,
+                role:      badrole,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -676,7 +711,8 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -721,7 +757,8 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-		role:      role,
+                role:      role,
+                cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -743,7 +780,9 @@ func TestNewClientFactoryAWSEC2Auth_Success(t *testing.T) {
 
 	test.SetTestAWSEnvVars()
 
-	_, err := NewClientFactoryAWSEC2Auth("")
+	_, err := NewClientFactoryAWSEC2Auth(&ClientFactoryAWSEC2AuthConfig{
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -759,7 +798,9 @@ func TestNewClientFactoryAWSEC2Auth_SessionError(t *testing.T) {
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "testdata/shared_config")
 	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
 
-	_, err := NewClientFactoryAWSEC2Auth("")
+	_, err := NewClientFactoryAWSEC2Auth(&ClientFactoryAWSEC2AuthConfig{
+                CacheUtil: cache.NewNullCacheUtil(),
+        })
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}

@@ -3,7 +3,6 @@ package vault
 import (
 	"fmt"
 	"strings"
-
 	"github.com/hashicorp/vault/api"
 )
 
