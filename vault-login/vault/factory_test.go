@@ -10,8 +10,8 @@ import (
 	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws/mocks"
-        test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
+	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 )
 
 func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
@@ -21,16 +21,14 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role: role,
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role: role,
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,8 +56,6 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
@@ -90,17 +86,15 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	// Incorrect Vault test server URL
 	os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role: role,
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role: role,
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +114,6 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
@@ -131,10 +123,10 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 	}
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role:     role,
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role:     role,
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,8 +153,6 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	// Incorrect Vault address
 	os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
@@ -173,10 +163,10 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 	}
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role:     role,
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role:     role,
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -200,16 +190,14 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role:     badrole,
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role:     badrole,
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +216,6 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 }
 
 func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	token, err := uuid.GenerateUUID()
 	if err != nil {
 		t.Fatal(err)
@@ -254,8 +240,6 @@ func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
 // VAULT_TOKEN environment variable is not set with a Vault
 // token, an error is returned.
 func TestNewClientFactoryTokenAuth_NewClient_NoToken(t *testing.T) {
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Unsetenv("VAULT_TOKEN")
 
 	factory := NewClientFactoryTokenAuth()
@@ -268,8 +252,6 @@ func TestNewClientFactoryTokenAuth_NewClient_NoToken(t *testing.T) {
 }
 
 func TestNewClientFactoryTokenAuth_WithClient_Success(t *testing.T) {
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	token, err := uuid.GenerateUUID()
 	if err != nil {
 		t.Fatal(err)
@@ -298,8 +280,6 @@ func TestNewClientFactoryTokenAuth_WithClient_Success(t *testing.T) {
 // ClientFactoryTokenAuth.WithClient() is called but the VAULT_TOKEN
 // environment variable is not set, an error is returned.
 func TestNewClientFactoryTokenAuth_WithClient_NoToken(t *testing.T) {
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Unsetenv("VAULT_TOKEN")
 
 	factory := NewClientFactoryTokenAuth()
@@ -322,8 +302,6 @@ func TestNewClientFactoryTokenAuth_WithClient_NoToken(t *testing.T) {
 func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
 	const badURL = "$%&%$^(*@%$^("
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", badURL)
 
 	factory := NewClientFactoryTokenAuth()
@@ -341,15 +319,13 @@ func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_NewClient_BadURL(t *testing.T) {
 	const badURL = "$%&%$^(*@%$^("
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", badURL)
 
 	factory, err := NewClientFactoryAWSIAMAuth(&ClientFactoryAWSIAMAuthConfig{
-                Role:     "test-role",
-                ServerID: "",
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		Role:     "test-role",
+		ServerID: "",
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -393,8 +369,6 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
@@ -446,14 +420,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      badrole,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      badrole,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -499,14 +471,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      role,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      role,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -540,14 +510,12 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      role,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      role,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	_, err := factory.NewClient()
@@ -589,14 +557,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      role,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      role,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -647,14 +613,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      badrole,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      badrole,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -705,14 +669,12 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      role,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      role,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -751,14 +713,12 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      role,
-                cacheUtil: cache.NewNullCacheUtil(),
+		role:      role,
+		cacheUtil: cache.NewNullCacheUtil(),
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -775,9 +735,8 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 }
 
 func TestNewClientFactoryAWSEC2Auth_Success(t *testing.T) {
-	oldEnv := initSessionTestEnv()
-	defer awstesting.PopEnv(oldEnv)
-
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 	test.SetTestAWSEnvVars()
 
 	_, err := NewClientFactoryAWSEC2Auth(&ClientFactoryAWSEC2AuthConfig{
@@ -791,16 +750,16 @@ func TestNewClientFactoryAWSEC2Auth_Success(t *testing.T) {
 func TestNewClientFactoryAWSEC2Auth_SessionError(t *testing.T) {
 	// Backwards compatibility with Shared config disabled
 	// assume role should not be built into the config.
-	oldEnv := initSessionTestEnv()
-	defer awstesting.PopEnv(oldEnv)
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 
 	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "testdata/shared_config")
 	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
 
 	_, err := NewClientFactoryAWSEC2Auth(&ClientFactoryAWSEC2AuthConfig{
-                CacheUtil: cache.NewNullCacheUtil(),
-        })
+		CacheUtil: cache.NewNullCacheUtil(),
+	})
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -808,10 +767,10 @@ func TestNewClientFactoryAWSEC2Auth_SessionError(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), "error creating new AWS client: SharedConfigAssumeRoleError: failed to load assume role for assume_role_invalid_source_profile_role_arn, source profile has no shared credentials")
 }
 
-func initSessionTestEnv() (oldEnv []string) {
-	oldEnv = awstesting.StashEnv()
-	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
-	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
-
-	return oldEnv
+func TestMain(m *testing.M) {
+	path := os.Getenv("PATH")
+	env := awstesting.StashEnv()
+	os.Setenv("PATH", path)
+	defer awstesting.PopEnv(env)
+	os.Exit(m.Run())
 }

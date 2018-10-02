@@ -172,8 +172,8 @@ func buildCacheDir() string {
 
 	cacheDir, err := homedir.Expand(cacheDirRaw)
 	if err != nil {
-		log.Printf("Failed to create cache file at %q.\nCreating log file at %q instead.\n",
-			cacheDirRaw, BackupCacheDir)
+		log.Printf("Failed to create cache file at %s.\nCreating log file at %s instead.\n",
+                        cacheDirRaw, BackupCacheDir)
 		cacheDir = BackupCacheDir
 	}
 

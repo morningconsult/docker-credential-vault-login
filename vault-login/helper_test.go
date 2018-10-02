@@ -57,9 +57,6 @@ func TestHelperGet_IAM_Success(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
-
 	// Set AWS credential environment variables
 	test.SetTestAWSEnvVars()
 
@@ -107,9 +104,6 @@ func TestHelperGet_IAM_BadPath(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
-
 	// Set AWS credential environment variables
 	test.SetTestAWSEnvVars()
 
@@ -148,9 +142,6 @@ func TestHelperGet_IAM_NoSecret(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
-
 	// Set AWS credential environment variables
 	test.SetTestAWSEnvVars()
 
@@ -185,9 +176,6 @@ func TestHelperGet_IAM_BadRole(t *testing.T) {
 	server := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
-
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
 
 	// Set AWS credential environment variables
 	test.SetTestAWSEnvVars()
@@ -232,9 +220,6 @@ func TestHelperGet_IAM_MalformedSecret(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
-
 	// Set AWS credential environment variables
 	test.SetTestAWSEnvVars()
 
@@ -256,9 +241,8 @@ func TestHelperGet_IAM_FactoryError(t *testing.T) {
 
 	// Backwards compatibility with Shared config disabled
 	// assume role should not be built into the config.
-	oldEnv := initSessionTestEnv()
-	defer awstesting.PopEnv(oldEnv)
-
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", testConfigFilename)
 	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
@@ -272,6 +256,12 @@ func TestHelperGet_IAM_FactoryError(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
+
+	os.Unsetenv("AWS_CONFIG_FILE")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_SDK_LOAD_CONFIG")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_PROFILE")
 
 	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
@@ -281,9 +271,8 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 
 	// Backwards compatibility with Shared config disabled
 	// assume role should not be built into the config.
-	oldEnv := initSessionTestEnv()
-	defer awstesting.PopEnv(oldEnv)
-
+	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
+	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 	os.Setenv("AWS_SDK_LOAD_CONFIG", "1")
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", testConfigFilename)
 	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
@@ -297,6 +286,12 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
+
+	os.Unsetenv("AWS_CONFIG_FILE")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_SDK_LOAD_CONFIG")
+	os.Unsetenv("AWS_SHARED_CREDENTIALS_FILE")
+	os.Unsetenv("AWS_PROFILE")
 
 	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
@@ -462,9 +457,6 @@ func TestHelperDelete(t *testing.T) {
 func TestHelperGet_ParseError(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
 
-	oldEnv := awstesting.StashEnv()
-	defer awstesting.PopEnv(oldEnv)
-
 	data := test.EncodeJSON(t, map[string]int{"foo": 1234})
 	test.MakeFile(t, testFilePath, data)
 	defer test.DeleteFile(t, testFilePath)
@@ -481,6 +473,10 @@ func TestHelperGet_ParseError(t *testing.T) {
 }
 
 func TestMain(m *testing.M) {
+	path := os.Getenv("PATH")
+	env := awstesting.StashEnv()
+	os.Setenv("PATH", path)
+	defer awstesting.PopEnv(env)
 	defer seelog.Flush()
 	logger.SetupTestLogger()
 	os.Exit(m.Run())
@@ -497,12 +493,4 @@ func readConfig(t *testing.T, testConfigFile string) *config.CredHelperConfig {
 		t.Fatal(err)
 	}
 	return cfg
-}
-
-func initSessionTestEnv() (oldEnv []string) {
-	oldEnv = awstesting.StashEnv()
-	os.Setenv("AWS_CONFIG_FILE", "file_not_exists")
-	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
-
-	return oldEnv
 }
