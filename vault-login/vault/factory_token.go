@@ -2,8 +2,8 @@ package vault
 
 import (
 	"fmt"
-	"os"
 	"github.com/hashicorp/vault/api"
+	"os"
 )
 
 // ClientFactoryTokenAuth is used to either create a new Vault
@@ -21,22 +21,22 @@ func NewClientFactoryTokenAuth() ClientFactory {
 // VAULT_ADDR, etc.). If the VAULT_TOKEN environment variable is not set,
 // NewClient will return an error. Otherwise, it will return a
 // DefaultClient object.
-func (c *ClientFactoryTokenAuth) NewClient() (Client, error) {
+func (c *ClientFactoryTokenAuth) NewClient() (Client, *api.Secret, error) {
 	// Create a new Vault API client
 	client, err := api.NewClient(nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Check if the Vault API client has a token.
 	// If not, raise an error.
 	if v := client.Token(); v == "" {
-		return nil, fmt.Errorf("%s %s %s",
+		return nil, nil, fmt.Errorf("%s %s %s",
 			"Vault API client has no token. Make sure to set the token using the",
 			api.EnvVaultToken, "environment variable")
 	}
 
-	return NewDefaultClient(client), nil
+	return NewDefaultClient(client), nil, nil
 }
 
 // WithClient retrieves the environment variable set by the VAULT_TOKEN
@@ -44,12 +44,12 @@ func (c *ClientFactoryTokenAuth) NewClient() (Client, error) {
 // and returns a DefaultClient object. Note that this will overwrite
 // the client's existing token if it has one. This function is primarily
 // used for testing purposes.
-func (c *ClientFactoryTokenAuth) WithClient(client *api.Client) (Client, error) {
+func (c *ClientFactoryTokenAuth) WithClient(client *api.Client) (Client, *api.Secret, error) {
 	if v := os.Getenv(api.EnvVaultToken); v != "" {
 		client.SetToken(v)
 	} else {
-		return nil, fmt.Errorf("%s environment variable is not set", api.EnvVaultToken)
+		return nil, nil, fmt.Errorf("%s environment variable is not set", api.EnvVaultToken)
 	}
 
-	return NewDefaultClient(client), nil
+	return NewDefaultClient(client), nil, nil
 }

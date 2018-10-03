@@ -1,34 +1,13 @@
 package vault
 
 import (
-        "encoding/base64"
-        "path"
+	"encoding/base64"
+	"fmt"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/aws"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws"
+	"path"
 )
-
-// ClientFactoryAWSIAMAuthConfig is used to set the
-// value of the fields of a new ClientFactoryAWSIAMAuth
-// object when passed to NewClientFactoryAWSIAMAuth().
-type ClientFactoryAWSIAMAuthConfig struct {
-        // Role is the Vault role associated with the IAM role
-	// used in the sts:GetCallerIdentity request. This
-	// Vault role should have permission to read the secret
-	// specified in your config.json file.
-        Role string
-
-        // (Optional) ServerID is the name of the Vault server
-	// to be used as the value of the X-Vault-AWS-IAM-Server-ID
-	// header in the sts:GetCallerIdentity request.
-        ServerID string
-
-        // CacheUtil is used to access Vault tokens saved in
-        // the cache.
-        CacheUtil cache.CacheUtil
-}
 
 // ClientFactoryAWSEC2Auth is used to either create a new Vault
 // API client with a valid Vault token or to give an existing
@@ -40,8 +19,8 @@ type ClientFactoryAWSIAMAuth struct {
 	// against Vault via the AWS login endpoint.
 	awsClient aws.Client
 
-        // role is the Vault role associated with the IAM role
-        // used in the sts:GetCallerIdentity request. This
+	// role is the Vault role associated with the IAM role
+	// used in the sts:GetCallerIdentity request. This
 	// Vault role should have permission to read the secret
 	// specified in your config.json file.
 	role string
@@ -49,14 +28,10 @@ type ClientFactoryAWSIAMAuth struct {
 	// (Optional) serverID is the name of the Vault server
 	// to be used as the value of the X-Vault-AWS-IAM-Server-ID
 	// header in the sts:GetCallerIdentity request.
-        serverID string
-
-        // cacheUtil is used to access Vault tokens saved in
-        // the cache.
-        cacheUtil cache.CacheUtil
+	serverID string
 }
 
-func NewClientFactoryAWSIAMAuth(config *ClientFactoryAWSIAMAuthConfig) (ClientFactory, error) {
+func NewClientFactoryAWSIAMAuth(role, serverID string) (ClientFactory, error) {
 	// Create a new AWS client
 	awsClient, err := aws.NewDefaultClient()
 	if err != nil {
@@ -65,9 +40,8 @@ func NewClientFactoryAWSIAMAuth(config *ClientFactoryAWSIAMAuthConfig) (ClientFa
 
 	return &ClientFactoryAWSIAMAuth{
 		awsClient: awsClient,
-		role:      config.Role,
-                serverID:  config.ServerID,
-                cacheUtil: config.CacheUtil,
+		role:      role,
+		serverID:  serverID,
 	}, nil
 }
 
@@ -75,33 +49,21 @@ func NewClientFactoryAWSIAMAuth(config *ClientFactoryAWSIAMAuthConfig) (ClientFa
 // authenticate against Vault via the AWS IAM endpoint. If authentication
 // is successful, it will set the Vault API client with the newly-created
 // client token and return a DefaultClient object.
-func (c *ClientFactoryAWSIAMAuth) NewClient() (Client, error) {
+func (c *ClientFactoryAWSIAMAuth) NewClient() (Client, *api.Secret, error) {
 	// Create a new Vault API client
 	vaultClient, err := api.NewClient(nil)
 	if err != nil {
-		return nil, err
-        }
-
-        // Attempt to get a cached token
-        token, err := c.cacheUtil.GetCachedToken(config.VaultAuthMethodAWSIAM)
-        if err != nil {
-                return nil, err
-        }
-
-        // If cacheUtil.GetCachedToken() returned a token then
-        // give it to vaultClient and return
-        if token != "" {
-                vaultClient.SetToken(token)
-                return NewDefaultClient(vaultClient), nil
-        }
+		return nil, nil, err
+	}
 
 	// Build an sts:GetCallerIdentity request and login to
 	// Vault to obtain a token via Vault's AWS IAM endpoint
-	if err = c.getAndSetNewToken(vaultClient); err != nil {
-		return nil, err
+	secret, err := c.getAndSetNewToken(vaultClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return NewDefaultClient(vaultClient), nil
+	return NewDefaultClient(vaultClient), secret, nil
 }
 
 // WithClient receives a Vault API client that has already been initialized
@@ -109,46 +71,33 @@ func (c *ClientFactoryAWSIAMAuth) NewClient() (Client, error) {
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient
 // object. This function is primarily used for testing purposes.
-func (c *ClientFactoryAWSIAMAuth) WithClient(vaultClient *api.Client) (Client, error) {
-        // Attempt to get a cached token
-        token, err := c.cacheUtil.GetCachedToken(config.VaultAuthMethodAWSIAM)
-        if err != nil {
-                return nil, err
-        }
-
-        // If cacheUtil.GetCachedToken() returned a token then
-        // give it to vaultClient and return
-        if token != "" {
-                vaultClient.SetToken(token)
-                return NewDefaultClient(vaultClient), nil
-        }
-
+func (c *ClientFactoryAWSIAMAuth) WithClient(vaultClient *api.Client) (Client, *api.Secret, error) {
 	// Build an sts:GetCallerIdentity request and login to
 	// Vault to obtain a token via Vault's AWS IAM endpoint
-	if err := c.getAndSetNewToken(vaultClient); err != nil {
-		return nil, err
+	secret, err := c.getAndSetNewToken(vaultClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return NewDefaultClient(vaultClient), nil
+	return NewDefaultClient(vaultClient), secret, nil
 }
 
 // getAndSetNewToken creates an AWS sts:GetCallerIdentity request, gets the
 // request elements required to authenticate against the Vault AWS IAM auth
 // endpoint, makes the authentication request to Vault, and if successful it
-// sets the token of Vault API client with the newly-created Vault token and
-// caches the token.
-func (c *ClientFactoryAWSIAMAuth) getAndSetNewToken(vaultClient *api.Client) error {
+// sets the token of Vault API client with the newly-created Vault token.
+func (c *ClientFactoryAWSIAMAuth) getAndSetNewToken(vaultClient *api.Client) (*api.Secret, error) {
 	// Create an sts:GetCallerIdentity request and return the elements
 	// of the request needed for Vault to authenticate against IAM
 	elems, err := c.awsClient.GetIAMAuthElements(c.serverID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Build the request payload
 	buf, err := jsonutil.EncodeJSON(elems.Headers)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create request payload
@@ -164,16 +113,17 @@ func (c *ClientFactoryAWSIAMAuth) getAndSetNewToken(vaultClient *api.Client) err
 	// in order to obtain a valid client token
 	secret, err := vaultClient.Logical().Write(path.Join("auth", "aws", "login"), payload)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	// Get the token from the secret
+	token, err := secret.TokenID()
+	if err != nil {
+		return nil, fmt.Errorf("error reading token from secret: %v", err)
 	}
 
 	// Set the client token to the API client
-        vaultClient.SetToken(secret.Auth.ClientToken)
+	vaultClient.SetToken(token)
 
-        // Cache the token
-        err = c.cacheUtil.CacheNewToken(secret.Auth.ClientToken, secret.Auth.LeaseDuration, config.VaultAuthMethodAWSIAM)
-        if err != nil {
-                return err
-        }
-	return nil
+	return secret, nil
 }

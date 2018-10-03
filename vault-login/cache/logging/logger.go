@@ -1,8 +1,8 @@
 package logging
 
 import (
-	"path/filepath"
 	log "github.com/cihub/seelog"
+	"path/filepath"
 )
 
 const DefaultLogFilename string = "vault-login.log"

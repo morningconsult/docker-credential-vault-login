@@ -322,8 +322,8 @@ func TestHelperGet_Token_Success(t *testing.T) {
 	os.Setenv(api.EnvVaultToken, client.Token())
 
 	helper := NewHelper(&HelperOptions{
-                VaultClient: client,
-        })
+		VaultClient: client,
+	})
 	user, pw, err := helper.Get("")
 	if err != nil {
 		t.Fatal(err)
@@ -368,8 +368,8 @@ func TestHelperGet_Token_BadPath(t *testing.T) {
 	os.Setenv(api.EnvVaultToken, client.Token())
 
 	helper := NewHelper(&HelperOptions{
-                VaultClient: client,
-        })
+		VaultClient: client,
+	})
 	_, _, err := helper.Get("")
 	if err == nil {
 		t.Error("should have returned an error, but didn't")
@@ -388,7 +388,7 @@ func TestHelperGet_Token_MalformedSecret(t *testing.T) {
 	var (
 		testConfigFile = testTokenConfigFile
 		secret         = map[string]interface{}{
-                        // Malformed "username" field
+			// Malformed "username" field
 			"usename":  "frodo.baggins@theshire.com",
 			"password": "potato",
 		}
@@ -413,8 +413,8 @@ func TestHelperGet_Token_MalformedSecret(t *testing.T) {
 	os.Setenv(api.EnvVaultToken, client.Token())
 
 	helper := NewHelper(&HelperOptions{
-                VaultClient: client,
-        })
+		VaultClient: client,
+	})
 	_, _, err := helper.Get("")
 	if err == nil {
 		t.Error("should have returned an error, but didn't")

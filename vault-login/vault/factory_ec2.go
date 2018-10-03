@@ -1,28 +1,12 @@
 package vault
 
 import (
+	"fmt"
+	"github.com/hashicorp/vault/api"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws"
 	"path"
 	"strings"
-	"github.com/hashicorp/vault/api"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/aws"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-        "github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 )
-
-// ClientFactoryAWSEC2AuthConfig is used to set the
-// value of the fields of a new ClientFactoryAWSEC2Auth
-// object when passed to NewClientFactoryAWSEC2Auth().
-type ClientFactoryAWSEC2AuthConfig struct {
-        // Role is the Vault role associated with the IAM role
-	// used in the sts:GetCallerIdentity request. This
-	// Vault role should have permission to read the secret
-	// specified in your config.json file.
-        Role string
-
-        // CacheUtil is used to access Vault tokens saved in
-        // the cache.
-        CacheUtil cache.CacheUtil
-}
 
 // ClientFactoryAWSEC2Auth is used to either create a new Vault
 // API client with a valid Vault token or to give an existing
@@ -38,14 +22,10 @@ type ClientFactoryAWSEC2Auth struct {
 	// IAM role used in the sts:GetCallerIdentity request. This
 	// Vault role should have permission to read the secret
 	// specified in your config.json file.
-        role string
-
-        // CacheUtil is used to access Vault tokens saved in
-        // the cache.
-        cacheUtil cache.CacheUtil
+	role string
 }
 
-func NewClientFactoryAWSEC2Auth(config *ClientFactoryAWSEC2AuthConfig) (ClientFactory, error) {
+func NewClientFactoryAWSEC2Auth(role string) (ClientFactory, error) {
 	// Create a new AWS client
 	awsClient, err := aws.NewDefaultClient()
 	if err != nil {
@@ -54,8 +34,7 @@ func NewClientFactoryAWSEC2Auth(config *ClientFactoryAWSEC2AuthConfig) (ClientFa
 
 	return &ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
-                role:      config.Role,
-                cacheUtil: config.CacheUtil,
+		role:      role,
 	}, nil
 }
 
@@ -63,33 +42,21 @@ func NewClientFactoryAWSEC2Auth(config *ClientFactoryAWSEC2AuthConfig) (ClientFa
 // authenticate against Vault via the AWS EC2 endpoint. If authentication
 // is successful, it will set the Vault API client with the newly-created
 // client token and return a DefaultClient object.
-func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, error) {
-        // Create a new Vault API client
+func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, *api.Secret, error) {
+	// Create a new Vault API client
 	vaultClient, err := api.NewClient(nil)
 	if err != nil {
-		return nil, err
-        }
-
-        // Attempt to get a cached token
-        token, err := c.cacheUtil.GetCachedToken(config.VaultAuthMethodAWSEC2)
-        if err != nil {
-                return nil, err
-        }
-
-        // If cacheUtil.GetCachedToken() returned a token then
-        // give it to vaultClient and return
-        if token != "" {
-                vaultClient.SetToken(token)
-                return NewDefaultClient(vaultClient), nil
-        }
+		return nil, nil, err
+	}
 
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
-	if err = c.getAndSetNewToken(vaultClient); err != nil {
-		return nil, err
+	secret, err := c.getAndSetNewToken(vaultClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return NewDefaultClient(vaultClient), nil
+	return NewDefaultClient(vaultClient), secret, nil
 }
 
 // WithClient receives a Vault API client that has already been initialized
@@ -97,35 +64,23 @@ func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, error) {
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a DefaultClient
 // object. This function is primarily used for testing purposes.
-func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, error) {
-        // Attempt to get a cached token
-        token, err := c.cacheUtil.GetCachedToken(config.VaultAuthMethodAWSEC2)
-        if err != nil {
-                return nil, err
-        }
-
-        // If cacheUtil.GetCachedToken() returned a token then
-        // give it to vaultClient and return
-        if token != "" {
-                vaultClient.SetToken(token)
-                return NewDefaultClient(vaultClient), nil
-        }
-
+func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, *api.Secret, error) {
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
-	if err := c.getAndSetNewToken(vaultClient); err != nil {
-		return nil, err
+	secret, err := c.getAndSetNewToken(vaultClient)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return NewDefaultClient(vaultClient), nil
+	return NewDefaultClient(vaultClient), secret, nil
 }
 
-func (c *ClientFactoryAWSEC2Auth) getAndSetNewToken(vaultClient *api.Client) error {
+func (c *ClientFactoryAWSEC2Auth) getAndSetNewToken(vaultClient *api.Client) (*api.Secret, error) {
 	// Get the elements of the EC2 metadata required to
 	// authenticate against Vault
 	pkcs7, err := c.awsClient.GetPKCS7Signature()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Create request payload
@@ -138,15 +93,17 @@ func (c *ClientFactoryAWSEC2Auth) getAndSetNewToken(vaultClient *api.Client) err
 	// in order to obtain a valid client token
 	secret, err := vaultClient.Logical().Write(path.Join("auth", "aws", "login"), payload)
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	// Get the token from the secret
+	token, err := secret.TokenID()
+	if err != nil {
+		return nil, fmt.Errorf("error reading token from secret: %v", err)
 	}
 
 	// Set the client token to the API client
-        vaultClient.SetToken(secret.Auth.ClientToken)
-        
-        err = c.cacheUtil.CacheNewToken(secret.Auth.ClientToken, secret.Auth.LeaseDuration, config.VaultAuthMethodAWSEC2)
-        if err != nil {
-                return err
-        }
-	return nil
+	vaultClient.SetToken(token)
+
+	return secret, nil
 }
