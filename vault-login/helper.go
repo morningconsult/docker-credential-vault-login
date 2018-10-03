@@ -69,17 +69,20 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 	}
 
+        // If an instance of cache.CachedToken was returned, check
+        // if the token is expired or if it can be renewed before
+        // attempting to use it to read the secret.
 	var cachedTokenID = ""
 	if cached != nil {
 		if cached.Expired() {
-			// Delete the cached token
+			// Delete the cached token if expired
 			h.cacheUtil.ClearCachedToken(cfg.Method)
 		} else {
 			cachedTokenID = cached.Token
 			if cached.EligibleForRenewal() {
 				err = h.cacheUtil.RenewToken(cached)
 				if err != nil {
-					// Delete the cached token
+					// Delete the cached token if it failed to renew
 					h.cacheUtil.ClearCachedToken(cfg.Method)
 					cachedTokenID = ""
 				}
@@ -113,8 +116,48 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		h.cacheUtil.ClearCachedToken(cfg.Method)
 	}
 
-	// Create a new vault.Client instance
-	client, err := h.newClientWithNewToken(cfg)
+	var (
+                client  vault.Client
+                factory vault.ClientFactory
+                secret  *api.Secret
+        )
+
+        // Create a new vault.ClientFactory instance according
+        // to the chosen authentication method
+	switch cfg.Method {
+	case config.VaultAuthMethodAWSIAM:
+		factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
+	case config.VaultAuthMethodAWSEC2:
+		factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
+	case config.VaultAuthMethodToken:
+		factory = vault.NewClientFactoryTokenAuth()
+	default:
+		return nil, fmt.Errorf("unknown authentication method: %q", cfg.Method)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error creating new client factory: %v", err)
+	}
+
+        // Authenticate according to the selected method (if
+        // applicable) and if successful give the resulting
+        // token to the Vault API client.
+	if h.vaultAPI != nil {
+		client, secret, err = factory.WithClient(h.vaultAPI)
+	} else {
+		client, secret, err = factory.NewClient()
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("error authenticating against Vault: %v", err)
+	}
+
+	if cfg.Method != config.VaultAuthMethodToken && secret != nil {
+		err = h.cacheUtil.CacheNewToken(secret, cfg.Method)
+		if err != nil {
+			return nil, fmt.Errorf("error caching new token: %v", err)
+		}
+	}
 
 	// Get the Docker credentials from Vault
 	creds, err := client.GetCredentials(cfg.Secret)

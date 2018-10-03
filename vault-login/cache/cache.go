@@ -54,7 +54,7 @@ type DefaultCacheUtil struct {
 // its cacheDir field is set to the value of the
 // DOCKER_CREDS_CACHE_DIR environment variable if it is set.
 // Otherwise, it uses the default directory.
-func NewDefaultCacheUtil() CacheUtil {
+func NewDefaultCacheUtil() *DefaultCacheUtil {
 	cacheDir := buildCacheDir()
 
 	var ttl int64 = DefaultTokenTTL
@@ -199,7 +199,7 @@ type NullCacheUtil struct {
 // its cacheDir field is set to the value of the
 // DOCKER_CREDS_CACHE_DIR environment variable if it is set.
 // Otherwise, it uses the default directory.
-func NewNullCacheUtil() CacheUtil {
+func NewNullCacheUtil() *NullCacheUtil {
 	cacheDir := buildCacheDir()
 	return &NullCacheUtil{cacheDir}
 }
