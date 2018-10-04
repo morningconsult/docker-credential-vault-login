@@ -32,7 +32,7 @@ func NewHelper(opts *HelperOptions) *Helper {
 	}
 
 	if opts.CacheUtil == nil {
-		opts.CacheUtil = cache.NewCacheUtil()
+		opts.CacheUtil = cache.NewCacheUtil(opts.VaultClient)
 	}
 
 	return &Helper{
@@ -132,11 +132,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	case config.VaultAuthMethodToken:
 		factory = vault.NewClientFactoryTokenAuth()
 	default:
-		return nil, fmt.Errorf("unknown authentication method: %q", cfg.Method)
+		log.Errorf("unknown authentication method: %q", cfg.Method)
+		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error creating new client factory: %v", err)
+		log.Errorf("error creating new client factory: %v", err)
+		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
         // Authenticate according to the selected method (if
@@ -149,13 +151,16 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("error authenticating against Vault: %v", err)
+		log.Errorf("error authenticating against Vault: %v", err)
+		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
+	// Cache the token
 	if cfg.Method != config.VaultAuthMethodToken && secret != nil {
 		err = h.cacheUtil.CacheNewToken(secret, cfg.Method)
 		if err != nil {
-			return nil, fmt.Errorf("error caching new token: %v", err)
+			log.Errorf("error caching new token: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 	}
 
@@ -171,53 +176,4 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 func (h *Helper) List() (map[string]string, error) {
 	return nil, notImplementedError
-}
-
-func (h *Helper) newClientWithNewToken(cfg *config.CredHelperConfig) (vault.Client, error) {
-	var (
-		factory vault.ClientFactory
-		client  vault.Client
-		secret  *api.Secret
-		err     error
-	)
-
-	// If the Helper does not already have a Vault API client
-	// or if it has a client but the client has no Vault token,
-	// create a Vault API client factory based on the type of
-	// authentication method specified in the config file
-	switch cfg.Method {
-	case config.VaultAuthMethodAWSIAM:
-		factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
-	case config.VaultAuthMethodAWSEC2:
-		factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
-	case config.VaultAuthMethodToken:
-		factory = vault.NewClientFactoryTokenAuth()
-	default:
-		return nil, fmt.Errorf("unknown authentication method: %q", cfg.Method)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("error creating new client factory: %v", err)
-	}
-
-	// If Helper has a Vault API client already, create a new
-	// DefaultClient using this existing client
-	if h.vaultAPI != nil {
-		client, secret, err = factory.WithClient(h.vaultAPI)
-	} else {
-		client, secret, err = factory.NewClient()
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("error authenticating against Vault: %v", err)
-	}
-
-	if cfg.Method != config.VaultAuthMethodToken && secret != nil {
-		err = h.cacheUtil.CacheNewToken(secret, cfg.Method)
-		if err != nil {
-			return nil, fmt.Errorf("error caching new token: %v", err)
-		}
-	}
-
-	return client, nil
 }

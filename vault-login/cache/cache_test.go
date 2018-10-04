@@ -2,9 +2,9 @@ package cache
 
 import (
 	"path/filepath"
-	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
@@ -16,9 +16,8 @@ func TestNewCacheUtil_Enabled(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, cacheDir)
-	os.Setenv(EnvTokenTTL, fmt.Sprintf("%d", expectedTTL))
 
-	cacheUtilUntyped := NewCacheUtil()
+	cacheUtilUntyped := NewCacheUtil(nil)
 
 	cacheUtil, ok := cacheUtilUntyped.(*DefaultCacheUtil)
 	if !ok {
@@ -35,11 +34,6 @@ func TestNewCacheUtil_Enabled(t *testing.T) {
 		t.Fatalf("Expected cacheUtil.tokenCacheDir to be %q, but got %q instead",
 			expectedTokenCacheDir, cacheUtil.tokenCacheDir)
 	}
-
-	if cacheUtil.tokenTTL != expectedTTL {
-		t.Fatalf("Expected cacheUtil.tokenTTL to be %d, but got %d instead",
-			expectedTTL, cacheUtil.tokenTTL)
-	}
 }
 
 func TestNewCacheUtil_Disabled(t *testing.T) {
@@ -48,7 +42,7 @@ func TestNewCacheUtil_Disabled(t *testing.T) {
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtilUntyped := NewCacheUtil()
+	cacheUtilUntyped := NewCacheUtil(nil)
 
 	cacheUtil, ok := cacheUtilUntyped.(*NullCacheUtil)
 	
@@ -68,7 +62,7 @@ func TestDefaultCacheUtil_GetCacheDir(t *testing.T) {
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewDefaultCacheUtil()
+	cacheUtil := NewDefaultCacheUtil(nil)
 	if cacheUtil.GetCacheDir() != cacheDir {
 		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
 			cacheDir, cacheUtil.cacheDir)
@@ -76,45 +70,72 @@ func TestDefaultCacheUtil_GetCacheDir(t *testing.T) {
 }
 
 func TestDefaultCacheUtil_RenewToken(t *testing.T) {
-	const (
-		roleName = "dev-test"
-		cacheDir = "/tmp/docker-credential-vault-login-testing"
-	)
+	const roleName = "dev-test"
 
 	os.Setenv(EnvDisableCache, "")
-	os.Setenv(EnvCacheDir, cacheDir)
+	os.Setenv(EnvCacheDir, "testdata")
 
 	// Start the Vault testing cluster
 	cluster := test.StartTestCluster(t)
 	defer cluster.Cleanup()
 
 	client := test.NewPreConfiguredVaultClient(t, cluster)
+	rootToken := client.Token()
 
-	// Create a token for a role
-	secret, err := client.Logical().Write(filepath.Join("auth", "token", "create"), map[string]interface{}{
-		"renewable": true,
-		"ttl": "10m",
-		"policies": []string{"test"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cacheDir := NewDefaultCacheUtil()
+	cacheDir := NewDefaultCacheUtil(client)
 
 	cases := []struct{
+		name      string
 		renewable bool
 		ttl       string
 		err       bool
 	}{
-		{},
+		{
+			"renewable",
+			true,
+			"1h",
+			false,
+		},
+		{
+			"non-renewable",
+			false,
+			"1h",
+			true,
+		},
 	}
 
-	// When you run the test, you gotta first create the token
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			client.SetToken(rootToken)
+			// Create a token
+			secret, err := client.Logical().Write(filepath.Join("auth", "token", "create"), map[string]interface{}{
+				"renewable": tc.renewable,
+				"ttl":       tc.ttl,
+				"policies":  []string{"test"},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	// ttl, err := secret.TokenTTL()
-	// if err != nil {
-	// 	t.Fatal(err)
-	// }
-	// t.Log(ttl.String())
+			token, err := secret.TokenID()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = cacheDir.RenewToken(&CachedToken{
+				Token:      token,
+				Expiration: time.Now().Add(time.Hour * 1).Unix(),
+				Renewable:  tc.renewable,
+				AuthMethod: config.VaultAuthMethodAWSIAM,
+			})
+
+			if tc.err && err == nil {
+				t.Fatal("expected an error but didn't receive one")
+			}
+
+			if !tc.err && err != nil {
+				t.Fatalf("expected no error but received one: %v", err)
+			}
+		})
+	}
 }

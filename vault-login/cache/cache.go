@@ -10,16 +10,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 )
 
 const (
-	DefaultTokenTTL int64  = 86400 // 1 day
 	EnvCacheDir     string = "DOCKER_CREDS_CACHE_DIR"
 	EnvDisableCache string = "DOCKER_CREDS_DISABLE_CACHE"
-	EnvTokenTTL     string = "DOCKER_CREDS_TOKEN_TTL"
 	DefaultCacheDir string = "~/.docker-credential-vault-login"
 	BackupCacheDir  string = "/tmp/.docker-credential-vault-login"
 )
@@ -37,37 +34,30 @@ type CacheUtil interface {
 // NewCacheUtil returns a new NullCacheUtil if the
 // DOCKER_CREDS_DISABLE_CACHE environment variable is set.
 // Otherwise, it returns a new DefaultCacheUtil.
-func NewCacheUtil() CacheUtil {
+func NewCacheUtil(vaultAPI *api.Client) CacheUtil {
 	if os.Getenv(EnvDisableCache) != "" {
 		return NewNullCacheUtil()
 	}
-	return NewDefaultCacheUtil()
+	return NewDefaultCacheUtil(vaultAPI)
 }
 
 type DefaultCacheUtil struct {
 	cacheDir      string
 	tokenCacheDir string
-	tokenTTL      int64
+	vaultAPI      *api.Client
 }
 
 // NewDefaultCacheUtil creates a new CacheUtil object. The value of
 // its cacheDir field is set to the value of the
 // DOCKER_CREDS_CACHE_DIR environment variable if it is set.
 // Otherwise, it uses the default directory.
-func NewDefaultCacheUtil() *DefaultCacheUtil {
+func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
 	cacheDir := buildCacheDir()
-
-	var ttl int64 = DefaultTokenTTL
-	if v := os.Getenv(EnvTokenTTL); v != "" {
-		if i, err := strconv.ParseInt(v, 10, 32); err == nil {
-			ttl = i
-		}
-	}
 
 	return &DefaultCacheUtil{
 		cacheDir:      cacheDir,
 		tokenCacheDir: filepath.Join(cacheDir, "tokens"),
-		tokenTTL:      ttl,
+		vaultAPI:      vaultAPI,
 	}
 }
 
@@ -76,17 +66,22 @@ func (c *DefaultCacheUtil) GetCacheDir() string {
 }
 
 func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
+	var err error
+
 	// Create a new Vault API client
-	client, err := api.NewClient(nil)
-	if err != nil {
-		return err
+	client := c.vaultAPI
+	if client == nil {
+		client, err = api.NewClient(nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Give the Vault API client the cached token
 	client.SetToken(cached.Token)
 
 	// Renew the token
-	secret, err := client.Auth().Token().Renew(cached.Token, int(c.tokenTTL))
+	secret, err := client.Auth().Token().RenewSelf(0)
 	if err != nil {
 		return err
 	}
@@ -139,7 +134,7 @@ func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, method config.Vault
 	if err != nil {
 		return err
 	}
-	expiration := time.Now().Add(time.Second * ttl).Unix()
+	expiration := time.Now().Add(ttl).Unix()
 
 	// Get the token's renewability
 	renewable, err := secret.TokenIsRenewable()

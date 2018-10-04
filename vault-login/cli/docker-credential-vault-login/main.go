@@ -26,7 +26,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	cacheUtil := cache.NewCacheUtil()
+	cacheUtil := cache.NewCacheUtil(nil)
 
 	defer log.Flush()
 	logging.SetupLogger(cacheUtil.GetCacheDir())
