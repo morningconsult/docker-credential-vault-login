@@ -26,7 +26,7 @@ var mutex sync.RWMutex
 type CacheUtil interface {
 	GetCacheDir() string
 	GetCachedToken(config.VaultAuthMethod) (*CachedToken, error)
-	CacheNewToken(*api.Secret, config.VaultAuthMethod) error
+	CacheNewToken(interface{}, config.VaultAuthMethod) error
 	ClearCachedToken(config.VaultAuthMethod)
 	RenewToken(*CachedToken) error
 }
@@ -122,31 +122,67 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 	return cached, nil
 }
 
-func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, method config.VaultAuthMethod) error {
+func (c *DefaultCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
+	var (
+		token *CachedToken
+		err   error
+	)
+
+	switch v.(type) {
+	case *api.Secret:
+		token, err = c.buildCachedTokenFromSecret(v.(*api.Secret), method)
+		if err != nil {
+			return fmt.Errorf("error creating cache.CachedToken instance from a *github.com/hashicorp/vault/api.Secret instance: %v", err)
+		}
+	case *CachedToken:
+		token = v.(*CachedToken)
+		if string(token.AuthMethod) == "" {
+			token.AuthMethod = method
+		}
+	default:
+		return fmt.Errorf("first argument passed to CacheNewToken not a unsupported type")
+	}
+
+	err = c.writeTokenToFile(token)
+	if err != nil {
+		return fmt.Errorf("error writing cache.CachedToken instance to disk: %v", err)
+	}
+	return nil
+}
+
+func (c *DefaultCacheUtil) buildCachedTokenFromSecret(secret *api.Secret,
+	method config.VaultAuthMethod) (*CachedToken, error) {
+
 	// Get the token from the secret
 	token, err := secret.TokenID()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Get the token's TTL
 	ttl, err := secret.TokenTTL()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	expiration := time.Now().Add(ttl).Unix()
 
 	// Get the token's renewability
 	renewable, err := secret.TokenIsRenewable()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	data, err := jsonutil.EncodeJSON(&CachedToken{
+	return &CachedToken{
 		Token:      token,
 		Expiration: expiration,
 		Renewable:  renewable,
-	})
+		AuthMethod: method,
+	}, nil
+}
+
+func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
+	// JSON-encode the CachedToken instance
+	data, err := jsonutil.EncodeJSON(token)
 	if err != nil {
 		return err
 	}
@@ -162,7 +198,7 @@ func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, method config.Vault
 
 	// Open the token cache file or create it if it
 	// doesn't already exist
-	file, err := os.OpenFile(c.tokenFilename(method), os.O_WRONLY|os.O_CREATE, 0664)
+	file, err := os.OpenFile(c.tokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
 		return err
 	}
@@ -207,7 +243,7 @@ func (n *NullCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*CachedTo
 	return nil, nil
 }
 
-func (n *NullCacheUtil) CacheNewToken(secret *api.Secret, method config.VaultAuthMethod) error {
+func (n *NullCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
 	return nil
 }
 

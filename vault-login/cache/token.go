@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	GracePeriodSeconds int64 = 120 // 2 minutes
+	GracePeriodSeconds int64 = 600 // 10 minutes
 )
 
 type CachedToken struct {
