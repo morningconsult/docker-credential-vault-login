@@ -6,7 +6,7 @@ import (
 )
 
 func TestExpired(t *testing.T) {
-	cases := []struct{
+	cases := []struct {
 		name    string
 		delta   int
 		expired bool
@@ -25,7 +25,7 @@ func TestExpired(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			token := &CachedToken{
-				Token: "",
+				Token:      "",
 				Expiration: time.Now().Add(time.Second * time.Duration(tc.delta)).Unix(),
 			}
 
@@ -41,9 +41,9 @@ func TestExpired(t *testing.T) {
 }
 
 func TestEligibleForRenewal(t *testing.T) {
-	tsWithinGracePeriod := time.Now().Add(time.Duration(GracePeriodSeconds / 2) * time.Second).Unix()
+	tsWithinGracePeriod := time.Now().Add(time.Duration(GracePeriodSeconds/2) * time.Second).Unix()
 	expired := time.Now().Add(-100 * time.Second).Unix()
-	cases := []struct{
+	cases := []struct {
 		name       string
 		expiration int64
 		renewable  bool
@@ -71,9 +71,9 @@ func TestEligibleForRenewal(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			token := &CachedToken{
-				Token: "",
+				Token:      "",
 				Expiration: tc.expiration,
-				Renewable: tc.renewable,
+				Renewable:  tc.renewable,
 			}
 
 			if tc.expected && !token.EligibleForRenewal() {

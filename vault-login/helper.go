@@ -69,9 +69,9 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 	}
 
-        // If an instance of cache.CachedToken was returned, check
-        // if the token is expired or if it can be renewed before
-        // attempting to use it to read the secret.
+	// If an instance of cache.CachedToken was returned, check
+	// if the token is expired or if it can be renewed before
+	// attempting to use it to read the secret.
 	var cachedTokenID = ""
 	if cached != nil {
 		if cached.Expired() {
@@ -117,13 +117,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	var (
-                client  vault.Client
-                factory vault.ClientFactory
-                secret  *api.Secret
-        )
+		client  vault.Client
+		factory vault.ClientFactory
+		secret  *api.Secret
+	)
 
-        // Create a new vault.ClientFactory instance according
-        // to the chosen authentication method
+	// Create a new vault.ClientFactory instance according
+	// to the chosen authentication method
 	switch cfg.Method {
 	case config.VaultAuthMethodAWSIAM:
 		factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
@@ -141,9 +141,9 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
-        // Authenticate according to the selected method (if
-        // applicable) and if successful give the resulting
-        // token to the Vault API client.
+	// Authenticate according to the selected method (if
+	// applicable) and if successful give the resulting
+	// token to the Vault API client.
 	if h.vaultAPI != nil {
 		client, secret, err = factory.WithClient(h.vaultAPI)
 	} else {

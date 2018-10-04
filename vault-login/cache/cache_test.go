@@ -1,15 +1,15 @@
 package cache
 
 import (
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -49,7 +49,7 @@ func TestNewCacheUtil_Disabled(t *testing.T) {
 	cacheUtilUntyped := NewCacheUtil(nil)
 
 	cacheUtil, ok := cacheUtilUntyped.(*NullCacheUtil)
-	
+
 	if !ok {
 		t.Fatalf("Expected to receive an instance of cache.DefaultCacheUtil, but didn't")
 	}
@@ -102,7 +102,7 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cases := []struct{
+	cases := []struct {
 		name string
 		arg  interface{}
 		err  bool
@@ -180,7 +180,7 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 			if err != nil {
 				t.Fatalf("expected no error but received one: %v", err)
 			}
-			
+
 			cachedToken := loadTokenFromFile(t, cacheUtil.tokenFilename(method))
 			if cachedToken.Token != token {
 				t.Fatalf("expected token %q but got %q instead", token, cachedToken.Token)
@@ -208,7 +208,7 @@ func TestDefaultCacheUtil_GetCachedToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cases := []struct{
+	cases := []struct {
 		name       string
 		token      string
 		expiration interface{}
@@ -299,7 +299,7 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 
 	cacheUtil := NewDefaultCacheUtil(client)
 
-	cases := []struct{
+	cases := []struct {
 		name      string
 		renewable bool
 		ttl       string
@@ -425,7 +425,7 @@ func writeJSONToFile(t *testing.T, json map[string]interface{}, tokenfile string
 
 	if err := os.MkdirAll(filepath.Dir(tokenfile), 0755); err != nil {
 		t.Fatal(err)
-	} 
+	}
 
 	file, err := os.OpenFile(tokenfile, os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
