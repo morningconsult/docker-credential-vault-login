@@ -64,8 +64,8 @@ func TestEmptyConfigFile(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile-3.json"
 	var expectedError = fmt.Sprintf("%s\n%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		"* No Vault authentication method (\"vault_auth_method\") is provided",
-		"* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
+		"* No Vault authentication method (\"auth_method\") is provided",
+		"* No path to the location of your secret in Vault (\"secret_path\") is provided")
 
 	test.MakeFile(t, testFilePath, []byte("{}"))
 	defer test.DeleteFile(t, testFilePath)
@@ -88,7 +88,7 @@ func TestConfigMissingMethod(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile-4.json"
 	var expectedError = fmt.Sprintf("%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		"* No Vault authentication method (\"vault_auth_method\") is provided")
+		"* No Vault authentication method (\"auth_method\") is provided")
 
 	cfg := &CredHelperConfig{
 		Role:     "dev-role-iam",
@@ -119,7 +119,7 @@ func TestConfigMissingSecret(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile-5.json"
 	var expectedError = fmt.Sprintf("%s\n%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		"* No path to the location of your secret in Vault (\"vault_secret_path\") is provided")
+		"* No path to the location of your secret in Vault (\"secret_path\") is provided")
 
 	cfg := &CredHelperConfig{
 		Method:   VaultAuthMethodAWSIAM,
@@ -182,7 +182,7 @@ func TestConfigMissingRole(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile-7.json"
 	var expectedError = fmt.Sprintf("%s\n%s%s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		"* No Vault role (\"vault_role\") is provided (required when ",
+		"* No Vault role (\"role\") is provided (required when ",
 		"the AWS authentication method is chosen)")
 
 	cfg := &CredHelperConfig{
@@ -205,7 +205,7 @@ func TestConfigMissingRole(t *testing.T) {
 }
 
 // TestConfigBadAuthMethod tests that if an unsupported
-// authentication method is provided in the "vault_auth_method"
+// authentication method is provided in the "auth_method"
 // field of the config.json file, GetCredHelperConfig returns
 // the appropriate error.
 func TestConfigBadAuthMethod(t *testing.T) {
@@ -216,7 +216,7 @@ func TestConfigBadAuthMethod(t *testing.T) {
 
 	var expectedError = fmt.Sprintf("%s\n* %s",
 		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		fmt.Sprintf(`Unrecognized Vault authentication method ("vault_auth_method") value %q (must be one of "iam", "ec2", or "token")`, badMethod),
+		fmt.Sprintf(`Unrecognized Vault authentication method ("auth_method") value %q (must be one of "iam", "ec2", or "token")`, badMethod),
 	)
 
 	cfg := &CredHelperConfig{

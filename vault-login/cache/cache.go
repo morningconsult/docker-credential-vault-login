@@ -2,7 +2,6 @@ package cache
 
 import (
 	"fmt"
-	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	homedir "github.com/mitchellh/go-homedir"
@@ -29,6 +28,7 @@ type CacheUtil interface {
 	CacheNewToken(interface{}, config.VaultAuthMethod) error
 	ClearCachedToken(config.VaultAuthMethod)
 	RenewToken(*CachedToken) error
+	TokenFilename(config.VaultAuthMethod) string
 }
 
 // NewCacheUtil returns a new NullCacheUtil if the
@@ -94,7 +94,7 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	fname := c.tokenFilename(method)
+	fname := c.TokenFilename(method)
 	file, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -113,10 +113,6 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 
 	if cached.Token == "" {
 		return nil, fmt.Errorf("no token found in cache file %s", fname)
-	}
-
-	if _, err = uuid.ParseUUID(cached.Token); err != nil {
-		return nil, fmt.Errorf("token found in cache file %s is not a valid UUID", fname)
 	}
 
 	return cached, nil
@@ -198,7 +194,7 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 
 	// Open the token cache file or create it if it
 	// doesn't already exist
-	file, err := os.OpenFile(c.tokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0664)
+	file, err := os.OpenFile(c.TokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
 		return err
 	}
@@ -211,11 +207,11 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 
 func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
 	mutex.Lock()
-	os.Remove(c.tokenFilename(method))
+	os.Remove(c.TokenFilename(method))
 	mutex.Unlock()
 }
 
-func (c *DefaultCacheUtil) tokenFilename(method config.VaultAuthMethod) string {
+func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
 	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"-auth.json")
 }
 
@@ -253,6 +249,10 @@ func (n *NullCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
 
 func (n *NullCacheUtil) RenewToken(token *CachedToken) error {
 	return nil
+}
+
+func (n *NullCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
+	return ""
 }
 
 func buildCacheDir() string {

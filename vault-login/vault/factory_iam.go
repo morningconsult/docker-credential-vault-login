@@ -29,9 +29,15 @@ type ClientFactoryAWSIAMAuth struct {
 	// to be used as the value of the X-Vault-AWS-IAM-Server-ID
 	// header in the sts:GetCallerIdentity request.
 	serverID string
+
+	// (optional) mountPath specifies path at which the AWS
+	// secrets engine was enabled (if at all) in your Vault
+	// server. If empty, it will use the default value of
+	// "aws"
+	mountPath string
 }
 
-func NewClientFactoryAWSIAMAuth(role, serverID string) (ClientFactory, error) {
+func NewClientFactoryAWSIAMAuth(role, serverID, mountPath string) (ClientFactory, error) {
 	// Create a new AWS client
 	awsClient, err := aws.NewDefaultClient()
 	if err != nil {
@@ -42,6 +48,7 @@ func NewClientFactoryAWSIAMAuth(role, serverID string) (ClientFactory, error) {
 		awsClient: awsClient,
 		role:      role,
 		serverID:  serverID,
+		mountPath: mountPath,
 	}, nil
 }
 
@@ -111,7 +118,7 @@ func (c *ClientFactoryAWSIAMAuth) getAndSetNewToken(vaultClient *api.Client) (*a
 
 	// Authenticate against Vault via the AWS IAM endpoint
 	// in order to obtain a valid client token
-	secret, err := vaultClient.Logical().Write(path.Join("auth", "aws", "login"), payload)
+	secret, err := vaultClient.Logical().Write(path.Join("auth", c.mountPath, "login"), payload)
 	if err != nil {
 		return nil, err
 	}

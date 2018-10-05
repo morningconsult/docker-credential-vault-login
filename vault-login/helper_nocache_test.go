@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/vault/api"
 
 	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -53,7 +54,10 @@ func TestHelperGet_IAM_Success(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServerIAMAuth(t, opts)
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -80,7 +84,7 @@ func TestHelperGet_IAM_Success(t *testing.T) {
 }
 
 // TestHelperGet_IAM_BadPath tests that when a user does not provide
-// the path to their Docker credentials in the "vault_secret_path"
+// the path to their Docker credentials in the "secret_path"
 // field of the config.json file, the helper.Get() method returns
 // an error
 func TestHelperGet_IAM_BadPath(t *testing.T) {
@@ -88,7 +92,7 @@ func TestHelperGet_IAM_BadPath(t *testing.T) {
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
-			// secretPath delibarately does not match the "vault_secret_path" field
+			// secretPath delibarately does not match the "secret_path" field
 			// of the config.json file in order to cause an error -- this is the
 			// purpose of this unit test
 			SecretPath: "secret/bim/baz",
@@ -100,7 +104,10 @@ func TestHelperGet_IAM_BadPath(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServerIAMAuth(t, opts)
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -121,7 +128,7 @@ func TestHelperGet_IAM_BadPath(t *testing.T) {
 }
 
 // TestHelperGet_IAM_NoSecret tests that when a user provides the path
-// to their Docker credentials in the "vault_secret_path" field of
+// to their Docker credentials in the "secret_path" field of
 // the config.json file but no credentials are present at that location,
 // the helper.Get() method returns an error.
 func TestHelperGet_IAM_NoSecret(t *testing.T) {
@@ -138,7 +145,10 @@ func TestHelperGet_IAM_NoSecret(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServerIAMAuth(t, opts)
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -159,7 +169,7 @@ func TestHelperGet_IAM_NoSecret(t *testing.T) {
 }
 
 // TestHelperGet_IAM_BadRole tests that when a user provides a Vault role
-// in the "vault_role" field of the config.json file that has not been
+// in the "role" field of the config.json file that has not been
 // configured with the IAM role used to authenticate againt AWS,
 // the helper.Get() method returns an error.
 func TestHelperGet_IAM_BadRole(t *testing.T) {
@@ -173,7 +183,10 @@ func TestHelperGet_IAM_BadRole(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServerIAMAuth(t, opts)
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -216,7 +229,10 @@ func TestHelperGet_IAM_MalformedSecret(t *testing.T) {
 		}
 	)
 
-	server := test.MakeMockVaultServerIAMAuth(t, opts)
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -251,6 +267,9 @@ func TestHelperGet_IAM_FactoryError(t *testing.T) {
 	// the config.json file is located
 	os.Setenv(config.EnvConfigFilePath, testConfigFile)
 
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
 	helper := NewHelper(nil)
 	_, _, err := helper.Get("")
 	if err == nil {
@@ -281,6 +300,9 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 	// the config.json file is located
 	os.Setenv(config.EnvConfigFilePath, testConfigFile)
 
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
 	helper := NewHelper(nil)
 	_, _, err := helper.Get("")
 	if err == nil {
@@ -296,22 +318,19 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
 
-func TestHelperGet_Token_Success(t *testing.T) {
+func TestHelperGet_Token(t *testing.T) {
 	var (
 		testConfigFile = testTokenConfigFile
 		cfg            = readConfig(t, testConfigFile)
-		secret         = map[string]interface{}{
-			"username": "frodo.baggins@theshire.com",
-			"password": "potato",
-		}
 	)
+
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
 
 	cluster := test.StartTestCluster(t)
 	defer cluster.Cleanup()
 
 	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	test.WriteSecret(t, client, cfg.Secret, secret)
 
 	// Set the environment variable informing the program where
 	// the config.json file is located
@@ -321,107 +340,94 @@ func TestHelperGet_Token_Success(t *testing.T) {
 	// assigned to the client (to conform with ClientFactory behavior)
 	os.Setenv(api.EnvVaultToken, client.Token())
 
-	helper := NewHelper(&HelperOptions{
-		VaultClient: client,
-	})
-	user, pw, err := helper.Get("")
-	if err != nil {
-		t.Fatal(err)
+	cases := []struct{
+		name       string
+		actualPath string
+		secret     map[string]interface{}
+		err        bool
+	}{
+		{
+			"success",
+			cfg.Secret,
+			map[string]interface{}{
+				"username": "frodo.baggins@theshire.com",
+				"password": "potato",
+			},
+			false,
+		},
+		{
+			"bad-path",
+			// Differs from path at which secret was written per
+			// the config.json file
+			"secret/bim/baz",
+			map[string]interface{}{
+				"username": "frodo.baggins@theshire.com",
+				"password": "potato",
+			},
+			true,
+		},
+		{
+			"malformed-secret",
+			cfg.Secret,
+			map[string]interface{}{
+				// Malformed "username" field
+				"usename":  "frodo.baggins@theshire.com",
+				"password": "potato",
+			},
+			true,
+		},
+		{
+			"bad-client",
+			cfg.Secret,
+			map[string]interface{}{
+				// Malformed "username" field
+				"username":  "frodo.baggins@theshire.com",
+				"password": "potato",
+			},
+			true,
+		},
 	}
-	if username, ok := secret["username"].(string); !ok || username != user {
-		t.Fatalf("Wrong username (got %q, expected %q)", user, username)
-	}
-	if password, ok := secret["password"].(string); !ok || password != pw {
-		t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
-	}
-}
 
-// TestHelperGet_Token_BadPath tests that when a user does not provide
-// the path to their Docker credentials in the "vault_secret_path"
-// field of the config.json file, the helper.Get() method returns
-// an error
-func TestHelperGet_Token_BadPath(t *testing.T) {
-	var (
-		testConfigFile = testTokenConfigFile
-		secret         = map[string]interface{}{
-			"username": "frodo.baggins@theshire.com",
-			"password": "potato",
-		}
-	)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Write the secret to the test cluster
+			test.WriteSecret(t, client, tc.actualPath, tc.secret)
+			defer test.DeleteSecret(t, client, tc.actualPath)
 
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
+			var helper *Helper
+			if tc.name == "bad-client" {
+				os.Setenv(api.EnvRateLimit, "not an int!")
+				defer os.Unsetenv(api.EnvRateLimit)
+				helper = NewHelper(nil)
+			} else {
+				helper = NewHelper(&HelperOptions{
+					VaultClient: client,
+				})
+			}
 
-	client := test.NewPreConfiguredVaultClient(t, cluster)
+			user, pw, err := helper.Get("")
+			
+			if tc.err {
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				return
+			}
 
-	// Writing secret to a path other than cfg.Secret in order to
-	// trigger an error.
-	test.WriteSecret(t, client, "secret/bim/baz", secret)
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	// Set VAULT_TOKEN environment variable to the token already
-	// assigned to the client (to conform with ClientFactoryTokenAuth
-	// behavior)
-	os.Setenv(api.EnvVaultToken, client.Token())
-
-	helper := NewHelper(&HelperOptions{
-		VaultClient: client,
-	})
-	_, _, err := helper.Get("")
-	if err == nil {
-		t.Error("should have returned an error, but didn't")
-	}
-}
-
-// TestHelperGet_Token_MalformedSecret tests that when the Vault secret
-// representing the Docker credentials is not properly formatted,
-// the helper.Get() method returns an error. Note that this program
-// expects the Docker credentials to be stored in Vault as follows:
-// {
-//      "username": "docker_user",
-//      "password": "password"
-// }
-func TestHelperGet_Token_MalformedSecret(t *testing.T) {
-	var (
-		testConfigFile = testTokenConfigFile
-		secret         = map[string]interface{}{
-			// Malformed "username" field
-			"usename":  "frodo.baggins@theshire.com",
-			"password": "potato",
-		}
-	)
-
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
-
-	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	// Writing secret to a path other than cfg.Secret in order to
-	// trigger an error.
-	test.WriteSecret(t, client, "secret/bim/baz", secret)
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	// Set VAULT_TOKEN environment variable to the token already
-	// assigned to the client (to conform with ClientFactoryTokenAuth
-	// behavior)
-	os.Setenv(api.EnvVaultToken, client.Token())
-
-	helper := NewHelper(&HelperOptions{
-		VaultClient: client,
-	})
-	_, _, err := helper.Get("")
-	if err == nil {
-		t.Error("should have returned an error, but didn't")
+			if username, ok := tc.secret["username"].(string); !ok || username != user {
+				t.Fatalf("Wrong username (got %q, expected %q)", user, username)
+			}
+			if password, ok := tc.secret["password"].(string); !ok || password != pw {
+				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
+			}
+		})
 	}
 }
 
 func TestHelperList(t *testing.T) {
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
 	helper := NewHelper(nil)
 	_, err := helper.List()
 	if err == nil {
@@ -432,6 +438,9 @@ func TestHelperList(t *testing.T) {
 }
 
 func TestHelperAdd(t *testing.T) {
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
 	helper := NewHelper(nil)
 	err := helper.Add(&credentials.Credentials{})
 	if err == nil {
@@ -442,6 +451,9 @@ func TestHelperAdd(t *testing.T) {
 }
 
 func TestHelperDelete(t *testing.T) {
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
 	helper := NewHelper(nil)
 	err := helper.Delete("")
 	if err == nil {
@@ -456,6 +468,9 @@ func TestHelperDelete(t *testing.T) {
 // cannot be decoded) the correct error is returned.
 func TestHelperGet_ParseError(t *testing.T) {
 	const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
+
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
 
 	data := test.EncodeJSON(t, map[string]int{"foo": 1234})
 	test.MakeFile(t, testFilePath, data)
@@ -475,7 +490,12 @@ func TestHelperGet_ParseError(t *testing.T) {
 func TestMain(m *testing.M) {
 	path := os.Getenv("PATH")
 	env := awstesting.StashEnv()
+
+	// PATH must be set because awstesting.StashEnv()
+	// unsets the value of $PATH and homedir.Expand()
+	// requires the $PATH to execute the "sh" command
 	os.Setenv("PATH", path)
+
 	defer awstesting.PopEnv(env)
 	defer seelog.Flush()
 	logger.SetupTestLogger()

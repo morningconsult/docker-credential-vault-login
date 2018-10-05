@@ -181,7 +181,7 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 				t.Fatalf("expected no error but received one: %v", err)
 			}
 
-			cachedToken := loadTokenFromFile(t, cacheUtil.tokenFilename(method))
+			cachedToken := loadTokenFromFile(t, cacheUtil.TokenFilename(method))
 			if cachedToken.Token != token {
 				t.Fatalf("expected token %q but got %q instead", token, cachedToken.Token)
 			}
@@ -230,13 +230,6 @@ func TestDefaultCacheUtil_GetCachedToken(t *testing.T) {
 			true,
 		},
 		{
-			"non-uuid-token",
-			"not a uuid!",
-			goodExpiration,
-			true,
-			true,
-		},
-		{
 			"empty-token",
 			"",
 			goodExpiration,
@@ -266,7 +259,7 @@ func TestDefaultCacheUtil_GetCachedToken(t *testing.T) {
 			}
 
 			if tc.name != "file-doesnt-exist" {
-				writeJSONToFile(t, json, cacheUtil.tokenFilename(method))
+				writeJSONToFile(t, json, cacheUtil.TokenFilename(method))
 			}
 
 			// Delete the file at the end of the test
@@ -297,8 +290,6 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 	client := test.NewPreConfiguredVaultClient(t, cluster)
 	rootToken := client.Token()
 
-	cacheUtil := NewDefaultCacheUtil(client)
-
 	cases := []struct {
 		name      string
 		renewable bool
@@ -320,11 +311,29 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 			config.VaultAuthMethodAWSIAM,
 			true,
 		},
+		{
+			"new-vault-client-error",
+			true,
+			"1h",
+			config.VaultAuthMethodAWSIAM,
+			true,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			client.SetToken(rootToken)
+
+			var cacheUtil *DefaultCacheUtil
+			if tc.name == "new-vault-client-error" {
+				// This will trigger an error
+				os.Setenv(api.EnvRateLimit, "not an int!")
+				defer os.Unsetenv(api.EnvRateLimit)
+				cacheUtil = NewDefaultCacheUtil(nil)
+			} else {
+				cacheUtil = NewDefaultCacheUtil(client)
+			}
+
 			// Create a token
 			secret, err := client.Logical().Write(filepath.Join("auth", "token", "create"), map[string]interface{}{
 				"renewable": tc.renewable,
@@ -414,6 +423,32 @@ func TestNullCacheUtil_RenewToken(t *testing.T) {
 	err := cacheUtil.RenewToken(nil)
 	if err != nil {
 		t.Fatal("expected a nil error")
+	}
+}
+
+func TestNullCacheUtil_ClearCachedToken(t *testing.T) {
+	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+
+	os.Setenv(EnvDisableCache, "true")
+	os.Setenv(EnvCacheDir, cacheDir)
+
+	cacheUtil := NewNullCacheUtil()
+
+	// Should return nothing and have no effect at all
+	cacheUtil.ClearCachedToken(config.VaultAuthMethodAWSIAM)
+}
+
+func TestNullCacheUtil_TokenFilename(t *testing.T) {
+	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+
+	os.Setenv(EnvDisableCache, "true")
+	os.Setenv(EnvCacheDir, cacheDir)
+
+	cacheUtil := NewNullCacheUtil()
+
+	fname := cacheUtil.TokenFilename(config.VaultAuthMethodAWSIAM)
+	if fname != "" {
+		t.Fatal("expected an empty string")
 	}
 }
 

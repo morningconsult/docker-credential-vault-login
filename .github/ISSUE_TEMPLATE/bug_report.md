@@ -24,9 +24,9 @@ Steps to reproduce this issue, eg:
 Example:
 ```json
 {
-  "vault_auth_method": "ec2",
-  "vault_role": "dev-role-ec2",
-  "vault_secret_path": "secret/docker/creds"
+  "auth_method": "ec2",
+  "role": "dev-role-ec2",
+  "secret_path": "secret/docker/creds"
 }
 ```
 

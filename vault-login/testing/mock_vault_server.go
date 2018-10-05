@@ -8,11 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	uuid "github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/phayes/freeport"
 )
+
+const defaultTestTTL int = 86400
 
 type TestVaultServerOptions struct {
 	SecretPath string
@@ -49,21 +51,26 @@ type TestEC2AuthReqPayload struct {
 // the testVaultServerOptions object. For example, if opts.secretPath == "secret/foo",
 // your secret (specified via the "secret") field of the testVaultServerOptions
 // object can be read via GET http://127.0.0.1:<port>/v1/secret/foo.
-func MakeMockVaultServerIAMAuth(t *testing.T, opts *TestVaultServerOptions) *http.Server {
+func MakeMockVaultServerIAMAuth(t *testing.T, opts *TestVaultServerOptions) (*http.Server, string) {
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		t.Fatal(err)
 	}
+	token, err := uuid.GenerateUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/auth/aws/login", iamAuthHandler(t, opts.Role, port))
+	mux.HandleFunc("/v1/auth/aws/login", iamAuthHandler(t, opts.Role, token, port))
 	if opts.SecretPath != "" {
-		mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
+		mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, token, port))
 	}
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
 	}
-	return server
+	return server, token
 }
 
 // MakeMockVaultServerEC2Auth creates a mock Vault server which mimics two HTTP
@@ -83,16 +90,36 @@ func MakeMockVaultServerIAMAuth(t *testing.T, opts *TestVaultServerOptions) *htt
 // TestVaultServerOptions object. For example, if opts.secretPath == "secret/foo",
 // your secret (specified via the "secret") field of the TestVaultServerOptions
 // object can be read via GET http://127.0.0.1:<port>/v1/secret/foo.
-func MakeMockVaultServerEC2Auth(t *testing.T, opts *TestVaultServerOptions) *http.Server {
+func MakeMockVaultServerEC2Auth(t *testing.T, opts *TestVaultServerOptions) (*http.Server, string) {
+	port, err := freeport.GetFreePort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := uuid.GenerateUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/v1/auth/aws/login", ec2AuthHandler(t, opts.Role, token, opts.PKCS7, port))
+	if opts.SecretPath != "" {
+		mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, token, port))
+	}
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+	return server, token
+}
+
+func MakeMockVaultServerWithExistingToken(t *testing.T, pathToSecret string, secret map[string]interface{}, token string) *http.Server {
 	port, err := freeport.GetFreePort()
 	if err != nil {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/auth/aws/login", ec2AuthHandler(t, opts.Role, opts.PKCS7, port))
-	if opts.SecretPath != "" {
-		mux.HandleFunc(path.Join("/v1", opts.SecretPath), dockerSecretHandler(t, opts.Secret, port))
-	}
+	mux.HandleFunc(path.Join("/v1", pathToSecret), dockerSecretHandler(t, secret, token, port))
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: mux,
@@ -100,20 +127,20 @@ func MakeMockVaultServerEC2Auth(t *testing.T, opts *TestVaultServerOptions) *htt
 	return server
 }
 
-func dockerSecretHandler(t *testing.T, secret map[string]interface{}, port int) http.HandlerFunc {
+func dockerSecretHandler(t *testing.T, secret map[string]interface{}, token string, port int) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case "GET":
 			prefix := fmt.Sprintf("[ GET http://127.0.0.1:%d/v1/auth/aws/login ]", port)
-			token := req.Header.Get("X-Vault-Token")
-			if token == "" {
+			clientToken := req.Header.Get("X-Vault-Token")
+			if clientToken == "" {
 				t.Logf("%s request has no Vault token header\n", prefix)
 				http.Error(resp, "", 400)
 				return
 			}
-			if _, err := uuid.ParseUUID(token); err != nil {
-				t.Logf("%s unable to parse token %q: %v", prefix, token, err)
-				http.Error(resp, "", 500)
+
+			if clientToken != token {
+				http.Error(resp, "Unauthorized", 401)
 				return
 			}
 
@@ -141,7 +168,7 @@ func dockerSecretHandler(t *testing.T, secret map[string]interface{}, port int) 
 	}
 }
 
-func iamAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
+func iamAuthHandler(t *testing.T, role, token string, port int) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case "POST", "PUT":
@@ -202,17 +229,11 @@ func iamAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
 				return
 			}
 
-			// return the expected response with random uuid
-			token, err := uuid.GenerateUUID()
-			if err != nil {
-				t.Errorf("%s failed to create a random UUID: %v\n", prefix, err)
-				http.Error(resp, "", 500)
-				return
-			}
-
 			respData := &api.Secret{
 				Auth: &api.SecretAuth{
-					ClientToken: token,
+					ClientToken:   token,
+					LeaseDuration: defaultTestTTL,
+					Renewable:     true,
 				},
 			}
 
@@ -233,7 +254,7 @@ func iamAuthHandler(t *testing.T, role string, port int) http.HandlerFunc {
 	}
 }
 
-func ec2AuthHandler(t *testing.T, role, pkcs7 string, port int) http.HandlerFunc {
+func ec2AuthHandler(t *testing.T, role, token, pkcs7 string, port int) http.HandlerFunc {
 	return func(resp http.ResponseWriter, req *http.Request) {
 		switch req.Method {
 		case "POST", "PUT":
@@ -256,17 +277,11 @@ func ec2AuthHandler(t *testing.T, role, pkcs7 string, port int) http.HandlerFunc
 				return
 			}
 
-			// return the expected response with random uuid
-			token, err := uuid.GenerateUUID()
-			if err != nil {
-				t.Errorf("%s failed to create a random UUID: %v\n", prefix, err)
-				http.Error(resp, "", 500)
-				return
-			}
-
 			respData := &api.Secret{
 				Auth: &api.SecretAuth{
-					ClientToken: token,
+					ClientToken:   token,
+					LeaseDuration: defaultTestTTL,
+					Renewable:     true,
 				},
 			}
 

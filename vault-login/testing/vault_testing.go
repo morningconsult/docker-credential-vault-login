@@ -48,3 +48,9 @@ func WriteSecret(t *testing.T, client *api.Client, secretPath string, secret map
 		t.Fatal(err)
 	}
 }
+
+func DeleteSecret(t *testing.T, client *api.Client, secretPath string) {
+	if _, err := client.Logical().Delete(secretPath); err != nil {
+		t.Fatal(err)
+	}
+}

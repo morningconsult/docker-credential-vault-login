@@ -1,161 +1,97 @@
 package vault
 
 import (
-	"fmt"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 	"testing"
 )
 
-func TestGetCredentials_Success(t *testing.T) {
+func TestGetCredentials(t *testing.T) {
 	var (
-		username   = "frodo.baggins@theshire.com"
-		password   = "potatoes"
-		secretPath = "secret/foo/bar"
-		secret     = map[string]interface{}{
-			"username": username,
-			"password": password,
-		}
+		username = "frodo.baggins@theshire.com"
+		password = "potatoes"
 	)
 
 	cluster := test.StartTestCluster(t)
 	defer cluster.Cleanup()
 
-	client := test.NewPreConfiguredVaultClient(t, cluster)
+	client := NewDefaultClient(test.NewPreConfiguredVaultClient(t, cluster))
 
-	test.WriteSecret(t, client, secretPath, secret)
-
-	appClient := NewDefaultClient(client)
-
-	creds, err := appClient.GetCredentials(secretPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if creds.Username != username {
-		t.Fatalf("Unexpected username (expected %q, got %q)", username, creds.Username)
-	}
-	if creds.Password != password {
-		t.Fatalf("Unexpected password (expected %q, got %q)", password, creds.Password)
-	}
-}
-
-// TestGetCredentials_WrongPath tests that if the client attempts to read
-// a secret at an empty path (i.e. a path where no secret has been written)
-// the client returns the appropriate error.
-func TestGetCredentials_WrongPath(t *testing.T) {
-	var fakePath = "secret/bim/baz"
-
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
-
-	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	appClient := NewDefaultClient(client)
-
-	_, err := appClient.GetCredentials(fakePath)
-	if err == nil {
-		t.Fatal("expected an error, but got none")
-	}
-
-	expectedError := fmt.Sprintf("No secret found in Vault at path %q", fakePath)
-	actualError := err.Error()
-	if expectedError != actualError {
-		t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
-	}
-}
-
-// TestGetCredentials_NoUsername tests that if the client attempts to read
-// a secret without a "username" key, it returns the appropriate error.
-func TestGetCredentials_NoUsername(t *testing.T) {
-	var (
-		secretPath = "secret/foo/bar"
-		secret     = map[string]interface{}{
-			"user":     "frodo.baggins@theshire.com",
-			"password": "potatoes",
-		}
-	)
-
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
-
-	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	test.WriteSecret(t, client, secretPath, secret)
-
-	appClient := NewDefaultClient(client)
-
-	_, err := appClient.GetCredentials(secretPath)
-	if err == nil {
-		t.Fatal("expected an error, but got none")
+	cases := []struct{
+		name        string
+		actualPath  string
+		requestPath string
+		secret      map[string]interface{}
+		err         bool
+	}{
+		{
+			"success",
+			"secret/foo/bar",
+			"secret/foo/bar",
+			map[string]interface{}{
+				"username": username,
+				"password": password,
+			},
+			false,
+		},
+		{
+			"wrong-path",
+			"secret/foo/bar",
+			"secret/bim/baz",
+			map[string]interface{}{
+				"username": username,
+				"password": password,
+			},
+			true,
+		},
+		{
+			"no-username",
+			"secret/foo/bar",
+			"secret/foo/bar",
+			map[string]interface{}{
+				"password": password,
+			},
+			true,
+		},
+		{
+			"no-password",
+			"secret/foo/bar",
+			"secret/foo/bar",
+			map[string]interface{}{
+				"username": username,
+			},
+			true,
+		},
+		{
+			"no-creds",
+			"secret/foo/bar",
+			"secret/foo/bar",
+			map[string]interface{}{
+				"user": username,
+				"pw":   password,
+			},
+			true,
+		},
 	}
 
-	expectedError := fmt.Sprintf("No username found in Vault at path %q", secretPath)
-	actualError := err.Error()
-	if expectedError != actualError {
-		t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
-	}
-}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.WriteSecret(t, client.(*DefaultClient).RawClient(), tc.actualPath, tc.secret)
 
-// TestGetCredentials_NoPassword tests that if the client attempts to read
-// a secret without a "password" key, it returns the appropriate error.
-func TestGetCredentials_NoPassword(t *testing.T) {
-	var (
-		secretPath = "secret/foo/bar"
-		secret     = map[string]interface{}{
-			"username": "frodo.baggins@theshire.com",
-			"pw":       "potatoes",
-		}
-	)
+			creds, err := client.GetCredentials(tc.requestPath)
 
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
+			if tc.err {
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				return
+			}
 
-	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	test.WriteSecret(t, client, secretPath, secret)
-
-	appClient := NewDefaultClient(client)
-
-	_, err := appClient.GetCredentials(secretPath)
-	if err == nil {
-		t.Fatal("expected an error, but got none")
-	}
-
-	expectedError := fmt.Sprintf("No password found in Vault at path %q", secretPath)
-	actualError := err.Error()
-	if expectedError != actualError {
-		t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
-	}
-}
-
-// TestGetCredentials_NoCreds tests that if the client attempts to read
-// a secret without a "username" or "password" key, it returns the
-// appropriate error.
-func TestGetCredentials_NoCreds(t *testing.T) {
-	var (
-		secretPath = "secret/foo/bar"
-		secret     = map[string]interface{}{
-			"user": "frodo.baggins@theshire.com",
-			"pw":   "potatoes",
-		}
-	)
-
-	cluster := test.StartTestCluster(t)
-	defer cluster.Cleanup()
-
-	client := test.NewPreConfiguredVaultClient(t, cluster)
-
-	test.WriteSecret(t, client, secretPath, secret)
-
-	appClient := NewDefaultClient(client)
-
-	_, err := appClient.GetCredentials(secretPath)
-	if err == nil {
-		t.Fatal("expected an error, but got none")
-	}
-
-	expectedError := fmt.Sprintf("No username or password found in Vault at path %q", secretPath)
-	actualError := err.Error()
-	if expectedError != actualError {
-		t.Fatalf("expected error %q, got %q instead", expectedError, actualError)
+			if creds.Username != username {
+				t.Fatalf("Unexpected username (expected %q, got %q)", username, creds.Username)
+			}
+			if creds.Password != password {
+				t.Fatalf("Unexpected password (expected %q, got %q)", password, creds.Password)
+			}
+		})
 	}
 }

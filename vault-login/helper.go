@@ -50,8 +50,6 @@ func (h *Helper) Delete(serverURL string) error {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
-	var cached *cache.CachedToken = nil
-
 	// Parse the config.json file
 	cfg, err := config.GetCredHelperConfig()
 	if err != nil {
@@ -59,119 +57,136 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
-	// Get the cached token (if exists)
-	if cfg.Method != config.VaultAuthMethodToken {
-		cached, err = h.cacheUtil.GetCachedToken(cfg.Method)
+	// Handle according to the chosen authentication method
+	switch cfg.Method {
+	case config.VaultAuthMethodAWSIAM, config.VaultAuthMethodAWSEC2:
+		// Get the cached token (if exists)
+		cached, err := h.cacheUtil.GetCachedToken(cfg.Method)
 		if err != nil {
 			// Delete the token cache file
 			h.cacheUtil.ClearCachedToken(cfg.Method)
 			log.Errorf("error getting cached token: %v", err)
+			log.Infof("deleted cached token file %s", h.cacheUtil.TokenFilename(cfg.Method))
 		}
-	}
 
-	// If an instance of cache.CachedToken was returned, check
-	// if the token is expired or if it can be renewed before
-	// attempting to use it to read the secret.
-	var cachedTokenID = ""
-	if cached != nil {
-		if cached.Expired() {
-			// Delete the cached token if expired
-			h.cacheUtil.ClearCachedToken(cfg.Method)
-		} else {
-			cachedTokenID = cached.Token
-			if cached.EligibleForRenewal() {
-				err = h.cacheUtil.RenewToken(cached)
-				if err != nil {
-					// Delete the cached token if it failed to renew
-					h.cacheUtil.ClearCachedToken(cfg.Method)
-					cachedTokenID = ""
+		// If an instance of cache.CachedToken was returned, check
+		// if the token is expired or if it can be renewed before
+		// attempting to use it to read the secret
+		var cachedTokenID = ""
+		if cached != nil {
+			if cached.Expired() {
+				// Delete the cached token if expired
+				h.cacheUtil.ClearCachedToken(cfg.Method)
+			} else {
+				cachedTokenID = cached.Token
+				if cached.EligibleForRenewal() {
+					err = h.cacheUtil.RenewToken(cached)
+					if err != nil {
+						// Delete the cached token if it failed to renew
+						h.cacheUtil.ClearCachedToken(cfg.Method)
+						cachedTokenID = ""
+					}
 				}
 			}
 		}
-	}
 
-	// If a valid cached token is found, attempt to get
-	// credentials using it. If it fails, re-authenticate
-	// to obtain a new token and try again.
-	if cachedTokenID != "" {
-		var vaultAPI *api.Client
-		if h.vaultAPI != nil {
-			vaultAPI = h.vaultAPI
-		} else {
-			vaultAPI, err = api.NewClient(nil)
-			if err != nil {
-				log.Errorf("error creating Vault API client: %v", err)
-				return "", "", credentials.NewErrCredentialsNotFound()
+		// If a valid cached token is found, attempt to get credentials
+		// using it. If it fails, re-authenticate to obtain a new token
+		// and try again.
+		if cachedTokenID != "" {
+			var vaultAPI *api.Client
+			if h.vaultAPI != nil {
+				vaultAPI = h.vaultAPI
+			} else {
+				vaultAPI, err = api.NewClient(nil)
+				if err != nil {
+					log.Errorf("error creating Vault API client: %v", err)
+					return "", "", credentials.NewErrCredentialsNotFound()
+				}
 			}
+			vaultAPI.SetToken(cachedTokenID)
+			client := vault.NewDefaultClient(vaultAPI)
+
+			// Get the Docker credentials from Vault
+			creds, err := client.GetCredentials(cfg.Secret)
+			if err == nil {
+				return creds.Username, creds.Password, nil
+			}
+			log.Errorf("error getting Docker credentials from Vault: %v", err)
+			h.cacheUtil.ClearCachedToken(cfg.Method)
 		}
-		vaultAPI.SetToken(cachedTokenID)
-		client := vault.NewDefaultClient(vaultAPI)
+
+		// Vault API client has no client token. Authenticate
+		// against Vault to obtain a new one
+		var factory vault.ClientFactory
+		if cfg.Method == config.VaultAuthMethodAWSIAM {
+			factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID, cfg.MountPath)
+		} else {
+			factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role, cfg.MountPath)
+		}
+		if err != nil {
+			log.Errorf("error creating new client factory: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+
+
+		// Authenticate according to the selected method (if applicable)
+		// and if successful give the resulting token to the Vault API
+		// client.
+		var (
+			client  vault.Client
+			secret  *api.Secret
+		)
+		if h.vaultAPI != nil {
+			client, secret, err = factory.WithClient(h.vaultAPI)
+		} else {
+			client, secret, err = factory.NewClient()
+		}
+		if err != nil {
+			log.Errorf("error authenticating against Vault: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
 
 		// Get the Docker credentials from Vault
 		creds, err := client.GetCredentials(cfg.Secret)
-		if err == nil {
-			return creds.Username, creds.Password, nil
+		if err != nil {
+			log.Errorf("error getting Docker credentials from Vault: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
 		}
-		log.Errorf("error getting Docker credentials from Vault: %v", err)
-		h.cacheUtil.ClearCachedToken(cfg.Method)
-	}
 
-	var (
-		client  vault.Client
-		factory vault.ClientFactory
-		secret  *api.Secret
-	)
+		// Attempt to cache the token; log if it fails but don't return
+		// an error
+		if err = h.cacheUtil.CacheNewToken(secret, cfg.Method); err != nil {
+			log.Errorf("error caching new token: %v", err)
+		}
 
-	// Create a new vault.ClientFactory instance according
-	// to the chosen authentication method
-	switch cfg.Method {
-	case config.VaultAuthMethodAWSIAM:
-		factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID)
-	case config.VaultAuthMethodAWSEC2:
-		factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role)
+		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
-		factory = vault.NewClientFactoryTokenAuth()
+		factory := vault.NewClientFactoryTokenAuth()
+
+		var client vault.Client
+		if h.vaultAPI != nil {
+			client, _, err = factory.WithClient(h.vaultAPI)
+		} else {
+			client, _, err = factory.NewClient()
+		}
+		if err != nil {
+			log.Error(err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+
+		// Get the Docker credentials from Vault
+		creds, err := client.GetCredentials(cfg.Secret)
+		if err != nil {
+			log.Errorf("error getting Docker credentials from Vault: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+
+		return creds.Username, creds.Password, nil
 	default:
 		log.Errorf("unknown authentication method: %q", cfg.Method)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
-
-	if err != nil {
-		log.Errorf("error creating new client factory: %v", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	// Authenticate according to the selected method (if
-	// applicable) and if successful give the resulting
-	// token to the Vault API client.
-	if h.vaultAPI != nil {
-		client, secret, err = factory.WithClient(h.vaultAPI)
-	} else {
-		client, secret, err = factory.NewClient()
-	}
-
-	if err != nil {
-		log.Errorf("error authenticating against Vault: %v", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	// Cache the token
-	if cfg.Method != config.VaultAuthMethodToken && secret != nil {
-		err = h.cacheUtil.CacheNewToken(secret, cfg.Method)
-		if err != nil {
-			log.Errorf("error caching new token: %v", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-	}
-
-	// Get the Docker credentials from Vault
-	creds, err := client.GetCredentials(cfg.Secret)
-	if err != nil {
-		log.Errorf("error getting Docker credentials from Vault: %v", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	return creds.Username, creds.Password, nil
 }
 
 func (h *Helper) List() (map[string]string, error) {

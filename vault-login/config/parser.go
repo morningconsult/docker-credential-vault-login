@@ -28,26 +28,32 @@ type CredHelperConfig struct {
 	// authenticate a user. Accepted values include
 	// "token", "iam", and "ec2". This field is
 	// always required
-	Method VaultAuthMethod `json:"vault_auth_method"`
+	Method VaultAuthMethod `json:"auth_method"`
 
 	// Role is the Vault role which has been configured
 	// to be able to authenticate via the EC2 or IAM
 	// method (this field is only required when either
 	// "iam" or "ec2" is chosen as the authentication
 	// method).
-	Role string `json:"vault_role"`
+	Role string `json:"role"`
 
 	// Secret is the path in Vault at which the Docker
 	// credentials are stored (e.g. "secret/foo/bar").
 	// This field is always required.
-	Secret string `json:"vault_secret_path"`
+	Secret string `json:"secret_path"`
 
 	// ServerID is used as the value of the
 	// X-Vault-AWS-IAM-Server-ID when Vault makes an
 	// sts:GetCallerIdentity request to AWS. This field
 	// is optional and is only used when "iam" is chosen
 	// as the authentication method.
-	ServerID string `json:"vault_iam_server_id_header_value"`
+	ServerID string `json:"iam_server_id_header_value"`
+
+	// MountPath is used to specify the path at which the
+	// aws secrets engine is enable (if at all). If this
+	// is empty, the default mount path "aws" will be
+	// used instead.
+	MountPath string `json:"aws_mount_path"`
 
 	// Path is the full path to the config.json file.
 	// This field is primarily used for error logging.
@@ -108,10 +114,10 @@ func (c *CredHelperConfig) validate() error {
 
 	switch method {
 	case "":
-		errors = append(errors, `No Vault authentication method ("vault_auth_method") is provided`)
+		errors = append(errors, `No Vault authentication method ("auth_method") is provided`)
 	case VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2:
 		if c.Role == "" {
-			errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("vault_role") is`,
+			errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("role") is`,
 				"provided (required when the AWS authentication method is chosen)"))
 		}
 	case VaultAuthMethodToken:
@@ -120,18 +126,23 @@ func (c *CredHelperConfig) validate() error {
 		}
 	default:
 		errors = append(errors, fmt.Sprintf("%s %s %q (must be one of %q, %q, or %q)",
-			"Unrecognized Vault authentication method", `("vault_auth_method") value`,
+			"Unrecognized Vault authentication method", `("auth_method") value`,
 			method, VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2, VaultAuthMethodToken))
 	}
 
 	if c.Secret == "" {
 		errors = append(errors, fmt.Sprintf("%s %s", "No path to the location of",
-			`your secret in Vault ("vault_secret_path") is provided`))
+			`your secret in Vault ("secret_path") is provided`))
 	}
 
 	if len(errors) > 0 {
 		return fmt.Errorf("Configuration file %s has the following errors:\n* %s",
 			c.Path, strings.Join(errors, "\n* "))
 	}
+
+	if c.MountPath == "" {
+		c.MountPath = "aws"
+	}
+
 	return nil
 }

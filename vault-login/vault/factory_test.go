@@ -16,7 +16,7 @@ import (
 func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
 	const role = "test-iam-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -26,7 +26,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
 	os.Unsetenv("VAULT_TOKEN")
 	defer os.Setenv("VAULT_TOKEN", token)
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,14 +50,14 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_Success(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
 	const badrole = "the-fake-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: "the-real-role"})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: "the-real-role"})
 	go server.ListenAndServe()
 	defer server.Close()
 
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	factory, err := NewClientFactoryAWSIAMAuth(badrole, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_UnconfiguredRole(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 	const role = "test-iam-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -84,7 +84,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 	// Incorrect Vault test server URL
 	os.Setenv("VAULT_ADDR", "http://127.0.0.1:12345")
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadVaultAddr(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 	const role = "test-iam-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -113,7 +113,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 	}
 	clientNoToken.SetToken("")
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,7 +136,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_Success(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 	const role = "test-iam-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: role})
 	go server.ListenAndServe()
 	defer server.Close()
 
@@ -149,7 +149,7 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	factory, err := NewClientFactoryAWSIAMAuth(role, "")
+	factory, err := NewClientFactoryAWSIAMAuth(role, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -169,14 +169,14 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_BadAddr(t *testing.T) {
 func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 	const badrole = "the-fake-role"
 
-	server := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: "the-real-role"})
+	server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{Role: "the-real-role"})
 	go server.ListenAndServe()
 	defer server.Close()
 
 	test.SetTestAWSEnvVars()
 	os.Setenv("VAULT_ADDR", fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	factory, err := NewClientFactoryAWSIAMAuth(badrole, "")
+	factory, err := NewClientFactoryAWSIAMAuth(badrole, "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +300,7 @@ func TestNewClientFactoryAWSIAMAuth_NewClient_BadURL(t *testing.T) {
 
 	os.Setenv("VAULT_ADDR", badURL)
 
-	factory, err := NewClientFactoryAWSIAMAuth("test-role", "")
+	factory, err := NewClientFactoryAWSIAMAuth("test-role", "", "aws")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -337,7 +337,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -352,6 +352,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	_, _, err := factory.NewClient()
@@ -390,7 +391,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -402,6 +403,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      badrole,
+		mountPath: "aws",
 	}
 
 	_, _, err := factory.NewClient()
@@ -440,7 +442,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return("i am not the configured pkcs7 signature!", nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -452,6 +454,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	_, _, err := factory.NewClient()
@@ -478,7 +481,7 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 		"dial tcp 169.254.169.254:80: connect: no route to host")
 	awsClient.EXPECT().GetPKCS7Signature().Return("", pkcs7Error)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: "hello darkness my old friend",
 	})
@@ -490,6 +493,7 @@ func TestClientFactoryAWSEC2Auth_NewClient_NotEC2(t *testing.T) {
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	_, _, err := factory.NewClient()
@@ -524,7 +528,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -536,6 +540,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -579,7 +584,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return(pkcs7, nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -591,6 +596,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      badrole,
+		mountPath: "aws",
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -634,7 +640,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	awsClient := mock_aws.NewMockClient(ctrl)
 	awsClient.EXPECT().GetPKCS7Signature().Return("i am not the configured pkcs7 signature!", nil)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: pkcs7,
 	})
@@ -646,6 +652,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -677,7 +684,7 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 		"dial tcp 169.254.169.254:80: connect: no route to host")
 	awsClient.EXPECT().GetPKCS7Signature().Return("", pkcs7Error)
 
-	server := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
+	server, _ := test.MakeMockVaultServerEC2Auth(t, &test.TestVaultServerOptions{
 		Role:  role,
 		PKCS7: "hello darkness my old friend",
 	})
@@ -689,6 +696,7 @@ func TestClientFactoryAWSEC2Auth_WithClient_NotEC2(t *testing.T) {
 	factory := ClientFactoryAWSEC2Auth{
 		awsClient: awsClient,
 		role:      role,
+		mountPath: "aws",
 	}
 
 	vaultClient, err := api.NewClient(nil)
@@ -709,7 +717,7 @@ func TestNewClientFactoryAWSEC2Auth_Success(t *testing.T) {
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "file_not_exists")
 	test.SetTestAWSEnvVars()
 
-	_, err := NewClientFactoryAWSEC2Auth("")
+	_, err := NewClientFactoryAWSEC2Auth("", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -724,7 +732,7 @@ func TestNewClientFactoryAWSEC2Auth_SessionError(t *testing.T) {
 	os.Setenv("AWS_SHARED_CREDENTIALS_FILE", "testdata/shared_config")
 	os.Setenv("AWS_PROFILE", "assume_role_invalid_source_profile")
 
-	_, err := NewClientFactoryAWSEC2Auth("")
+	_, err := NewClientFactoryAWSEC2Auth("", "")
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
