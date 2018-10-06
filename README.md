@@ -110,7 +110,7 @@ If your Vault instance uses TLS, you must also set the following environment var
 Finally, there are a few optional application-specific environment variables which configure the its behavior:
 * **DOCKER_CREDS_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.json"`) - The path to your `config.json` file.
 * **DOCKER_CREDS_CACHE_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
-* **DOCKER_CREDS_DISABLE_CACHE** (default: `""`) - If set, the application will not cache Vault client tokens. The value of this variable may be anything in order to disable caching. In other words, if this variable is not set it will cache tokens. Tokens are cached at the `tokens` subfolder of the directory given by the `DOCKER_CREDS_CONFIG_FILE` environment variable (if set), and at `~/.docker-credential-vault-login/tokens` if not set.
+* **DOCKER_CREDS_DISABLE_CACHE** (default: `""`) - If set, the application will not cache Vault client tokens. The value of this variable may be anything. In other words, if this variable is not set it will cache tokens. Tokens are cached at the `tokens` subfolder of the directory given by the `DOCKER_CREDS_CONFIG_FILE` environment variable (if set), and at `~/.docker-credential-vault-login/tokens` if not set.
 * **DOCKER_CREDS_CACHE_ENCRYPTION_KEY** (default: `""`) - If set, the application will encrypt Vault client tokens before caching them using AES-256 encryption. The value of this variable serves as the cipher key. For strong protection, it should be as close to 32 characters in length as possible.
 
 ## Error Logs
