@@ -120,45 +120,55 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 }
 
 func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*CachedToken, error) {
-	fname := c.TokenFilename(method)
+	files, err := filepath.Glob(c.basename(method)+"*")
+	if err != nil {
+		return nil, err
+	}
 
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	file, err := os.Open(fname)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// No toke cache file found
-			return nil, nil
-		}
-		return nil, err
-	}
-	defer file.Close()
-
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		return nil, err
-	}
-
-	// Decrypt if encryption is enabled
-	if c.block != nil {
-		data, err = c.decrypt(data)
+	for _, filename := range files {
+		file, err := os.Open(filename)
 		if err != nil {
-			return nil, fmt.Errorf("error decrypting token: %v", err)
+			if os.IsNotExist(err) {
+				// No toke cache file found
+				continue
+			}
+			return nil, err
 		}
+
+		data, err := ioutil.ReadAll(file)
+		if err != nil {
+			file.Close()
+			return nil, err
+		}
+		file.Close()
+
+		// Decrypt if it is an encrypted file (encrypted file
+		// should have no extension)
+		if filepath.Ext(filename) == "" {
+			data, err = c.decrypt(data)
+			if err != nil {
+				return nil, fmt.Errorf("error decrypting token: %v", err)
+			}
+		}
+
+		var cached = new(CachedToken)
+		if err = jsonutil.DecodeJSON(data, cached); err != nil {
+			return nil, fmt.Errorf("error JSON-decoding token cache file %s: %v", filename, err)
+		}
+		cached.AuthMethod = method
+
+		if cached.Token == "" {
+			return nil, fmt.Errorf("no token found in cache file %s", filename)
+		}
+
+		return cached, nil
 	}
 
-	var cached = new(CachedToken)
-	if err = jsonutil.DecodeJSON(data, cached); err != nil {
-		return nil, fmt.Errorf("error JSON-decoding token cache file %s: %v", fname, err)
-	}
-	cached.AuthMethod = method
-
-	if cached.Token == "" {
-		return nil, fmt.Errorf("no token found in cache file %s", fname)
-	}
-
-	return cached, nil
+	// No cached tokens found
+	return nil, nil
 }
 
 func (c *DefaultCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
@@ -256,6 +266,25 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 	return err
 }
 
+func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
+	files, _ := filepath.Glob(c.basename(method)+"*")
+	mutex.Lock()
+	for _, file := range files {
+		os.Remove(file)
+	}
+	mutex.Unlock()
+}
+
+func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
+	extension := ".json"
+
+	// If the file is encrypted, do not include a file extension
+	if c.block != nil {
+		extension = ""
+	}
+	return c.basename(method)+extension
+}
+
 func (c *DefaultCacheUtil) encrypt(data []byte) ([]byte, error) {
 	ciphertext := make([]byte, aes.BlockSize+len(data))
 	iv := ciphertext[:aes.BlockSize]
@@ -276,23 +305,6 @@ func (c *DefaultCacheUtil) decrypt(ciphertext []byte) ([]byte, error) {
 	stream := cipher.NewCFBDecrypter(c.block, iv)
 	stream.XORKeyStream(ciphertext, ciphertext)
 	return ciphertext, nil
-}
-
-func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
-	files, _ := filepath.Glob(c.basename(method)+"*")
-	mutex.Lock()
-	for _, file := range files {
-		os.Remove(file)
-	}
-	mutex.Unlock()
-}
-
-func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
-	extension := ".json"
-	if c.block != nil {
-		extension = ""
-	}
-	return c.basename(method)+extension
 }
 
 func (c *DefaultCacheUtil) basename(method config.VaultAuthMethod) string {
