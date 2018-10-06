@@ -99,16 +99,19 @@ If the `iam` method of authentication is chosen, the process will attempt to aut
 ### Environmental Variables
 
 Additionally, in order for the helper to work properly you must first set some Vault environmental variables on your system:
-* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - (Required) Your Vault instance's URL
-* **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - (Note: This only applies if the `token` authentication method is chosen) A valid Vault token with permission to read your secret
-* **DOCKER_CREDS_CONFIG_FILE** - (Optional) The path to your `config.json` file. If not set, the program will search for the file at `/etc/docker-credential-vault-login/config.json`.
+* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - Your Vault instance's URL. This environmental variable is always required.
+* **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - A valid Vault token with permission to read your secret. This environmenal variable is only required if the `token` authentication method is chosen.
 
 If your Vault instance uses TLS, you must also set the following environment variables:
 * **[VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)**
 * **[VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert)**
 * **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
 
-Once you've set these environmental variables, your Docker daemon will automatically look up the credentials in Vault at the path specified in the `secret_path` field of your `config.json` file and use them to authenticate against your Docker registries.
+Finally, there are a few optional application-specific environment variables which configure the its behavior:
+* **DOCKER_CREDS_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.json"`) - The path to your `config.json` file.
+* **DOCKER_CREDS_CACHE_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
+* **DOCKER_CREDS_DISABLE_CACHE** (default: `""`) - If set, the application will not cache Vault client tokens. The value of this variable may be anything in order to disable caching. In other words, if this variable is not set it will cache tokens. Tokens are cached at the `tokens` subfolder of the directory given by the `DOCKER_CREDS_CONFIG_FILE` environment variable (if set), and at `~/.docker-credential-vault-login/tokens` if not set.
+* **DOCKER_CREDS_CACHE_ENCRYPTION_KEY** (default: `""`) - If set, the application will encrypt Vault client tokens before caching them using AES-256 encryption. The value of this variable serves as the cipher key. For strong protection, it should be 32 characters in length. If it has than 32 characters, it will be right-padded with spaces to 32 characters. If it has more than 32 characters, it will be truncated to only the first 32 characters.
 
 ## Error Logs
 

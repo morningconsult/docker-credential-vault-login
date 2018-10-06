@@ -1,3 +1,16 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package config
 
 import (
@@ -115,14 +128,11 @@ func (c *CredHelperConfig) validate() error {
 	switch method {
 	case "":
 		errors = append(errors, `No Vault authentication method ("auth_method") is provided`)
+	case VaultAuthMethodToken:
 	case VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2:
 		if c.Role == "" {
 			errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("role") is`,
 				"provided (required when the AWS authentication method is chosen)"))
-		}
-	case VaultAuthMethodToken:
-		if v := os.Getenv("VAULT_TOKEN"); v == "" {
-			errors = append(errors, fmt.Sprintf("VAULT_TOKEN environment variable is not set"))
 		}
 	default:
 		errors = append(errors, fmt.Sprintf("%s %s %q (must be one of %q, %q, or %q)",

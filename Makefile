@@ -1,3 +1,16 @@
+# Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#         https://www.apache.org/licenses/LICENSE-2.0
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
 FLY := $(shell which fly)
 
 BIN_DIR := $(shell pwd)/bin
@@ -12,9 +25,9 @@ EXTERNAL_TOOLS=\
 
 all: build
 
-update-deps:
+update_deps:
 	@sh -c "$(CURDIR)/scripts/update-deps.sh"
-.PHONY: update-deps
+.PHONY: update_deps
 
 git_chglog_check:
 	if [ -z "$(shell which git-chglog)" ]; then \
@@ -53,36 +66,3 @@ mocktools:
 build_mocks: mocktools
 	PATH=$$PATH:$$$(CURDIR)/scripts/generate scripts/build-mocks.sh
 .PHONY: build_mocks
-
-
-#=============================================================================
-# Release and Deployment tasks
-
-CONCOURSE_PIPELINE := DOCKER-CREDENTIAL-VAULT-LOGIN
-
-
-check_fly:
-	if [ -z "$(FLY)" ]; then \
-		sudo mkdir -p /usr/local/bin; \
-		sudo wget -O /usr/local/bin/fly https://github.com/concourse/concourse/releases/download/v3.13.0/fly_linux_amd64; \
-		sudo chmod a+x /usr/local/bin/fly; \
-	fi
-.PHONY: check_fly
-
-
-set_pipeline: check_fly
-	$(FLY) --target mci-ci set-pipeline \
-		--config ci/pipeline.yml \
-		--pipeline $(CONCOURSE_PIPELINE) \
-		--non-interactive \
-		-v gitlab-repo="$$(git config remote.origin.url)"
-
-	$(FLY) --target mci-ci unpause-pipeline \
-		--pipeline $(CONCOURSE_PIPELINE)
-
-	$(FLY) --target mci-ci check-resource \
-		--resource $(CONCOURSE_PIPELINE)/email-api
-
-	$(FLY) --target mci-ci check-resource \
-		--resource $(CONCOURSE_PIPELINE)/test-merge-request
-.PHONY: set_pipeline

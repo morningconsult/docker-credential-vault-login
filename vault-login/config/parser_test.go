@@ -1,5 +1,15 @@
-// Tests to write:
-// * Order of file reading
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
 
 package config
 
@@ -134,39 +144,6 @@ func TestConfigMissingSecret(t *testing.T) {
 	os.Setenv(EnvConfigFilePath, testFilePath)
 	defer os.Setenv(EnvConfigFilePath, path)
 
-	if _, err := GetCredHelperConfig(); err != nil {
-		test.ErrorsEqual(t, err, expectedError)
-	} else {
-		t.Fatal("Expected to receive an error but didn't")
-	}
-}
-
-// TestConfigMissingToken tests that GetCredHelperConfig
-// returns the expected error message when "token" is selected
-// as the Vault authentication method in the config file but
-// the VAULT_TOKEN environment variable is not set
-func TestConfigMissingToken(t *testing.T) {
-	const testFilePath = "/tmp/docker-credential-vault-login-testfile-6.json"
-	var expectedError = fmt.Sprintf("%s\n%s",
-		fmt.Sprintf("Configuration file %s has the following errors:", testFilePath),
-		"* VAULT_TOKEN environment variable is not set")
-
-	cfg := &CredHelperConfig{
-		Method: VaultAuthMethodToken,
-		Secret: "secret/foo/bar",
-	}
-	data := test.EncodeJSON(t, cfg)
-	test.MakeFile(t, testFilePath, data)
-	defer test.DeleteFile(t, testFilePath)
-
-	path := os.Getenv(EnvConfigFilePath)
-	os.Setenv(EnvConfigFilePath, testFilePath)
-	defer os.Setenv(EnvConfigFilePath, path)
-
-	originalToken := os.Getenv("VAULT_TOKEN")
-	defer os.Setenv("VAULT_TOKEN", originalToken)
-
-	os.Setenv("VAULT_TOKEN", "")
 	if _, err := GetCredHelperConfig(); err != nil {
 		test.ErrorsEqual(t, err, expectedError)
 	} else {

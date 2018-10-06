@@ -1,7 +1,25 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package cache
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	homedir "github.com/mitchellh/go-homedir"
@@ -16,6 +34,7 @@ import (
 const (
 	EnvCacheDir     string = "DOCKER_CREDS_CACHE_DIR"
 	EnvDisableCache string = "DOCKER_CREDS_DISABLE_CACHE"
+	EnvCipherKey    string = "DOCKER_CREDS_CACHE_ENCRYPTION_KEY"
 	DefaultCacheDir string = "~/.docker-credential-vault-login"
 	BackupCacheDir  string = "/tmp/.docker-credential-vault-login"
 )
@@ -45,6 +64,7 @@ type DefaultCacheUtil struct {
 	cacheDir      string
 	tokenCacheDir string
 	vaultAPI      *api.Client
+	block         cipher.Block
 }
 
 // NewDefaultCacheUtil creates a new CacheUtil object. The value of
@@ -52,12 +72,21 @@ type DefaultCacheUtil struct {
 // DOCKER_CREDS_CACHE_DIR environment variable if it is set.
 // Otherwise, it uses the default directory.
 func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
+	var block cipher.Block = nil
+	if v := os.Getenv(EnvCipherKey); v != "" {
+		if len(v) > 32 {
+			v = v[:32]
+		}
+		block, _ = aes.NewCipher([]byte(fmt.Sprintf("%-32v", v)))
+	}
+
 	cacheDir := buildCacheDir()
 
 	return &DefaultCacheUtil{
-		cacheDir:      cacheDir,
+		cacheDir:      buildCacheDir(),
 		tokenCacheDir: filepath.Join(cacheDir, "tokens"),
 		vaultAPI:      vaultAPI,
+		block:         block,
 	}
 }
 
@@ -91,10 +120,11 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 }
 
 func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*CachedToken, error) {
+	fname := c.TokenFilename(method)
+
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	fname := c.TokenFilename(method)
 	file, err := os.Open(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -105,8 +135,21 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 	}
 	defer file.Close()
 
+	data, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, err
+	}
+
+	// Decrypt if encryption is enabled
+	if c.block != nil {
+		data, err = c.decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("error decrypting token: %v", err)
+		}
+	}
+
 	var cached = new(CachedToken)
-	if err = jsonutil.DecodeJSONFromReader(file, cached); err != nil {
+	if err = jsonutil.DecodeJSON(data, cached); err != nil {
 		return nil, fmt.Errorf("error JSON-decoding token cache file %s: %v", fname, err)
 	}
 	cached.AuthMethod = method
@@ -183,6 +226,14 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 		return err
 	}
 
+	// Encrypt if encryption is enabled
+	if c.block != nil {
+		data, err = c.encrypt(data)
+		if err != nil {
+			return fmt.Errorf("error encrypting token: %v", err)
+		}
+	}
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -205,14 +256,47 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 	return err
 }
 
+func (c *DefaultCacheUtil) encrypt(data []byte) ([]byte, error) {
+	ciphertext := make([]byte, aes.BlockSize+len(data))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, err
+	}
+	stream := cipher.NewCFBEncrypter(c.block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], data)
+	return ciphertext, nil
+}
+
+func (c *DefaultCacheUtil) decrypt(ciphertext []byte) ([]byte, error) {
+	if len(ciphertext) < aes.BlockSize {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+	stream := cipher.NewCFBDecrypter(c.block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+	return ciphertext, nil
+}
+
 func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
+	files, _ := filepath.Glob(c.basename(method)+"*")
 	mutex.Lock()
-	os.Remove(c.TokenFilename(method))
+	for _, file := range files {
+		os.Remove(file)
+	}
 	mutex.Unlock()
 }
 
 func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
-	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"-auth.json")
+	extension := ".json"
+	if c.block != nil {
+		extension = ""
+	}
+	return c.basename(method)+extension
+}
+
+func (c *DefaultCacheUtil) basename(method config.VaultAuthMethod) string {
+	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"auth")
 }
 
 // NullCacheUtil conforms to the CacheUtil interface
@@ -227,8 +311,7 @@ type NullCacheUtil struct {
 // DOCKER_CREDS_CACHE_DIR environment variable if it is set.
 // Otherwise, it uses the default directory.
 func NewNullCacheUtil() *NullCacheUtil {
-	cacheDir := buildCacheDir()
-	return &NullCacheUtil{cacheDir}
+	return &NullCacheUtil{buildCacheDir()}
 }
 
 func (n *NullCacheUtil) GetCacheDir() string {

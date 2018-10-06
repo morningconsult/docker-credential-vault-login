@@ -1,3 +1,16 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package vault
 
 import (
@@ -7,7 +20,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/golang/mock/gomock"
-	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/aws/mocks"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
@@ -192,104 +204,6 @@ func TestNewClientFactoryAWSIAMAuth_WithClient_UnconfiguredRole(t *testing.T) {
 	}
 
 	test.ErrorsEqual(t, err.Error(), "Error making API request.\n\nURL: PUT http://127.0.0.1"+server.Addr+"/v1/auth/aws/login\nCode: 400. Raw Message:\n\n* entry for role \""+badrole+"\" not found\n")
-}
-
-func TestNewClientFactoryTokenAuth_NewClient_Success(t *testing.T) {
-	token, err := uuid.GenerateUUID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Setenv("VAULT_TOKEN", token)
-
-	factory := NewClientFactoryTokenAuth()
-	client, _, err := factory.NewClient()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c, _ := client.(*DefaultClient)
-
-	if v := c.RawClient().Token(); v == "" {
-		t.Errorf("factory.NewClient() should have obtained a Vault token, but it didn't")
-	}
-}
-
-// TestNewClientFactoryTokenAuth_NewClient_NoToken tests that when
-// ClientFactoryTokenAuth.NewClient() is called but the
-// VAULT_TOKEN environment variable is not set with a Vault
-// token, an error is returned.
-func TestNewClientFactoryTokenAuth_NewClient_NoToken(t *testing.T) {
-	os.Unsetenv("VAULT_TOKEN")
-
-	factory := NewClientFactoryTokenAuth()
-	_, _, err := factory.NewClient()
-	if err == nil {
-		t.Fatal("Expected to receive an error but didn't")
-	}
-
-	test.ErrorsEqual(t, err.Error(), "Vault API client has no token. Make sure to set the token using the VAULT_TOKEN environment variable")
-}
-
-func TestNewClientFactoryTokenAuth_WithClient_Success(t *testing.T) {
-	token, err := uuid.GenerateUUID()
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Setenv("VAULT_TOKEN", token)
-
-	factory := NewClientFactoryTokenAuth()
-	client, err := api.NewClient(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defaultClient, _, err := factory.WithClient(client)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c, _ := defaultClient.(*DefaultClient)
-
-	if v := c.RawClient().Token(); v == "" {
-		t.Errorf("factory.NewClient() should have obtained a Vault token, but it didn't")
-	}
-}
-
-// TestNewClientFactoryTokenAuth_WithClient_NoToken test that when
-// ClientFactoryTokenAuth.WithClient() is called but the VAULT_TOKEN
-// environment variable is not set, an error is returned.
-func TestNewClientFactoryTokenAuth_WithClient_NoToken(t *testing.T) {
-	os.Unsetenv("VAULT_TOKEN")
-
-	factory := NewClientFactoryTokenAuth()
-	client, err := api.NewClient(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, err = factory.WithClient(client)
-	if err == nil {
-		t.Error("Expected to receive an error but didn't")
-	}
-
-	test.ErrorsEqual(t, err.Error(), "VAULT_TOKEN environment variable is not set")
-}
-
-// TestNewClientFactoryTokenAuth_NewClient_BadURL tests that when
-// ClientFactoryTokenAuth.NewClient() is called but the VAULT_ADDR
-// value is a URL that cannot be parsed, an error is returned.
-func TestNewClientFactoryTokenAuth_NewClient_BadURL(t *testing.T) {
-	const badURL = "$%&%$^(*@%$^("
-
-	os.Setenv("VAULT_ADDR", badURL)
-
-	factory := NewClientFactoryTokenAuth()
-	_, _, err := factory.NewClient()
-	if err == nil {
-		t.Fatal("Expected to receive an error but didn't")
-	}
-
-	test.ErrorsEqual(t, err.Error(), fmt.Sprintf("parse %s: invalid URL escape \"%%&%%\"", badURL))
 }
 
 // TestNewClientFactoryAWSIAMAuth_NewClient_BadURL tests that when

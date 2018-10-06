@@ -1,7 +1,21 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package helper
 
 import (
 	"fmt"
+	"os"
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
@@ -53,7 +67,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Parse the config.json file
 	cfg, err := config.GetCredHelperConfig()
 	if err != nil {
-		log.Errorf("Error parsing configuration file: %v")
+		log.Errorf("Error parsing configuration file: %v", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
@@ -162,20 +176,21 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
-		factory := vault.NewClientFactoryTokenAuth()
-
-		var client vault.Client
-		if h.vaultAPI != nil {
-			client, _, err = factory.WithClient(h.vaultAPI)
-		} else {
-			client, _, err = factory.NewClient()
+		var vaultAPI *api.Client = h.vaultAPI
+		if vaultAPI == nil || vaultAPI.Token() == "" {
+			if os.Getenv(api.EnvVaultToken) == "" {
+				log.Errorf("$%s is not set", api.EnvVaultToken)
+				return "", "", credentials.NewErrCredentialsNotFound()
+			}
+			vaultAPI, err = api.NewClient(nil)
+			if err != nil {
+				log.Error(err)
+				return "", "", credentials.NewErrCredentialsNotFound()
+			}
 		}
-		if err != nil {
-			log.Error(err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
+		
 		// Get the Docker credentials from Vault
+		client := vault.NewDefaultClient(vaultAPI)
 		creds, err := client.GetCredentials(cfg.Secret)
 		if err != nil {
 			log.Errorf("error getting Docker credentials from Vault: %v", err)

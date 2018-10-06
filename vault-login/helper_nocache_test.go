@@ -1,3 +1,16 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package helper
 
 import (
@@ -414,6 +427,10 @@ func TestHelperGet_Token(t *testing.T) {
 				return
 			}
 
+			if err != nil {
+				t.Fatal(err)
+			}
+
 			if username, ok := tc.secret["username"].(string); !ok || username != user {
 				t.Fatalf("Wrong username (got %q, expected %q)", user, username)
 			}
@@ -421,6 +438,26 @@ func TestHelperGet_Token(t *testing.T) {
 				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
 			}
 		})
+	}
+}
+
+
+func TestHelperGet_Token_NoTokenEnv(t *testing.T) {
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	// Set the environment variable informing the program where
+	// the config.json file is located
+	os.Setenv(config.EnvConfigFilePath, testTokenConfigFile)
+	token := os.Getenv(api.EnvVaultToken)
+	os.Unsetenv(api.EnvVaultToken)
+	defer os.Setenv(api.EnvVaultToken, token)
+
+	helper := NewHelper(nil)
+
+	_, _, err := helper.Get("")
+	if err == nil {
+		t.Fatal("expected an error but didn't receive one")
 	}
 }
 

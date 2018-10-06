@@ -1,8 +1,13 @@
 package cache
 
 import (
+	"crypto/rand"
+	"crypto/cipher"
+	"crypto/aes"
 	"os"
 	"path/filepath"
+	"io"
+	"io/ioutil"
 	"testing"
 	"time"
 
@@ -15,7 +20,7 @@ import (
 )
 
 func TestNewCacheUtil_Enabled(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 	const expectedTTL = 12345
 
 	os.Setenv(EnvDisableCache, "")
@@ -41,7 +46,7 @@ func TestNewCacheUtil_Enabled(t *testing.T) {
 }
 
 func TestNewCacheUtil_Disabled(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -74,7 +79,7 @@ func TestNewCacheUtil_BackupCache(t *testing.T) {
 }
 
 func TestDefaultCacheUtil_GetCacheDir(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -369,8 +374,119 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 	}
 }
 
+func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
+	const (
+		roleName   = "dev-test"
+		cipherKey  = "hello darkness my old friend ive"
+		method     = config.VaultAuthMethodAWSIAM
+		token      = "random token"
+	)
+
+	var expiration = time.Now().Unix()
+
+	os.Setenv(EnvDisableCache, "")
+	os.Setenv(EnvCacheDir, "testdata")
+	// os.Setenv(EnvCipherKey, cipherKey)
+	// defer os.Unsetenv(EnvCipherKey)
+
+	// cacheUtil := NewDefaultCacheUtil(nil)
+
+	
+
+	cases := []struct{
+		name string
+		key  string
+		err  bool
+	}{
+		{
+			"decrypts",
+			cipherKey,
+			false,
+		},
+		{
+			"wrong-key",
+			"asdfasdfasdfasdfasdfasdfasdfasdfasdf",
+			true,
+		},
+		{
+			"malformed-file",
+			cipherKey,
+			true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv(EnvCipherKey, tc.key)
+			defer os.Unsetenv(EnvCipherKey)
+
+			cacheUtil := NewDefaultCacheUtil(nil)
+
+			cacheUtil.ClearCachedToken(method)
+			defer cacheUtil.ClearCachedToken(method)
+
+			if tc.name == "malformed-file" {
+				writeDataToFile(t, []byte(""), cacheUtil.TokenFilename(method))
+			} else {
+				json := map[string]interface{}{
+					"token":      token,
+					"expiration": expiration,
+				}
+				encryptJSONAndWriteFile(t, json, cacheUtil.TokenFilename(method), cipherKey)
+			}
+
+			cachedToken, err := cacheUtil.GetCachedToken(method)
+			if tc.err {
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				return
+			}
+			if cachedToken.Token != token {
+				t.Fatalf("expected cached token ID of %q but got %q", token, cachedToken.Token)
+			}
+			if cachedToken.Expiration != expiration {
+				t.Fatalf("expected cached token expiration date of %d but got %d instead",
+					expiration, cachedToken.Expiration)
+			}
+		})
+	}
+}
+
+func TestDefaultCacheUtil_EncryptAndCacheToken(t *testing.T) {
+	const (
+		roleName   = "dev-test"
+		cipherKey  = "hello darkness my old friend ive"
+		method     = config.VaultAuthMethodAWSIAM
+		token      = "random token"
+	)
+
+	var expiration = time.Now().Unix()
+
+	os.Setenv(EnvDisableCache, "")
+	os.Setenv(EnvCacheDir, "testdata")
+	os.Setenv(EnvCipherKey, cipherKey)
+	defer os.Unsetenv(EnvCipherKey)
+
+	cacheUtil := NewDefaultCacheUtil(nil)
+
+	cacheUtil.CacheNewToken(&CachedToken{
+		Token: token,
+		Expiration: time.Now().Unix(),
+	}, method)
+
+	cachedToken := decryptJSONFile(t, cacheUtil.TokenFilename(method), cipherKey)
+
+	if cachedToken.Token != token {
+		t.Fatalf("expected cached token ID of %q but got %q", token, cachedToken.Token)
+	}
+	if cachedToken.Expiration != expiration {
+		t.Fatalf("expected cached token expiration date of %d but got %d instead",
+			expiration, cachedToken.Expiration)
+	}
+}
+
 func TestNullCacheUtil_GetCacheDir(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -383,7 +499,7 @@ func TestNullCacheUtil_GetCacheDir(t *testing.T) {
 }
 
 func TestNullCacheUtil_GetCachedToken(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -399,7 +515,7 @@ func TestNullCacheUtil_GetCachedToken(t *testing.T) {
 }
 
 func TestNullCacheUtil_CacheNewToken(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -413,7 +529,7 @@ func TestNullCacheUtil_CacheNewToken(t *testing.T) {
 }
 
 func TestNullCacheUtil_RenewToken(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -427,7 +543,7 @@ func TestNullCacheUtil_RenewToken(t *testing.T) {
 }
 
 func TestNullCacheUtil_ClearCachedToken(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -439,7 +555,7 @@ func TestNullCacheUtil_ClearCachedToken(t *testing.T) {
 }
 
 func TestNullCacheUtil_TokenFilename(t *testing.T) {
-	const cacheDir = "/tmp/docker-credential-vault-login-testing"
+	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
@@ -457,7 +573,60 @@ func writeJSONToFile(t *testing.T, json map[string]interface{}, tokenfile string
 	if err != nil {
 		t.Fatal(err)
 	}
+	writeDataToFile(t, data, tokenfile)
+}
 
+func encryptJSONAndWriteFile(t *testing.T, json map[string]interface{}, tokenfile, key string) {
+	data, err := jsonutil.EncodeJSON(json)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ciphertext := make([]byte, aes.BlockSize+len(data))
+	iv := ciphertext[:aes.BlockSize]
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		t.Fatal(err)
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	stream.XORKeyStream(ciphertext[aes.BlockSize:], data)
+
+	writeDataToFile(t, ciphertext, tokenfile)
+}
+
+func decryptJSONFile(t *testing.T, tokenfile, key string) *CachedToken {
+	block, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ciphertext, err := ioutil.ReadFile(tokenfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(ciphertext) < aes.BlockSize {
+		t.Fatal("ciphertext too short")
+	}
+
+	iv := ciphertext[:aes.BlockSize]
+	ciphertext = ciphertext[aes.BlockSize:]
+	stream := cipher.NewCFBDecrypter(block, iv)
+	stream.XORKeyStream(ciphertext, ciphertext)
+	
+	var token = new(CachedToken)
+	if err = jsonutil.DecodeJSON(ciphertext, token); err != nil {
+		t.Fatal(err)
+	}
+	return token
+}
+
+func writeDataToFile(t *testing.T, data []byte, tokenfile string) {
 	if err := os.MkdirAll(filepath.Dir(tokenfile), 0755); err != nil {
 		t.Fatal(err)
 	}
