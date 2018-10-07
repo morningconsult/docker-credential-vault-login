@@ -41,9 +41,7 @@ func TestMainLogger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Log(string(data))
-
-	if !strings.Contains(string(data), errmsg) {
+	if !strings.Contains(string(data), "[DEBUG] "+errmsg) {
 		t.Fatalf("log file did not contain error message")
 	}
 }
