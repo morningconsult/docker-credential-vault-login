@@ -69,7 +69,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Parse the config.json file
 	cfg, err := config.GetCredHelperConfig()
 	if err != nil {
-		log.Errorf("Error parsing configuration file: %v", err)
+		log.Errorf("error parsing configuration file: %v", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
@@ -79,10 +79,9 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Get the cached token (if exists)
 		cached, err := h.cacheUtil.GetCachedToken(cfg.Method)
 		if err != nil {
-			// Delete the token cache file
+			// Log error and delete cached token
+			log.Debugf("error getting cached token: %v", err)
 			h.cacheUtil.ClearCachedToken(cfg.Method)
-			log.Errorf("error getting cached token: %v", err)
-			log.Infof("deleted cached token file %s", h.cacheUtil.TokenFilename(cfg.Method))
 		}
 
 		// If an instance of cache.CachedToken was returned, check
@@ -91,14 +90,15 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		var cachedTokenID = ""
 		if cached != nil {
 			if cached.Expired() {
-				// Delete the cached token if expired
+				// Delete the cached token
 				h.cacheUtil.ClearCachedToken(cfg.Method)
 			} else {
 				cachedTokenID = cached.Token
 				if cached.EligibleForRenewal() {
 					err = h.cacheUtil.RenewToken(cached)
 					if err != nil {
-						// Delete the cached token if it failed to renew
+						// Log error and delete cached token
+						log.Debugf("error attempting to renew token: %v", err)
 						h.cacheUtil.ClearCachedToken(cfg.Method)
 						cachedTokenID = ""
 					}
@@ -146,9 +146,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 
 
-		// Authenticate according to the selected method (if applicable)
-		// and if successful give the resulting token to the Vault API
-		// client.
+		// Authenticate according to the selected method and if successful
+		// give the resulting token to the Vault API client.
 		var (
 			client  vault.Client
 			secret  *api.Secret

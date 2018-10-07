@@ -156,7 +156,7 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 
 		var cached = new(CachedToken)
 		if err = jsonutil.DecodeJSON(data, cached); err != nil {
-			return nil, fmt.Errorf("error JSON-decoding token cache file %s: %v", filename, err)
+			return nil, fmt.Errorf("error JSON-decoding cached token %s: %v", filename, err)
 		}
 		cached.AuthMethod = method
 
@@ -253,7 +253,7 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 		return err
 	}
 
-	// Open the token cache file or create it if it
+	// Open the cached token or create it if it
 	// doesn't already exist
 	file, err := os.OpenFile(c.TokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0664)
 	if err != nil {
