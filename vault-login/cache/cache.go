@@ -249,7 +249,7 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 
 	// Create the token cache directory and its parents
 	// in case they don't already exist
-	if err := os.MkdirAll(c.tokenCacheDir, 0755); err != nil {
+	if err := os.MkdirAll(c.tokenCacheDir, 0765); err != nil {
 		return err
 	}
 
@@ -308,7 +308,7 @@ func (c *DefaultCacheUtil) decrypt(ciphertext []byte) ([]byte, error) {
 }
 
 func (c *DefaultCacheUtil) basename(method config.VaultAuthMethod) string {
-	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"auth")
+	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"-auth")
 }
 
 // NullCacheUtil conforms to the CacheUtil interface

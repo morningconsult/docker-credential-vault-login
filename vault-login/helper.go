@@ -64,6 +64,8 @@ func (h *Helper) Delete(serverURL string) error {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
+	defer log.Flush()
+
 	// Parse the config.json file
 	cfg, err := config.GetCredHelperConfig()
 	if err != nil {
@@ -161,17 +163,17 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
+		// Attempt to cache the token; log if it fails but don't return
+		// an error
+		if err = h.cacheUtil.CacheNewToken(secret, cfg.Method); err != nil {
+			log.Errorf("error caching new token: %v", err)
+		}
+
 		// Get the Docker credentials from Vault
 		creds, err := client.GetCredentials(cfg.Secret)
 		if err != nil {
 			log.Errorf("error getting Docker credentials from Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
-		// Attempt to cache the token; log if it fails but don't return
-		// an error
-		if err = h.cacheUtil.CacheNewToken(secret, cfg.Method); err != nil {
-			log.Errorf("error caching new token: %v", err)
 		}
 
 		return creds.Username, creds.Password, nil

@@ -96,6 +96,7 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, "testdata")
+	os.Unsetenv(EnvCipherKey)
 
 	cacheUtil := NewDefaultCacheUtil(nil)
 
@@ -202,6 +203,7 @@ func TestDefaultCacheUtil_GetCachedToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, "testdata")
+	os.Unsetenv(EnvCipherKey)
 
 	cacheUtil := NewDefaultCacheUtil(nil)
 
@@ -287,6 +289,7 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, "testdata")
+	os.Unsetenv(EnvCipherKey)
 
 	// Start the Vault testing cluster
 	cluster := test.StartTestCluster(t)
@@ -386,12 +389,6 @@ func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, "testdata")
-	// os.Setenv(EnvCipherKey, cipherKey)
-	// defer os.Unsetenv(EnvCipherKey)
-
-	// cacheUtil := NewDefaultCacheUtil(nil)
-
-	
 
 	cases := []struct{
 		name string
