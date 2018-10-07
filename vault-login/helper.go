@@ -165,7 +165,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Attempt to cache the token; log if it fails but don't return
 		// an error
 		if err = h.cacheUtil.CacheNewToken(secret, cfg.Method); err != nil {
-			log.Errorf("error caching new token: %v", err)
+			log.Debugf("error caching new token: %v", err)
 		}
 
 		// Get the Docker credentials from Vault
