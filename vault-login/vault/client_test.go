@@ -29,7 +29,7 @@ func TestGetCredentials(t *testing.T) {
 
 	client := NewDefaultClient(test.NewPreConfiguredVaultClient(t, cluster))
 
-	cases := []struct{
+	cases := []struct {
 		name        string
 		actualPath  string
 		requestPath string

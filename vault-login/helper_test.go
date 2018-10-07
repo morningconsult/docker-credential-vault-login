@@ -28,8 +28,8 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 
-	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
+	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -355,7 +355,7 @@ func TestHelperGet_Token(t *testing.T) {
 	// assigned to the client (to conform with ClientFactory behavior)
 	os.Setenv(api.EnvVaultToken, client.Token())
 
-	cases := []struct{
+	cases := []struct {
 		name       string
 		actualPath string
 		secret     map[string]interface{}
@@ -396,7 +396,7 @@ func TestHelperGet_Token(t *testing.T) {
 			cfg.Secret,
 			map[string]interface{}{
 				// Malformed "username" field
-				"username":  "frodo.baggins@theshire.com",
+				"username": "frodo.baggins@theshire.com",
 				"password": "potato",
 			},
 			true,
@@ -421,7 +421,7 @@ func TestHelperGet_Token(t *testing.T) {
 			}
 
 			user, pw, err := helper.Get("")
-			
+
 			if tc.err {
 				if err == nil {
 					t.Fatal("expected an error but didn't receive one")
@@ -442,7 +442,6 @@ func TestHelperGet_Token(t *testing.T) {
 		})
 	}
 }
-
 
 func TestHelperGet_Token_NoTokenEnv(t *testing.T) {
 	// Disable caching
@@ -525,7 +524,6 @@ func TestHelperGet_ParseError(t *testing.T) {
 
 	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
-
 
 func TestHelperGet_MalformedToken(t *testing.T) {
 	var (
@@ -652,7 +650,7 @@ func TestHelperGet_NoToken(t *testing.T) {
 	}
 }
 
-// Tests that 
+// Tests that
 func TestHelperGet_RenewableToken(t *testing.T) {
 	var (
 		testConfigFile = testIAMConfigFile
@@ -684,7 +682,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 
 	// Create the test policy
 	var testPolicy = "dev-test"
-	policy := `path "`+cfg.Secret+`" {
+	policy := `path "` + cfg.Secret + `" {
 		capabilities = ["read", "list"]
 	}`
 	err := client.Sys().PutPolicy(testPolicy, policy)
@@ -692,8 +690,8 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tsRenewable := time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds / 2)).Unix()
-	cases := []struct{
+	tsRenewable := time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix()
+	cases := []struct {
 		name       string
 		expiration int64
 		comparison string
@@ -705,7 +703,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 		},
 		{
 			"no-renew",
-			time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds * 2)).Unix(),
+			time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds*2)).Unix(),
 			"eq",
 		},
 	}
@@ -830,7 +828,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	}{
 		{
 			"renew-fails",
-			time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds / 2)).Unix(),
+			time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix(),
 			true,
 		},
 		{
@@ -844,7 +842,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var badtoken = "i am a bad token"
 
-			cacheUtil.ClearCachedToken(cfg.Method)			
+			cacheUtil.ClearCachedToken(cfg.Method)
 			defer cacheUtil.ClearCachedToken(cfg.Method)
 			writeJSONToFile(t, map[string]interface{}{
 				"token":      badtoken, // this should trigger an error when CacheUtil.RenewToken() is called
@@ -860,7 +858,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			
+
 			token := loadTokenFromFile(t, cacheUtil.TokenFilename(cfg.Method))
 
 			// Ensure that a new token was obtained
@@ -886,7 +884,7 @@ func TestHelperGet_NewClientFails(t *testing.T) {
 	os.Setenv(cache.EnvCacheDir, "testdata")
 	cacheUtil := cache.NewCacheUtil(nil)
 
-	cacheUtil.ClearCachedToken(cfg.Method)			
+	cacheUtil.ClearCachedToken(cfg.Method)
 	defer cacheUtil.ClearCachedToken(cfg.Method)
 	writeJSONToFile(t, map[string]interface{}{
 		"token":      "token",
@@ -927,7 +925,7 @@ func TestHelperGet_CachedTokenUnauthorized(t *testing.T) {
 	go server.ListenAndServe()
 	defer server.Close()
 
-	cacheUtil.ClearCachedToken(cfg.Method)			
+	cacheUtil.ClearCachedToken(cfg.Method)
 	defer cacheUtil.ClearCachedToken(cfg.Method)
 	writeJSONToFile(t, map[string]interface{}{
 		"token":      "bad token",

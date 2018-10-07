@@ -1,13 +1,13 @@
 package cache
 
 import (
-	"crypto/rand"
-	"crypto/cipher"
 	"crypto/aes"
-	"os"
-	"path/filepath"
+	"crypto/cipher"
+	"crypto/rand"
 	"io"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -379,10 +379,10 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 
 func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
 	const (
-		roleName   = "dev-test"
-		cipherKey  = "hello darkness my old friend ive"
-		method     = config.VaultAuthMethodAWSIAM
-		token      = "random token"
+		roleName  = "dev-test"
+		cipherKey = "hello darkness my old friend ive"
+		method    = config.VaultAuthMethodAWSIAM
+		token     = "random token"
 	)
 
 	var expiration = time.Now().Unix()
@@ -390,7 +390,7 @@ func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
 	os.Setenv(EnvDisableCache, "")
 	os.Setenv(EnvCacheDir, "testdata")
 
-	cases := []struct{
+	cases := []struct {
 		name string
 		key  string
 		err  bool
@@ -451,10 +451,10 @@ func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
 
 func TestDefaultCacheUtil_EncryptAndCacheToken(t *testing.T) {
 	const (
-		roleName   = "dev-test"
-		cipherKey  = "hello darkness my old friend ive"
-		method     = config.VaultAuthMethodAWSIAM
-		token      = "random token"
+		roleName  = "dev-test"
+		cipherKey = "hello darkness my old friend ive"
+		method    = config.VaultAuthMethodAWSIAM
+		token     = "random token"
 	)
 
 	var expiration = time.Now().Unix()
@@ -467,7 +467,7 @@ func TestDefaultCacheUtil_EncryptAndCacheToken(t *testing.T) {
 	cacheUtil := NewDefaultCacheUtil(nil)
 
 	cacheUtil.CacheNewToken(&CachedToken{
-		Token: token,
+		Token:      token,
 		Expiration: time.Now().Unix(),
 	}, method)
 
@@ -615,7 +615,7 @@ func decryptJSONFile(t *testing.T, tokenfile, key string) *CachedToken {
 	ciphertext = ciphertext[aes.BlockSize:]
 	stream := cipher.NewCFBDecrypter(block, iv)
 	stream.XORKeyStream(ciphertext, ciphertext)
-	
+
 	var token = new(CachedToken)
 	if err = jsonutil.DecodeJSON(ciphertext, token); err != nil {
 		t.Fatal(err)

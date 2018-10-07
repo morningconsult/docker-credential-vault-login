@@ -18,12 +18,12 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -120,7 +120,7 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 }
 
 func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*CachedToken, error) {
-	files, err := filepath.Glob(c.basename(method)+"*")
+	files, err := filepath.Glob(c.basename(method) + "*")
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 }
 
 func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
-	files, _ := filepath.Glob(c.basename(method)+"*")
+	files, _ := filepath.Glob(c.basename(method) + "*")
 	mutex.Lock()
 	for _, file := range files {
 		os.Remove(file)
@@ -282,7 +282,7 @@ func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
 	if c.block != nil {
 		extension = ""
 	}
-	return c.basename(method)+extension
+	return c.basename(method) + extension
 }
 
 func (c *DefaultCacheUtil) encrypt(data []byte) ([]byte, error) {

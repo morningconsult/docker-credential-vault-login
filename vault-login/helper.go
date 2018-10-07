@@ -15,13 +15,13 @@ package helper
 
 import (
 	"fmt"
-	"os"
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/vault"
+	"os"
 )
 
 var notImplementedError = fmt.Errorf("not implemented")
@@ -145,12 +145,11 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
-
 		// Authenticate according to the selected method and if successful
 		// give the resulting token to the Vault API client.
 		var (
-			client  vault.Client
-			secret  *api.Secret
+			client vault.Client
+			secret *api.Secret
 		)
 		if h.vaultAPI != nil {
 			client, secret, err = factory.WithClient(h.vaultAPI)
@@ -189,7 +188,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 				return "", "", credentials.NewErrCredentialsNotFound()
 			}
 		}
-		
+
 		// Get the Docker credentials from Vault
 		client := vault.NewDefaultClient(vaultAPI)
 		creds, err := client.GetCredentials(cfg.Secret)
