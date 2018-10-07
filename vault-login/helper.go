@@ -128,7 +128,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			if err == nil {
 				return creds.Username, creds.Password, nil
 			}
-			log.Errorf("error getting Docker credentials from Vault: %v", err)
+			log.Debugf("error getting Docker credentials from Vault using cached token: %v", err)
 			h.cacheUtil.ClearCachedToken(cfg.Method)
 		}
 
