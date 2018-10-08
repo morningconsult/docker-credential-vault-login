@@ -83,7 +83,7 @@ func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
 	cacheDir := buildCacheDir()
 
 	return &DefaultCacheUtil{
-		cacheDir:      buildCacheDir(),
+		cacheDir:      cacheDir,
 		tokenCacheDir: filepath.Join(cacheDir, "tokens"),
 		vaultAPI:      vaultAPI,
 		block:         block,
