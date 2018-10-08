@@ -165,12 +165,11 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 
 		// Decrypt if it is an encrypted file (encrypted file
 		// should have no extension)
-		if filepath.Ext(filename) != "" || c.block == nil {
-			continue
-		}
-		data, err = c.decrypt(data)
-		if err != nil {
-			return nil, fmt.Errorf("error decrypting token: %v", err)
+		if filepath.Ext(filename) == "" && c.block != nil {
+			data, err = c.decrypt(data)
+			if err != nil {
+				return nil, fmt.Errorf("error decrypting token: %v", err)
+			}
 		}
 
 		var cached = new(CachedToken)
