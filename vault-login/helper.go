@@ -86,40 +86,9 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Handle according to the chosen authentication method
 	switch cfg.Method {
 	case config.VaultAuthMethodAWSIAM, config.VaultAuthMethodAWSEC2:
-		// Get the cached token (if exists)
-		cached, err := h.cacheUtil.GetCachedToken(cfg.Method)
-		if err != nil {
-			// Log error and delete cached token
-			log.Debugf("error getting cached token: %v", err)
-			h.cacheUtil.ClearCachedToken(cfg.Method)
-		}
-
-		// If an instance of cache.CachedToken was returned, check
-		// if the token is expired or if it can be renewed before
-		// attempting to use it to read the secret
-		var cachedTokenID = ""
-		if cached != nil {
-			if cached.Expired() {
-				// Delete the cached token
-				h.cacheUtil.ClearCachedToken(cfg.Method)
-			} else {
-				cachedTokenID = cached.Token
-				if cached.EligibleForRenewal() {
-					err = h.cacheUtil.RenewToken(cached)
-					if err != nil {
-						// Log error and delete cached token
-						log.Debugf("error attempting to renew token: %v", err)
-						h.cacheUtil.ClearCachedToken(cfg.Method)
-						cachedTokenID = ""
-					}
-				}
-			}
-		}
-
-		// If a valid cached token is found, attempt to read secret
-		// with it
-		if cachedTokenID != "" {
-			h.vaultAPI.SetToken(cachedTokenID)
+		// If a valid cached token is found, attempt to read secret with it
+		if token := h.cacheUtil.GetCachedToken(cfg.Method); token != "" {
+			h.vaultAPI.SetToken(token)
 			client := auth.NewDefaultClient(h.vaultAPI)
 			creds, err := client.GetCredentials(cfg.Secret)
 			if err == nil {

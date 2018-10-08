@@ -820,7 +820,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
 			}
 
-			cachedToken, err := cacheUtil.GetCachedToken(cfg.Method)
+			cachedToken, err := cacheUtil.LookupToken(cfg.Method)
 			if err != nil {
 				t.Fatal(err)
 			}
