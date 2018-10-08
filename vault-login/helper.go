@@ -116,9 +116,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			}
 		}
 
-		// If a valid cached token is found, attempt to get credentials
-		// using it. If it fails, re-authenticate to obtain a new token
-		// and try again.
+		// If a valid cached token is found, attempt to read secret
+		// with it
 		if cachedTokenID != "" {
 			h.vaultAPI.SetToken(cachedTokenID)
 			client := auth.NewDefaultClient(h.vaultAPI)
@@ -130,8 +129,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			h.cacheUtil.ClearCachedToken(cfg.Method)
 		}
 
-		// Vault API client has no client token. Authenticate
-		// against Vault to obtain a new one
+		// Authenticate against Vault in the manner specified in the
+		// config.json file to obtain a new client token
 		var factory auth.ClientFactory
 		if cfg.Method == config.VaultAuthMethodAWSIAM {
 			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID, cfg.MountPath)
@@ -143,8 +142,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
-		// Authenticate according to the selected method and if successful
-		// give the resulting token to the Vault API client.
 		client, secret, err := factory.NewClient(h.vaultAPI)
 		if err != nil {
 			log.Errorf("error authenticating against Vault: %v", err)
@@ -163,9 +160,10 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			log.Errorf("error getting Docker credentials from Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
-
 		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
+		// If the Vault API client doesn't have a token,
+		// attempt to get it from $VAULT_TOKEN
 		if h.vaultAPI.Token() == "" {
 			token := os.Getenv(api.EnvVaultToken)
 			if token == "" {
@@ -182,7 +180,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			log.Errorf("error getting Docker credentials from Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
-
 		return creds.Username, creds.Password, nil
 	default:
 		log.Errorf("unknown authentication method: %q", cfg.Method)
