@@ -455,6 +455,9 @@ func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
 				}
 				return
 			}
+			if err != nil {
+				t.Fatal(err)
+			}
 			if cachedToken.Token != token {
 				t.Fatalf("expected cached token ID of %q but got %q", token, cachedToken.Token)
 			}

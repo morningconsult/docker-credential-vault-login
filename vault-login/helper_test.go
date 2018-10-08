@@ -459,7 +459,6 @@ func TestHelperGet_Token(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-
 			if username, ok := tc.secret["username"].(string); !ok || username != user {
 				t.Fatalf("Wrong username (got %q, expected %q)", user, username)
 			}

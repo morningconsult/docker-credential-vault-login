@@ -98,7 +98,9 @@ func TestGetCredentials(t *testing.T) {
 				}
 				return
 			}
-
+			if err != nil {
+				t.Fatal(err)
+			}
 			if creds.Username != username {
 				t.Fatalf("Unexpected username (expected %q, got %q)", username, creds.Username)
 			}
