@@ -20,7 +20,7 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
-	helper "github.com/morningconsult/docker-credential-vault-login/vault-login"
+	vault "github.com/morningconsult/docker-credential-vault-login/vault-login"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
@@ -44,8 +44,12 @@ func main() {
 	defer log.Flush()
 	logging.SetupLogger(cacheUtil.GetCacheDir())
 
-	credentials.Serve(helper.NewHelper(&helper.HelperOptions{
-		VaultClient: nil,
-		CacheUtil:   cacheUtil,
-	}))
+	// Create a new vault.Helper instance
+	helper, err := vault.NewHelper(&vault.HelperOptions{CacheUtil: cacheUtil})
+	if err != nil {
+		log.Errorf("error creating new vault.Helper instance: %v", err)
+		os.Exit(1)
+	}
+
+	credentials.Serve(helper)
 }

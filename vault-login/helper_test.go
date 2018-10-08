@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package helper
+package vault
 
 import (
 	"encoding/json"
@@ -85,7 +85,10 @@ func TestHelperGet_IAM_Success(t *testing.T) {
 
 	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	helper := NewHelper(nil)
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	user, pw, err := helper.Get("")
 	if err != nil {
 		t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
@@ -135,8 +138,11 @@ func TestHelperGet_IAM_BadPath(t *testing.T) {
 
 	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Errorf("should have returned and error, but didn't.")
 	}
@@ -176,8 +182,11 @@ func TestHelperGet_IAM_NoSecret(t *testing.T) {
 
 	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Errorf("should have returned and error, but didn't.")
 	}
@@ -214,8 +223,11 @@ func TestHelperGet_IAM_BadRole(t *testing.T) {
 
 	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Errorf("should have returned and error, but didn't.")
 	}
@@ -260,8 +272,11 @@ func TestHelperGet_IAM_MalformedSecret(t *testing.T) {
 
 	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Errorf("should have returned and error, but didn't.")
 	}
@@ -285,8 +300,11 @@ func TestHelperGet_IAM_FactoryError(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
@@ -318,8 +336,11 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
@@ -409,15 +430,21 @@ func TestHelperGet_Token(t *testing.T) {
 			test.WriteSecret(t, client, tc.actualPath, tc.secret)
 			defer test.DeleteSecret(t, client, tc.actualPath)
 
-			var helper *Helper
 			if tc.name == "bad-client" {
 				os.Setenv(api.EnvRateLimit, "not an int!")
 				defer os.Unsetenv(api.EnvRateLimit)
-				helper = NewHelper(nil)
-			} else {
-				helper = NewHelper(&HelperOptions{
-					VaultClient: client,
-				})
+				_, err := NewHelper(nil)
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				return
+			}
+
+			helper, err := NewHelper(&HelperOptions{
+				VaultClient: client,
+			})
+			if err != nil {
+				t.Fatal(err)
 			}
 
 			user, pw, err := helper.Get("")
@@ -454,9 +481,12 @@ func TestHelperGet_Token_NoTokenEnv(t *testing.T) {
 	os.Unsetenv(api.EnvVaultToken)
 	defer os.Setenv(api.EnvVaultToken, token)
 
-	helper := NewHelper(nil)
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, _, err := helper.Get("")
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Fatal("expected an error but didn't receive one")
 	}
@@ -466,8 +496,11 @@ func TestHelperList(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper := NewHelper(nil)
-	_, err := helper.List()
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = helper.List()
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -479,8 +512,11 @@ func TestHelperAdd(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper := NewHelper(nil)
-	err := helper.Add(&credentials.Credentials{})
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = helper.Add(&credentials.Credentials{})
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -492,8 +528,11 @@ func TestHelperDelete(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper := NewHelper(nil)
-	err := helper.Delete("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = helper.Delete("")
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -516,8 +555,11 @@ func TestHelperGet_ParseError(t *testing.T) {
 
 	os.Setenv("DOCKER_CREDS_CONFIG_FILE", testFilePath)
 
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
+	helper, err := NewHelper(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = helper.Get("")
 	if err == nil {
 		t.Fatal("expected to receive an error but didn't")
 	}
@@ -567,11 +609,14 @@ func TestHelperGet_MalformedToken(t *testing.T) {
 	}
 	writeJSONToFile(t, json, tokenfile)
 
-	helper := NewHelper(&HelperOptions{
+	helper, err := NewHelper(&HelperOptions{
 		CacheUtil: cacheUtil,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, _, err := helper.Get("")
+	_, _, err = helper.Get("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -627,11 +672,14 @@ func TestHelperGet_NoToken(t *testing.T) {
 	// Delete the cached token (if exists)
 	cacheUtil.ClearCachedToken(cfg.Method)
 
-	helper := NewHelper(&HelperOptions{
+	helper, err := NewHelper(&HelperOptions{
 		CacheUtil: cacheUtil,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	_, _, err := helper.Get("")
+	_, _, err = helper.Get("")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -732,9 +780,12 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 			// to the Vault API client
 			client.SetToken(token)
 
-			helper := NewHelper(&HelperOptions{
+			helper, err := NewHelper(&HelperOptions{
 				VaultClient: client,
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			// Delete the cached token (if exists)
 			cacheUtil.ClearCachedToken(cfg.Method)
@@ -850,11 +901,14 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 				"renewable":  tc.renewable,
 			}, cacheUtil.TokenFilename(cfg.Method))
 
-			helper := NewHelper(&HelperOptions{
+			helper, err := NewHelper(&HelperOptions{
 				CacheUtil: cacheUtil,
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 
-			_, _, err := helper.Get("")
+			_, _, err = helper.Get("")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -871,34 +925,6 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 				t.Fatal("cached token should not be expired")
 			}
 		})
-	}
-}
-
-func TestHelperGet_NewClientFails(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-	)
-
-	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-	cacheUtil := cache.NewCacheUtil(nil)
-
-	cacheUtil.ClearCachedToken(cfg.Method)
-	defer cacheUtil.ClearCachedToken(cfg.Method)
-	writeJSONToFile(t, map[string]interface{}{
-		"token":      "token",
-		"expiration": time.Now().Add(1 * time.Hour).Unix(),
-		"renewable":  false,
-	}, cacheUtil.TokenFilename(cfg.Method))
-
-	os.Setenv(api.EnvRateLimit, "not an int!")
-	defer os.Unsetenv(api.EnvRateLimit)
-
-	helper := NewHelper(nil)
-	_, _, err := helper.Get("")
-	if err == nil {
-		t.Fatal("expected an error but didn't receive one")
 	}
 }
 
@@ -938,9 +964,12 @@ func TestHelperGet_CachedTokenUnauthorized(t *testing.T) {
 		t.Fatal(err)
 	}
 	client.SetAddress(fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	helper := NewHelper(&HelperOptions{
+	helper, err := NewHelper(&HelperOptions{
 		VaultClient: client,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _, err = helper.Get("")
 	if err != nil {
 		t.Fatal(err)

@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package vault
+package auth
 
 import (
 	"fmt"
@@ -58,33 +58,12 @@ func NewClientFactoryAWSEC2Auth(role, mountPath string) (ClientFactory, error) {
 	}, nil
 }
 
-// NewClient creates a new Vault API client and uses it to attempt to
-// authenticate against Vault via the AWS EC2 endpoint. If authentication
-// is successful, it will set the Vault API client with the newly-created
-// client token and return a DefaultClient object.
-func (c *ClientFactoryAWSEC2Auth) NewClient() (Client, *api.Secret, error) {
-	// Create a new Vault API client
-	vaultClient, err := api.NewClient(nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get the EC2 instance's PKCS7 signature and login to
-	// Vault to obtain a token via Vault's AWS EC2 endpoint
-	secret, err := c.getAndSetNewToken(vaultClient)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return NewDefaultClient(vaultClient), secret, nil
-}
-
-// WithClient receives a Vault API client that has already been initialized
+// NewClient receives a Vault API client that has already been initialized
 // and uses it to attempt to authenticate against Vault via the AWS EC2
 // endpoint. If authentication is successful, it will set the Vault API
-// client with the newly-created client token and return a DefaultClient
-// object. This function is primarily used for testing purposes.
-func (c *ClientFactoryAWSEC2Auth) WithClient(vaultClient *api.Client) (Client, *api.Secret, error) {
+// client with the newly-created client token and return a new
+// DefaultClient instance
+func (c *ClientFactoryAWSEC2Auth) NewClient(vaultClient *api.Client) (Client, *api.Secret, error) {
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
 	secret, err := c.getAndSetNewToken(vaultClient)

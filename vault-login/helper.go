@@ -11,7 +11,7 @@
 // express or implied. See the License for the specific language governing
 // permissions and limitations under the License.
 
-package helper
+package vault
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/vault"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/auth"
 	"os"
 )
 
@@ -40,9 +40,19 @@ type Helper struct {
 var _ credentials.Helper = (*Helper)(nil)
 
 // NewHelper creates a new Helper
-func NewHelper(opts *HelperOptions) *Helper {
+func NewHelper(opts *HelperOptions) (*Helper, error) {
+	var err error
+
 	if opts == nil {
 		opts = &HelperOptions{}
+	}
+
+	// Create a new Vault API client
+	if opts.VaultClient == nil {
+		opts.VaultClient, err = api.NewClient(nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if opts.CacheUtil == nil {
@@ -52,7 +62,7 @@ func NewHelper(opts *HelperOptions) *Helper {
 	return &Helper{
 		vaultAPI:  opts.VaultClient,
 		cacheUtil: opts.CacheUtil,
-	}
+	}, nil
 }
 
 func (h *Helper) Add(creds *credentials.Credentials) error {
@@ -110,20 +120,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// using it. If it fails, re-authenticate to obtain a new token
 		// and try again.
 		if cachedTokenID != "" {
-			var vaultAPI *api.Client
-			if h.vaultAPI != nil {
-				vaultAPI = h.vaultAPI
-			} else {
-				vaultAPI, err = api.NewClient(nil)
-				if err != nil {
-					log.Errorf("error creating Vault API client: %v", err)
-					return "", "", credentials.NewErrCredentialsNotFound()
-				}
-			}
-			vaultAPI.SetToken(cachedTokenID)
-			client := vault.NewDefaultClient(vaultAPI)
-
-			// Get the Docker credentials from Vault
+			h.vaultAPI.SetToken(cachedTokenID)
+			client := auth.NewDefaultClient(h.vaultAPI)
 			creds, err := client.GetCredentials(cfg.Secret)
 			if err == nil {
 				return creds.Username, creds.Password, nil
@@ -134,11 +132,11 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		// Vault API client has no client token. Authenticate
 		// against Vault to obtain a new one
-		var factory vault.ClientFactory
+		var factory auth.ClientFactory
 		if cfg.Method == config.VaultAuthMethodAWSIAM {
-			factory, err = vault.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID, cfg.MountPath)
+			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID, cfg.MountPath)
 		} else {
-			factory, err = vault.NewClientFactoryAWSEC2Auth(cfg.Role, cfg.MountPath)
+			factory, err = auth.NewClientFactoryAWSEC2Auth(cfg.Role, cfg.MountPath)
 		}
 		if err != nil {
 			log.Errorf("error creating new client factory: %v", err)
@@ -147,15 +145,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		// Authenticate according to the selected method and if successful
 		// give the resulting token to the Vault API client.
-		var (
-			client vault.Client
-			secret *api.Secret
-		)
-		if h.vaultAPI != nil {
-			client, secret, err = factory.WithClient(h.vaultAPI)
-		} else {
-			client, secret, err = factory.NewClient()
-		}
+		client, secret, err := factory.NewClient(h.vaultAPI)
 		if err != nil {
 			log.Errorf("error authenticating against Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -176,21 +166,17 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
-		var vaultAPI *api.Client = h.vaultAPI
-		if vaultAPI == nil || vaultAPI.Token() == "" {
-			if os.Getenv(api.EnvVaultToken) == "" {
+		if h.vaultAPI.Token() == "" {
+			token := os.Getenv(api.EnvVaultToken)
+			if token == "" {
 				log.Errorf("$%s is not set", api.EnvVaultToken)
 				return "", "", credentials.NewErrCredentialsNotFound()
 			}
-			vaultAPI, err = api.NewClient(nil)
-			if err != nil {
-				log.Error(err)
-				return "", "", credentials.NewErrCredentialsNotFound()
-			}
+			h.vaultAPI.SetToken(token)
 		}
 
 		// Get the Docker credentials from Vault
-		client := vault.NewDefaultClient(vaultAPI)
+		client := auth.NewDefaultClient(h.vaultAPI)
 		creds, err := client.GetCredentials(cfg.Secret)
 		if err != nil {
 			log.Errorf("error getting Docker credentials from Vault: %v", err)
