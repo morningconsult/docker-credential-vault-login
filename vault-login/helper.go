@@ -18,9 +18,9 @@ import (
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/auth"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/auth"
 	"os"
 )
 
