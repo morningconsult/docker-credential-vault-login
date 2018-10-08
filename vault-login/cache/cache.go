@@ -27,8 +27,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -106,7 +106,7 @@ func (c *DefaultCacheUtil) GetCacheDir() string {
 // will check if it is expired and remove cached tokens if it is indeed expired.
 // If the token is not expired but renewable, it will attempt to renew the token.
 // If it fails to renew, it will remove the cached tokens associated with the
-// given method. 
+// given method.
 func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) string {
 	defer log.Flush()
 
