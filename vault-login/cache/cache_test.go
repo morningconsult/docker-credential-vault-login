@@ -19,55 +19,72 @@ import (
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
-func TestNewCacheUtil_Enabled(t *testing.T) {
-	const cacheDir = "testdata"
-	const expectedTTL = 12345
-
-	os.Setenv(EnvDisableCache, "")
-	os.Setenv(EnvCacheDir, cacheDir)
-
-	cacheUtilUntyped := NewCacheUtil(nil)
-
-	cacheUtil, ok := cacheUtilUntyped.(*DefaultCacheUtil)
-	if !ok {
-		t.Fatalf("Expected to receive an instance of cache.DefaultCacheUtil, but didn't")
-	}
-
-	if cacheUtil.cacheDir != cacheDir {
-		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
-			cacheDir, cacheUtil.cacheDir)
-	}
-
-	var expectedTokenCacheDir = filepath.Join(cacheDir, "tokens")
-	if cacheUtil.tokenCacheDir != expectedTokenCacheDir {
-		t.Fatalf("Expected cacheUtil.tokenCacheDir to be %q, but got %q instead",
-			expectedTokenCacheDir, cacheUtil.tokenCacheDir)
-	}
-}
-
-func TestNewCacheUtil_Disabled(t *testing.T) {
+func TestNewCacheUtil(t *testing.T) {
 	const cacheDir = "testdata"
 
-	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtilUntyped := NewCacheUtil(nil)
-
-	cacheUtil, ok := cacheUtilUntyped.(*NullCacheUtil)
-
-	if !ok {
-		t.Fatalf("Expected to receive an instance of cache.DefaultCacheUtil, but didn't")
+	cases := []struct{
+		name      string
+		env       string
+		cacheType string
+	}{
+		{
+			"enabled-a",
+			"false",
+			"default",
+		},
+		{
+			"enabled-b",
+			"f",
+			"default",
+		},
+		{
+			"enabled-c",
+			"i am not a bool",
+			"default",
+		},
+		{
+			"enabled-d",
+			"",
+			"default",
+		},
+		{
+			"disabled-a",
+			"true",
+			"null",
+		},
+		{
+			"disabled-b",
+			"t",
+			"null",
+		},
 	}
 
-	if cacheUtil.cacheDir != cacheDir {
-		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
-			cacheDir, cacheUtil.cacheDir)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv(EnvDisableCache, tc.env)
+			cacheUtilUntyped := NewCacheUtil(nil)
+
+			switch tc.cacheType {
+			case "default":
+				if _, ok := cacheUtilUntyped.(*DefaultCacheUtil); !ok {
+					t.Fatalf("Expected to receive an instance of cache.DefaultCacheUtil but didn't")
+				}
+			case "null":
+				if _, ok := cacheUtilUntyped.(*NullCacheUtil); !ok {
+					t.Fatalf("Expected to receive an instance of cache.DefaultCacheUtil but didn't")
+				}
+			default:
+				t.Fatalf("Received unknown CacheUtil type: %T", cacheUtilUntyped)
+			}
+		})
 	}
 }
 
 func TestNewCacheUtil_BackupCache(t *testing.T) {
-	env := awstesting.StashEnv()
 	// This will cause github.com/mitchellh/go-homedir.Expand() to fail
+	env := awstesting.StashEnv()
 	defer awstesting.PopEnv(env)
 
 	cacheUtil := NewCacheUtil(nil)

@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"strconv"
 	"time"
 )
 
@@ -54,8 +55,10 @@ type CacheUtil interface {
 // DOCKER_CREDS_DISABLE_CACHE environment variable is set.
 // Otherwise, it returns a new DefaultCacheUtil.
 func NewCacheUtil(vaultAPI *api.Client) CacheUtil {
-	if os.Getenv(EnvDisableCache) != "" {
-		return NewNullCacheUtil()
+	if disableCache, err := strconv.ParseBool(os.Getenv(EnvDisableCache)); err == nil {
+		if disableCache {
+			return NewNullCacheUtil()
+		}
 	}
 	return NewDefaultCacheUtil(vaultAPI)
 }
@@ -132,7 +135,7 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 		file, err := os.Open(filename)
 		if err != nil {
 			if os.IsNotExist(err) {
-				// No toke cache file found
+				// No token cache file found
 				continue
 			}
 			return nil, err
