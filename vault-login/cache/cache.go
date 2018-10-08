@@ -93,10 +93,15 @@ func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
 	}
 }
 
+// GetCacheDir returns the cache directory
 func (c *DefaultCacheUtil) GetCacheDir() string {
 	return c.cacheDir
 }
 
+// RenewToken attempts to renew a Vault client token. If
+// successful, it will update the token's expiration date
+// and write the file to disk ("cache" the token). If it
+// fails, it will return an error.
 func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 	var err error
 
@@ -122,6 +127,16 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 	return c.CacheNewToken(secret, cached.AuthMethod)
 }
 
+// GetCachedToken attempts to retrieve a cached token that
+// corresponds to the given method. It will search for
+// both an encrypted and an unencrypted token in the token
+// cache directory. If it finds an encrypted token
+// (filename with no extension) first, it will decrypt it
+// if $DOCKER_CREDS_CACHE_ENCRYPTION_KEY is set before
+// JSON-decoding it. If it finds an unencrypted token
+// (filename with .json extension), it will JSON-decode it
+// without decryption. If no cached tokens are found, it
+// will return a nil *CachedToken and a nil error.
 func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*CachedToken, error) {
 	files, err := filepath.Glob(c.basename(method) + "*")
 	if err != nil {
@@ -150,11 +165,12 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 
 		// Decrypt if it is an encrypted file (encrypted file
 		// should have no extension)
-		if filepath.Ext(filename) == "" {
-			data, err = c.decrypt(data)
-			if err != nil {
-				return nil, fmt.Errorf("error decrypting token: %v", err)
-			}
+		if filepath.Ext(filename) != "" || c.block == nil {
+			continue
+		}
+		data, err = c.decrypt(data)
+		if err != nil {
+			return nil, fmt.Errorf("error decrypting token: %v", err)
 		}
 
 		var cached = new(CachedToken)
@@ -174,6 +190,24 @@ func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) (*Cache
 	return nil, nil
 }
 
+// CacheNewToken accepts either a *CachedToken or a
+// *github.com/hashicorp/vault/api.Secret and writes it to
+// disk ("caches it") for use in future Vault API calls. If 
+// $DOCKER_CREDS_CACHE_ENCRYPTION_KEY is set, it will first
+// encrypt the JSON data before caching it. If encryption
+// is enabled, it will be cached with no file extension.
+// Otherwise, it will be cached as a .json file. Tokens are
+// cached according to the method of authentication by
+// which it was obtained. For example, if a token was
+// obtained using the "iam" method and encryption is
+// disabled, it will be cached as:
+//
+// ~/.docker-credential-vault-login/tokens/cached-token-iam-auth.json
+//
+// If encryption is enabled, it will be cached as:
+//
+// ~/.docker-credential-vault-login/tokens/cached-token-iam-auth
+//
 func (c *DefaultCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
 	var (
 		token *CachedToken
@@ -269,6 +303,8 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 	return err
 }
 
+// ClearCachedToken deletes all cached tokens associated
+// with the given authentication method.
 func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
 	files, _ := filepath.Glob(c.basename(method) + "*")
 	mutex.Lock()
@@ -278,6 +314,12 @@ func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
 	mutex.Unlock()
 }
 
+// TokenFilename returns the name of the file in which a
+// token of the given authentication method is stored on
+// disk. If $DOCKER_CREDS_CACHE_ENCRYPTION_KEY is set (i.e.
+// encryption is enabled), it will return a filename with
+// no extension. Otherwise, it will return a filename with
+// a .json extension.
 func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
 	extension := ".json"
 

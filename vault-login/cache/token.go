@@ -18,9 +18,7 @@ import (
 	"time"
 )
 
-const (
-	GracePeriodSeconds int64 = 600 // 10 minutes
-)
+const GracePeriodSeconds int64 = 600 // 10 minutes
 
 type CachedToken struct {
 	// Token is the cached Vault token
@@ -39,10 +37,17 @@ type CachedToken struct {
 	AuthMethod config.VaultAuthMethod `json:"-"`
 }
 
+// Expired returns true if the token's expiration
+// timestamp is in the past.
 func (t *CachedToken) Expired() bool {
 	return time.Now().After(time.Unix(t.Expiration, 0))
 }
 
+// EligibleForRenewal returns true if the token is
+// renewable and the current time is within the grace
+// period. The grace period is the period of time
+// GracePeriodSeconds seconds before the expiration
+// timestamp.
 func (t *CachedToken) EligibleForRenewal() bool {
 	now := time.Now()
 	expiration := time.Unix(t.Expiration, 0)
