@@ -29,7 +29,7 @@ resources:
   type: pull-request
   source:
     private_key: ((github-private-key))
-    access_token: ((github-access-token))
+    access_token: ((github-token))
     repo: morningconsult/docker-credential-vault-login
     uri: git@github.com:morningconsult/docker-credential-vault-login
     base: master
@@ -72,7 +72,7 @@ jobs:
     file: git-repo/ci/tasks/build-release.yml
     input_mapping: {git-repo: git-repo}
     params:
-      GITHUB_TOKEN: ((github-access-token))
+      GITHUB_TOKEN: ((github-token))
     on_failure:
       put: slack
       params: {alert_type: failed}
@@ -93,7 +93,7 @@ jobs:
     file: test-pull-request/ci/tasks/test-pull-request.yml
     input_mapping: {git-repo: test-pull-request}
     params:
-      GITHUB_TOKEN: ((github-access-token))
+      GITHUB_TOKEN: ((github-token))
     on_failure:
       put: slack
       params: {alert_type: failed}
