@@ -1029,7 +1029,18 @@ func TestMain(m *testing.M) {
 	defer awstesting.PopEnv(env)
 	defer seelog.Flush()
 	logger.SetupTestLogger()
-	os.Exit(m.Run())
+	status := m.Run()
+	os.Unsetenv(cache.EnvDisableCache)
+	os.Setenv(cache.EnvCacheDir, "testdata")
+	cacheUtil := cache.NewCacheUtil(nil)
+	methods := []config.VaultAuthMethod{
+		config.VaultAuthMethodAWSIAM,
+		config.VaultAuthMethodAWSEC2,
+	}
+	for _, method := range methods {
+		cacheUtil.ClearCachedToken(method)
+	}
+	os.Exit(status)
 }
 
 func readConfig(t *testing.T, testConfigFile string) *config.CredHelperConfig {

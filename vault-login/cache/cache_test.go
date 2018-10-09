@@ -674,7 +674,18 @@ func TestNullCacheUtil_TokenFilename(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	logging.SetupTestLogger()
-	os.Exit(m.Run())
+	status := m.Run()
+	os.Unsetenv(EnvDisableCache)
+	os.Setenv(EnvCacheDir, "testdata")
+	cacheUtil := NewCacheUtil(nil)
+	methods := []config.VaultAuthMethod{
+		config.VaultAuthMethodAWSIAM,
+		config.VaultAuthMethodAWSEC2,
+	}
+	for _, method := range methods {
+		cacheUtil.ClearCachedToken(method)
+	}
+	os.Exit(status)
 }
 
 func writeJSONToFile(t *testing.T, json map[string]interface{}, tokenfile string) {
