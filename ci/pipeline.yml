@@ -17,8 +17,6 @@ resource_types:
     repository: jtarchie/pr
 
 
-
-
 # ====================================
 #
 #            RESOURCES
@@ -35,11 +33,11 @@ resources:
     base: master
 
 - name: new-release
-  type: git
+  type: github-release
   source:
-    uri: ((github-repo))
-    branch: master
-    tag_filter: 'v[0-9]*'
+    owner: morningconsult
+    repository: docker-credential-vault-login
+    access_token: ((github-token))
 
 - name: golang
   type: docker-image
