@@ -21,9 +21,9 @@ import (
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	vault "github.com/morningconsult/docker-credential-vault-login/vault-login"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
 const banner = "Docker Credential Helper for Vault Storage %v, commit %v, built %v\n"
