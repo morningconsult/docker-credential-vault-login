@@ -52,7 +52,7 @@ test:
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell cat VERSION)' '$(shell git rev-parse HEAD)' '$(REPO)'"
+	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse HEAD)' '$(shell date +"%b %d, %Y")' '$(REPO)'"
 	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
 mocktools:
@@ -64,5 +64,5 @@ mocktools:
 .PHONY: mocktools
 
 build_mocks: mocktools
-	PATH=$$PATH:$$$(CURDIR)/scripts/generate scripts/build-mocks.sh
+	scripts/build-mocks.sh
 .PHONY: build_mocks

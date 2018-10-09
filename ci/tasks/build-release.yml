@@ -1,0 +1,10 @@
+
+
+
+---
+platform: linux
+inputs:
+  - name: git-repo
+run:
+  path: ci/build-release.sh
+  dir: git-repo

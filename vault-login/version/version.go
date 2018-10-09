@@ -14,6 +14,8 @@
 package version
 
 // Version indicates which version of the binary is running.
-var Version = "1.0.0"
+var Version = "dev"
 
-var GitCommitSHA = "unknown commit"
+var Commit = "none"
+
+var Date = "unknown"

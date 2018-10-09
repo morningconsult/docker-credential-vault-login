@@ -22,16 +22,20 @@ mkdir -p $1
 
 cd "${ROOT}"
 
-PACKAGE_ROOT=$4
+PACKAGE_ROOT=$5
 
 version_ldflags=""
 
 if [[ -n "${2}" ]]; then
-    version_ldflags="-X ${PACKAGE_ROOT}/vault-login/version.Version=${2}"
+    version_ldflags="-X \"${PACKAGE_ROOT}/vault-login/version.Version=${2}\""
 fi
 
 if [[ -n "${3}" ]]; then
-    version_ldflags="$version_ldflags -X ${PACKAGE_ROOT}/vault-login/version.GitCommitSHA=${3}"
+    version_ldflags="${version_ldflags} -X \"${PACKAGE_ROOT}/vault-login/version.Commit=${3}\""
+fi
+
+if [[ -n "${4}" ]]; then
+    version_ldflags="${version_ldflags} -X \"${PACKAGE_ROOT}/vault-login/version.Date=${4}\""
 fi
 
 CGO_ENABLED=0 go build \
