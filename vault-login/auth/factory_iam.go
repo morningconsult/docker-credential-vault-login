@@ -101,6 +101,10 @@ func (c *ClientFactoryAWSIAMAuth) Authenticate(vaultClient *api.Client) (Client,
 		return nil, nil, err
 	}
 
+	if secret == nil {
+		return nil, nil, fmt.Errorf("authentication request received to response")
+	}
+
 	// Get the token from the secret
 	token, err := secret.TokenID()
 	if err != nil {
