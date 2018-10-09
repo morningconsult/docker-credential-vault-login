@@ -15,16 +15,13 @@ package auth
 
 import "github.com/hashicorp/vault/api"
 
-// ClientFactory is used to create a new Client
-// instance. NewClient will attempt to obtain a valid
-// Vault token via the authentication method specified
-// in the config.json file and give it to the Vault
-// API client
+// ClientFactory is used to create a new Client instance. Authenticate() will
+// attempt to obtain a valid Vault token via the authentication method specified
+// in the config.json file and give it to the Vault API client
 type ClientFactory interface {
 
-	// NewClient receives a Vault API client and attempts
-	// to give it a token using the method specified in
-	// the config.json file. This method is primarily for
+	// NewClient receives a Vault API client and attempts to give it a token using
+	// the method specified in the config.json file. This method is primarily for
 	// testing purposes
 	Authenticate(*api.Client) (Client, *api.Secret, error)
 }

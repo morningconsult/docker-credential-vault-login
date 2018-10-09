@@ -2,24 +2,19 @@
 
 set -e
 
-ROOT=$(pwd)
 REPO="github.com/morningconsult/docker-credential-vault-login"
-TEMPDIR="/tmp/docker-credential-vault-login-testing"
 
 echo "==> Installing APK dependencies"
 
-apk add -qU --no-progress gcc make
+apk add -qU --no-progress make
 
-rm -rf $TEMPDIR
-mkdir -p $TEMPDIR
-export GOPATH=$TEMPDIR
 export CGO_ENABLED=0
 
-mkdir -p $GOPATH/src/$REPO
+mkdir -p "${GOPATH}/src/${REPO}"
+cp -r . "${GOPATH}/src/${REPO}"
+cd "${GOPATH}/src/${REPO}"
 
-cd $GOPATH/src/$REPO
-
-cp -r $ROOT/* .
+echo "==> Running unit tests"
 
 make test
 
