@@ -33,11 +33,13 @@ resources:
     base: master
 
 - name: new-release
-  type: github-release
+  type: git
   source:
-    owner: morningconsult
-    repository: docker-credential-vault-login
+    private_key: ((github-private-key))
     access_token: ((github-token))
+    uri: ((github-repo))
+    branch: github-migration
+    tag_filter: 'v[0-9]*'
 
 - name: golang
   type: docker-image

@@ -1,9 +1,9 @@
 ---
 platform: linux
 inputs:
-  - name: git-repo
+  - name: new-release
 params:
   GITHUB_TOKEN:
 run:
   path: ci/build-release.sh
-  dir: git-repo
+  dir: new-release
