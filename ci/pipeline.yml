@@ -31,7 +31,7 @@ resources:
     private_key: ((github-private-key))
     access_token: ((github-token))
     repo: morningconsult/docker-credential-vault-login
-    uri: git@github.com:morningconsult/docker-credential-vault-login
+    uri: ((github-repo))
     base: master
 
 - name: git-repo
@@ -40,7 +40,7 @@ resources:
     uri: git@github.com:morningconsult/docker-credential-vault-login.git
     branch: github-migration
     private_key: ((github-private-key))
-    
+
 - name: golang
   type: docker-image
   source:
@@ -84,19 +84,23 @@ jobs:
   build_logs_to_retain: 30
   serial: true
   plan:
-  - aggregate:
-    - get: test-pull-request
-      trigger: false
-    - get: golang
+  - get: test-pull-request
+    trigger: true
+  - get: golang
   - task: test-pr
     image: golang
     file: test-pull-request/ci/tasks/test-pull-request.yml
-    input_mapping: {git-repo: test-pull-request}
-    params:
-      GITHUB_TOKEN: ((github-token))
+    on_success:
+      put: test-pull-request
+      params:
+        path: test-pull-request
+        status: success
+        context: $BUILD_JOB_NAME
+        comment: test-pull-request/ci/pr_test_success
     on_failure:
-      put: slack
-      params: {alert_type: failed}
-    on_abort:
-      put: slack
-      params: {alert_type: aborted}
+      put: test-pull-request
+      params:
+        path: test-pull-request
+        status: failure
+        context: $BUILD_JOB_NAME
+        comment: test-pull-request/ci/pr_test_failure

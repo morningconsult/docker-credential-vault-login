@@ -84,15 +84,15 @@ check_fly:
 
 
 set_pipeline: check_fly
-	$(FLY) --target mci-ci set-pipeline \
+	$(FLY) --target mci-ci-oss set-pipeline \
 		--config ci/pipeline.yml \
 		--pipeline $(CONCOURSE_PIPELINE) \
 		--non-interactive \
 		-v github-repo="$$(git config remote.origin.url)" \
 
-	$(FLY) --target mci-ci unpause-pipeline \
+	$(FLY) --target mci-ci-oss unpause-pipeline \
 		--pipeline $(CONCOURSE_PIPELINE)
 
-	$(FLY) --target mci-ci check-resource \
+	$(FLY) --target mci-ci-oss check-resource \
 		--resource $(CONCOURSE_PIPELINE)/git-repo
 .PHONY: set_pipeline
