@@ -58,12 +58,15 @@ func NewClientFactoryAWSEC2Auth(role, mountPath string) (ClientFactory, error) {
 	}, nil
 }
 
-// NewClient receives a Vault API client that has already been initialized
+// Authenticate receives a Vault API client that has already been initialized
 // and uses it to attempt to authenticate against Vault via the AWS EC2
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a new
 // DefaultClient instance
-func (c *ClientFactoryAWSEC2Auth) NewClient(vaultClient *api.Client) (Client, *api.Secret, error) {
+func (c *ClientFactoryAWSEC2Auth) Authenticate(vaultClient *api.Client) (Client, *api.Secret, error) {
+	// Clear the client token
+	vaultClient.SetToken("")
+
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
 	secret, err := c.getAndSetNewToken(vaultClient)

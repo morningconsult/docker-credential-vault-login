@@ -65,12 +65,15 @@ func NewClientFactoryAWSIAMAuth(role, serverID, mountPath string) (ClientFactory
 	}, nil
 }
 
-// NewClient receives a Vault API client that has already been initialized
+// Authenticate receives a Vault API client that has already been initialized
 // and uses it to attempt to authenticate against Vault via the AWS IAM
 // endpoint. If authentication is successful, it will set the Vault API
 // client with the newly-created client token and return a new DefaultClient
 // instance
-func (c *ClientFactoryAWSIAMAuth) NewClient(vaultClient *api.Client) (Client, *api.Secret, error) {
+func (c *ClientFactoryAWSIAMAuth) Authenticate(vaultClient *api.Client) (Client, *api.Secret, error) {
+	// Clear the client token
+	vaultClient.SetToken("")
+
 	// Build an sts:GetCallerIdentity request and login to
 	// Vault to obtain a token via Vault's AWS IAM endpoint
 	secret, err := c.getAndSetNewToken(vaultClient)

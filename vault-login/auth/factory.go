@@ -26,5 +26,5 @@ type ClientFactory interface {
 	// to give it a token using the method specified in
 	// the config.json file. This method is primarily for
 	// testing purposes
-	NewClient(*api.Client) (Client, *api.Secret, error)
+	Authenticate(*api.Client) (Client, *api.Secret, error)
 }

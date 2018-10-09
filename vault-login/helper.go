@@ -111,7 +111,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
-		client, secret, err := factory.NewClient(h.vaultAPI)
+		client, secret, err := factory.Authenticate(h.vaultAPI)
 		if err != nil {
 			log.Errorf("error authenticating against Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()

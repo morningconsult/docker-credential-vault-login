@@ -46,7 +46,7 @@ func TestNewClientFactoryAWSIAMAuth_Success(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clientWithToken, _, err := factory.NewClient(clientNoToken)
+	clientWithToken, _, err := factory.Authenticate(clientNoToken)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +54,7 @@ func TestNewClientFactoryAWSIAMAuth_Success(t *testing.T) {
 	client, _ := clientWithToken.(*DefaultClient)
 
 	if v := client.RawClient().Token(); v == "" {
-		t.Errorf("factory.NewClient() should have obtained a Vault token, but it didn't")
+		t.Errorf("factory.Authenticate() should have obtained a Vault token, but it didn't")
 	}
 }
 
@@ -82,7 +82,7 @@ func TestNewClientFactoryAWSIAMAuth_BadAddr(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(clientNoToken)
+	_, _, err = factory.Authenticate(clientNoToken)
 	if err == nil {
 		t.Error("Expected to receive an error but didn't")
 	}
@@ -114,7 +114,7 @@ func TestNewClientFactoryAWSIAMAuth_UnconfiguredRole(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(clientNoToken)
+	_, _, err = factory.Authenticate(clientNoToken)
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -166,7 +166,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(vaultClient)
+	_, _, err = factory.Authenticate(vaultClient)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(vaultClient)
+	_, _, err = factory.Authenticate(vaultClient)
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -278,7 +278,7 @@ AhR6pPGADhzHMf6I3FbYmEaP+xWHBQAAAAAAAA==`
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(vaultClient)
+	_, _, err = factory.Authenticate(vaultClient)
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -322,7 +322,7 @@ func TestClientFactoryAWSEC2Auth_NotEC2(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, err = factory.NewClient(vaultClient)
+	_, _, err = factory.Authenticate(vaultClient)
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
