@@ -12,7 +12,7 @@ export CGO_ENABLED=0
 
 mkdir -p "${GOPATH}/src/${REPO}"
 cp -r . "${GOPATH}/src/${REPO}"
-cd "${GOPATH}/src/${REPO}"
+cd "${GOPATH}/src/${REPO}" 
 
 echo "==> Running unit tests"
 

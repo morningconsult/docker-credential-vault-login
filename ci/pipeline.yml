@@ -34,12 +34,12 @@ resources:
     uri: ((github-repo))
     base: master
 
-- name: git-repo
+- name: new-release
   type: git
   source:
-    uri: git@github.com:morningconsult/docker-credential-vault-login.git
-    branch: github-migration
-    private_key: ((github-private-key))
+    uri: ((github-repo))
+    branch: master
+    tag_filter: 'v[0-9]*'
 
 - name: golang
   type: docker-image
@@ -60,17 +60,16 @@ resources:
 #
 # ====================================
 jobs:
-- name: test
+- name: build-release
   serial: true
   plan:
   - aggregate:
-    - get: git-repo
-      trigger: false
+    - get: new-release
+      trigger: true
     - get: golang
-  - task: test-stuff
+  - task: test-and-build
     image: golang
-    file: git-repo/ci/tasks/build-release.yml
-    input_mapping: {git-repo: git-repo}
+    file: new-release/ci/tasks/build-release.yml
     params:
       GITHUB_TOKEN: ((github-token))
     on_failure:
@@ -98,9 +97,15 @@ jobs:
         context: $BUILD_JOB_NAME
         comment: test-pull-request/ci/pr_test_success
     on_failure:
-      put: test-pull-request
-      params:
-        path: test-pull-request
-        status: failure
-        context: $BUILD_JOB_NAME
-        comment: test-pull-request/ci/pr_test_failure
+      do:
+      - put: test-pull-request
+        params:
+          path: test-pull-request
+          status: failure
+          context: $BUILD_JOB_NAME
+          comment: test-pull-request/ci/pr_test_failure
+      - put: slack
+        params: {alert_type: failed}
+    on_abort:
+      put: slack
+      params: {alert_type: aborted}

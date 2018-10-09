@@ -92,7 +92,4 @@ set_pipeline: check_fly
 
 	$(FLY) --target mci-ci-oss unpause-pipeline \
 		--pipeline $(CONCOURSE_PIPELINE)
-
-	$(FLY) --target mci-ci-oss check-resource \
-		--resource $(CONCOURSE_PIPELINE)/git-repo
 .PHONY: set_pipeline

@@ -28,7 +28,5 @@ export CGO_ENABLED=0
 make test
 
 goreleaser release \
-  --skip-publish \
   --skip-sign \
-  --snapshot \
   --rm-dist
