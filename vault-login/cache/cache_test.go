@@ -15,8 +15,8 @@ import (
 	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
@@ -25,7 +25,7 @@ func TestNewCacheUtil(t *testing.T) {
 
 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cases := []struct{
+	cases := []struct {
 		name      string
 		env       string
 		cacheType string
@@ -122,8 +122,8 @@ func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
 	defer cacheUtil.ClearCachedToken(method)
 
 	cases := []struct {
-		name       string
-		tokenJSON  map[string]interface{}
+		name      string
+		tokenJSON map[string]interface{}
 	}{
 		{
 			"expired",
@@ -145,7 +145,7 @@ func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
 			"renew-fails",
 			map[string]interface{}{
 				"token":      "token!",
-				"expiration": time.Now().Add(time.Second * time.Duration(GracePeriodSeconds / 2)).Unix(),
+				"expiration": time.Now().Add(time.Second * time.Duration(GracePeriodSeconds/2)).Unix(),
 				"renewable":  true,
 			},
 		},
@@ -161,7 +161,7 @@ func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
 				// This will trigger an error when
 				// github.com/hasicorp/vault/api.Client.NewClient()
 				// is called
-				os.Setenv(api.EnvRateLimit, "not an int!") 
+				os.Setenv(api.EnvRateLimit, "not an int!")
 				defer os.Unsetenv(api.EnvRateLimit)
 			}
 
@@ -169,8 +169,8 @@ func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
 			if token != "" {
 				t.Fatal("returned token should be an empty string")
 			}
-			
-			files, err := filepath.Glob(cacheUtil.basename(method)+"*")
+
+			files, err := filepath.Glob(cacheUtil.basename(method) + "*")
 			if err != nil {
 				t.Fatal(err)
 			}
