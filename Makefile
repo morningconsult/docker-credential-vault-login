@@ -66,3 +66,33 @@ mocktools:
 build_mocks: mocktools
 	scripts/build-mocks.sh
 .PHONY: build_mocks
+
+#=============================================================================
+# Release and Deployment tasks
+
+CONCOURSE_PIPELINE := docker-credential-vault-login
+
+
+check_fly:
+	if [ -z "$(FLY)" ]; then \
+		sudo mkdir -p /usr/local/bin; \
+		sudo wget -q -O /usr/local/bin/fly "https://ci.morningconsultintelligence.com/api/v1/cli?arch=amd64&platform=linux"; \
+		sudo chmod +x /usr/local/bin/fly; \
+		/usr/local/bin/fly --version; \
+	fi
+.PHONY: check_fly
+
+
+set_pipeline: check_fly
+	$(FLY) --target mci-ci set-pipeline \
+		--config ci/pipeline.yml \
+		--pipeline $(CONCOURSE_PIPELINE) \
+		--non-interactive \
+		-v github-repo="$$(git config remote.origin.url)" \
+
+	$(FLY) --target mci-ci unpause-pipeline \
+		--pipeline $(CONCOURSE_PIPELINE)
+
+	$(FLY) --target mci-ci check-resource \
+		--resource $(CONCOURSE_PIPELINE)/git-repo
+.PHONY: set_pipeline

@@ -65,7 +65,7 @@ jobs:
   plan:
   - aggregate:
     - get: git-repo
-      trigger: true
+      trigger: false
     - get: golang
   - task: test-stuff
     image: golang
@@ -86,7 +86,7 @@ jobs:
   plan:
   - aggregate:
     - get: test-pull-request
-      trigger: true
+      trigger: false
     - get: golang
   - task: test-pr
     image: golang
