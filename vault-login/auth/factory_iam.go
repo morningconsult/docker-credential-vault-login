@@ -72,7 +72,7 @@ func NewClientFactoryAWSIAMAuth(role, serverID, mountPath string) (ClientFactory
 // instance
 func (c *ClientFactoryAWSIAMAuth) Authenticate(vaultClient *api.Client) (Client, *api.Secret, error) {
 	// Clear the client token
-	vaultClient.SetToken("")
+	vaultClient.ClearToken()
 
 	// Build an sts:GetCallerIdentity request and login to
 	// Vault to obtain a token via Vault's AWS IAM endpoint

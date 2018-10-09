@@ -65,7 +65,7 @@ func NewClientFactoryAWSEC2Auth(role, mountPath string) (ClientFactory, error) {
 // DefaultClient instance
 func (c *ClientFactoryAWSEC2Auth) Authenticate(vaultClient *api.Client) (Client, *api.Secret, error) {
 	// Clear the client token
-	vaultClient.SetToken("")
+	vaultClient.ClearToken()
 
 	// Get the EC2 instance's PKCS7 signature and login to
 	// Vault to obtain a token via Vault's AWS EC2 endpoint
