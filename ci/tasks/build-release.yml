@@ -5,6 +5,8 @@
 platform: linux
 inputs:
   - name: git-repo
+params:
+  GITHUB_TOKEN:
 run:
   path: ci/build-release.sh
   dir: git-repo

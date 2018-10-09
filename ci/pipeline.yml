@@ -1,30 +1,102 @@
 ---
-jobs:
-- name: test-pr
-  build_logs_to_retain: 30
-  serial: true
-  plan:
-  - get: test-pull-request
-    trigger: true
-  - get: golang
-  - task: test-pr
-    image:
-      name: golang
-      tag: 1.11-alpine3.8
-    file: test-pull-request/ci/tasks/test-pull-request.yml
+# ====================================
+#
+#            RESOURCE TYPES
+#
+# ====================================
+resource_types:
+- name: slack-alert
+  type: docker-image
+  source:
+    repository: arbourd/concourse-slack-alert-resource
+    channel: '#build'
+
+- name: pull-request
+  type: docker-image
+  source:
+    repository: jtarchie/pr
 
 
+
+
+# ====================================
+#
+#            RESOURCES
+#
+# ====================================
+resources:
 - name: test-pull-request
   type: pull-request
   source:
     private_key: ((github-private-key))
     access_token: ((github-access-token))
     repo: morningconsult/docker-credential-vault-login
-    uri: ((github-repo))
+    uri: git@github.com:morningconsult/docker-credential-vault-login
     base: master
 
-resource_types:
-- name: pull-request
+- name: git-repo
+  type: git
+  source:
+    uri: git@github.com:morningconsult/docker-credential-vault-login.git
+    branch: github-migration
+    private_key: ((github-private-key))
+    
+- name: golang
   type: docker-image
   source:
-    repository: jtarchie/pr
+    repository: golang
+    tag: 1.11-alpine3.8
+
+- name: slack
+  type: slack-alert
+  source:
+    url: ((slack-webhook))
+    channel: '#build'
+
+
+# ====================================
+#
+#            JOBS
+#
+# ====================================
+jobs:
+- name: test
+  serial: true
+  plan:
+  - aggregate:
+    - get: git-repo
+      trigger: true
+    - get: golang
+  - task: test-stuff
+    image: golang
+    file: git-repo/ci/tasks/build-release.yml
+    input_mapping: {git-repo: git-repo}
+    params:
+      GITHUB_TOKEN: ((github-access-token))
+    on_failure:
+      put: slack
+      params: {alert_type: failed}
+    on_abort:
+      put: slack
+      params: {alert_type: aborted}
+
+- name: test-pr
+  build_logs_to_retain: 30
+  serial: true
+  plan:
+  - aggregate:
+    - get: test-pull-request
+      trigger: true
+    - get: golang
+  - task: test-pr
+    image: golang
+    file: test-pull-request/ci/tasks/test-pull-request.yml
+    input_mapping: {git-repo: test-pull-request}
+    params:
+      GITHUB_TOKEN: ((github-access-token))
+    on_failure:
+      put: slack
+      params: {alert_type: failed}
+    on_abort:
+      put: slack
+      params: {alert_type: aborted}
