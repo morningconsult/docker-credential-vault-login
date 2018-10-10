@@ -2,9 +2,10 @@
 
 <span style="display:block;text-align:center"><img src="doc/docker.png" width="150">&nbsp;&nbsp;&nbsp;&nbsp;<img src="doc/arrows.png" width="100"><img src="doc/vault.svg" width="150"></span>
 
+[![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/build-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
+
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. It automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) and uses them to log in to your Docker registry when you call `docker pull`.
 
-[![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/build-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
 ## Prerequisites
 
 You must have Docker (version 1.11 or newer) and Go (version **1.10** or newer) installed on your system.
