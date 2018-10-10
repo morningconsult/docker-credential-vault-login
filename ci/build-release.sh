@@ -25,8 +25,7 @@ cd "${GOPATH}/src/${PROJECT}"
 echo "==> Running unit tests"
 
 export CGO_ENABLED=0
-# make test
+make test
 
 goreleaser release \
-  --skip-publish \
   --rm-dist

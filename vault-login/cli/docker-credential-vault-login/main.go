@@ -26,7 +26,7 @@ import (
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
-const banner = "Docker Credential Helper for Vault Storage %v, commit %v, built %v\n"
+const banner = "Docker Credential Helper for Vault Storage v%v, commit %v, built %v\n"
 
 func main() {
 	var versionFlag bool
