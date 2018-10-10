@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eux
+set -eu
 
 readonly PROJECT="github.com/morningconsult/docker-credential-vault-login"
 readonly GORELEASER_VERSION=v0.88.0
@@ -25,6 +25,8 @@ cd "${GOPATH}/src/${PROJECT}"
 echo "==> Running unit tests"
 
 export CGO_ENABLED=0
-make test
+# make test
 
-goreleaser release --rm-dist
+goreleaser release \
+  --skip-publish \
+  --rm-dist
