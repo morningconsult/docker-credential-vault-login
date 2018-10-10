@@ -1,5 +1,7 @@
 # Docker Credential Helper for Vault-stored Credentials
 
+![Docker](doc/docker.png) ![Arrows](doc/arrows.png) ![Vault](doc/vault.svg)
+
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. It automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) and uses them to log in to your Docker registry when you call `docker pull`.
 
 ## Prerequisites
@@ -19,7 +21,11 @@ Note that the Vault path where you store these credentials will be used as the v
 
 ## Installation
 
-### Building binary with `go get`
+### Manually
+
+You can download your preferred variant of the binary from the [releases page](https://github.com/morningconsult/docker-credential-vault-login/releases).
+
+### Using `go get`
 
 You can install this via `go get` with:
 ```bash
@@ -28,7 +34,7 @@ $ go get -u github.com/morningconsult/docker-credential-vault-login/vault-login/
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
 
-### Building binary with Docker
+### Using Docker
 
 If you do not have Go installed locally, you can still build the binary if you have Docker installed. Simply clone this repository and run `make docker` to build the binary within the Docker container and output it to the local directory.
 
@@ -40,9 +46,10 @@ $ TARGET_GOOS="windows" TARGET_GOARCH="amd64" make docker
 
 The binary will be output to `bin/local` of the local directory.
 
-### Docker configuration
+## Setup
 
-Once the `docker-credential-vault-login` binary has been built, place it on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
+### Docker configuration
+Once you have the `docker-credential-vault-login` binary, place it on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
 ```json
 {
@@ -60,8 +67,6 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
   }
 }
 ```
-
-## Setup
 
 ### Configuration File
 This application requires a configuration file `config.json` in order to determine which authentication method to use. At runtime, the process will first search for this file at the path specified by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the process will fail.
