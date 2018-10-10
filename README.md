@@ -1,6 +1,6 @@
 # Docker Credential Helper for Vault-stored Credentials
 
-![Docker](doc/docker.png) ![Arrows](doc/arrows.png) ![Vault](doc/vault.svg)
+![Docker](doc/docker.png =250x250) ![Arrows](doc/arrows.png =150x150) ![Vault](doc/vault.svg =250x250)
 
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. It automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) and uses them to log in to your Docker registry when you call `docker pull`.
 
