@@ -27,6 +27,4 @@ echo "==> Running unit tests"
 export CGO_ENABLED=0
 make test
 
-goreleaser release \
-  --skip-sign \
-  --rm-dist
+goreleaser release --rm-dist
