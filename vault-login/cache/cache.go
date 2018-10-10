@@ -18,7 +18,6 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
-	log "github.com/cihub/seelog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	homedir "github.com/mitchellh/go-homedir"
@@ -43,7 +42,6 @@ const (
 var mutex sync.RWMutex
 
 type CacheUtil interface {
-	GetCachedToken(config.VaultAuthMethod) string
 	GetCacheDir() string
 	LookupToken(config.VaultAuthMethod) (*CachedToken, error)
 	CacheNewToken(interface{}, config.VaultAuthMethod) error
@@ -95,51 +93,6 @@ func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
 // GetCacheDir returns the cache directory
 func (c *DefaultCacheUtil) GetCacheDir() string {
 	return c.cacheDir
-}
-
-// GetCachedToken attempts to retrieve a cached token. This function serves to
-// abstract several of DefaultCacheUtil's methods so that to the caller it seems
-// they are simply either receiving a token or no token, while underneath the
-// hood several things are happening. First, it will attempt to lookup a token.
-// If an error occurs during the lookup, it will log the error and remove any
-// tokens associated with that authentication method. If a token is found, it
-// will check if it is expired and remove cached tokens if it is indeed expired.
-// If the token is not expired but renewable, it will attempt to renew the token.
-// If it fails to renew, it will remove the cached tokens associated with the
-// given method.
-func (c *DefaultCacheUtil) GetCachedToken(method config.VaultAuthMethod) string {
-	defer log.Flush()
-
-	// Get the cached token (if exists)
-	token, err := c.LookupToken(method)
-	if err != nil {
-		// Log error and delete cached token
-		log.Debugf("error getting cached token: %v", err)
-		c.ClearCachedToken(method)
-	}
-
-	// If an instance of cache.CachedToken was returned, check
-	// if the token is expired or if it can be renewed before
-	// attempting to use it to read the secret
-	var tokenID = ""
-	if token != nil {
-		if token.Expired() {
-			// Delete the cached token
-			c.ClearCachedToken(method)
-		} else {
-			tokenID = token.Token
-			if token.EligibleForRenewal() {
-				err = c.RenewToken(token)
-				if err != nil {
-					// Log error and delete cached token
-					log.Debugf("error attempting to renew token: %v", err)
-					c.ClearCachedToken(method)
-					tokenID = ""
-				}
-			}
-		}
-	}
-	return tokenID
 }
 
 // RenewToken attempts to renew a Vault client token. If successful, it will
@@ -407,10 +360,6 @@ func NewNullCacheUtil() *NullCacheUtil {
 
 func (n *NullCacheUtil) GetCacheDir() string {
 	return n.cacheDir
-}
-
-func (n *NullCacheUtil) GetCachedToken(method config.VaultAuthMethod) string {
-	return ""
 }
 
 func (n *NullCacheUtil) LookupToken(method config.VaultAuthMethod) (*CachedToken, error) {

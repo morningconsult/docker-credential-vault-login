@@ -109,78 +109,78 @@ func TestDefaultCacheUtil_GetCacheDir(t *testing.T) {
 	}
 }
 
-func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
-	const cacheDir = "testdata"
-	const method = config.VaultAuthMethodAWSIAM
+// func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
+// 	const cacheDir = "testdata"
+// 	const method = config.VaultAuthMethodAWSIAM
 
-	os.Unsetenv(EnvDisableCache)
-	os.Unsetenv(EnvCipherKey)
-	os.Setenv(EnvCacheDir, cacheDir)
+// 	os.Unsetenv(EnvDisableCache)
+// 	os.Unsetenv(EnvCipherKey)
+// 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewDefaultCacheUtil(nil)
-	cacheUtil.ClearCachedToken(method)
-	defer cacheUtil.ClearCachedToken(method)
+// 	cacheUtil := NewDefaultCacheUtil(nil)
+// 	cacheUtil.ClearCachedToken(method)
+// 	defer cacheUtil.ClearCachedToken(method)
 
-	cases := []struct {
-		name      string
-		tokenJSON map[string]interface{}
-	}{
-		{
-			"expired",
-			map[string]interface{}{
-				"token":      "token!",
-				"expiration": time.Now().Add(-10 * time.Hour).Unix(),
-				"renewable":  false,
-			},
-		},
-		{
-			"lookup-fails",
-			map[string]interface{}{
-				"token":      "token!",
-				"expiration": "not an int",
-				"renewable":  false,
-			},
-		},
-		{
-			"renew-fails",
-			map[string]interface{}{
-				"token":      "token!",
-				"expiration": time.Now().Add(time.Second * time.Duration(GracePeriodSeconds/2)).Unix(),
-				"renewable":  true,
-			},
-		},
-	}
+// 	cases := []struct {
+// 		name      string
+// 		tokenJSON map[string]interface{}
+// 	}{
+// 		{
+// 			"expired",
+// 			map[string]interface{}{
+// 				"token":      "token!",
+// 				"expiration": time.Now().Add(-10 * time.Hour).Unix(),
+// 				"renewable":  false,
+// 			},
+// 		},
+// 		{
+// 			"lookup-fails",
+// 			map[string]interface{}{
+// 				"token":      "token!",
+// 				"expiration": "not an int",
+// 				"renewable":  false,
+// 			},
+// 		},
+// 		{
+// 			"renew-fails",
+// 			map[string]interface{}{
+// 				"token":      "token!",
+// 				"expiration": time.Now().Add(time.Second * time.Duration(GracePeriodSeconds/2)).Unix(),
+// 				"renewable":  true,
+// 			},
+// 		},
+// 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			cacheUtil.ClearCachedToken(method)
-			defer cacheUtil.ClearCachedToken(method)
-			writeJSONToFile(t, tc.tokenJSON, cacheUtil.TokenFilename(method))
+// 	for _, tc := range cases {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			cacheUtil.ClearCachedToken(method)
+// 			defer cacheUtil.ClearCachedToken(method)
+// 			writeJSONToFile(t, tc.tokenJSON, cacheUtil.TokenFilename(method))
 
-			if tc.name == "renew-fails" {
-				// This will trigger an error when
-				// github.com/hasicorp/vault/api.Client.NewClient()
-				// is called
-				os.Setenv(api.EnvRateLimit, "not an int!")
-				defer os.Unsetenv(api.EnvRateLimit)
-			}
+// 			if tc.name == "renew-fails" {
+// 				// This will trigger an error when
+// 				// github.com/hasicorp/vault/api.Client.NewClient()
+// 				// is called
+// 				os.Setenv(api.EnvRateLimit, "not an int!")
+// 				defer os.Unsetenv(api.EnvRateLimit)
+// 			}
 
-			token := cacheUtil.GetCachedToken(method)
-			if token != "" {
-				t.Fatal("returned token should be an empty string")
-			}
+// 			token := cacheUtil.GetCachedToken(method)
+// 			if token != "" {
+// 				t.Fatal("returned token should be an empty string")
+// 			}
 
-			files, err := filepath.Glob(cacheUtil.basename(method) + "*")
-			if err != nil {
-				t.Fatal(err)
-			}
+// 			files, err := filepath.Glob(cacheUtil.basename(method) + "*")
+// 			if err != nil {
+// 				t.Fatal(err)
+// 			}
 
-			if len(files) > 0 {
-				t.Fatal("GetCachedToken() should have cleared all tokens")
-			}
-		})
-	}
-}
+// 			if len(files) > 0 {
+// 				t.Fatal("GetCachedToken() should have cleared all tokens")
+// 			}
+// 		})
+// 	}
+// }
 
 func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 	const roleName = "dev-test"
@@ -589,18 +589,18 @@ func TestNullCacheUtil_GetCacheDir(t *testing.T) {
 	}
 }
 
-func TestNullCacheUtil_GetCachedToken(t *testing.T) {
-	const cacheDir = "testdata"
+// func TestNullCacheUtil_GetCachedToken(t *testing.T) {
+// 	const cacheDir = "testdata"
 
-	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
+// 	os.Setenv(EnvDisableCache, "true")
+// 	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewNullCacheUtil()
-	token := cacheUtil.GetCachedToken(config.VaultAuthMethodAWSIAM)
-	if token != "" {
-		t.Fatal("expected an empty string")
-	}
-}
+// 	cacheUtil := NewNullCacheUtil()
+// 	token := cacheUtil.GetCachedToken(config.VaultAuthMethodAWSIAM)
+// 	if token != "" {
+// 		t.Fatal("expected an empty string")
+// 	}
+// }
 
 func TestNullCacheUtil_LookupToken(t *testing.T) {
 	const cacheDir = "testdata"

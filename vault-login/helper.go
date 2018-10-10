@@ -87,7 +87,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	switch cfg.Method {
 	case config.VaultAuthMethodAWSIAM, config.VaultAuthMethodAWSEC2:
 		// If a valid cached token is found, attempt to read secret with it
-		if token := h.cacheUtil.GetCachedToken(cfg.Method); token != "" {
+		if token := h.getCachedToken(cfg.Method); token != "" {
 			h.vaultAPI.SetToken(token)
 			client := auth.NewDefaultClient(h.vaultAPI)
 			creds, err := client.GetCredentials(cfg.Secret)
@@ -158,4 +158,49 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 func (h *Helper) List() (map[string]string, error) {
 	return nil, notImplementedError
+}
+
+// getCachedToken attempts to retrieve a cached token. This function serves to
+// abstract several of DefaultCacheUtil's methods so that to the caller it seems
+// they are simply either receiving a token or no token, while underneath the
+// hood several things are happening. First, it will attempt to lookup a token.
+// If an error occurs during the lookup, it will log the error and remove any
+// tokens associated with that authentication method. If a token is found, it
+// will check if it is expired and remove cached tokens if it is indeed expired.
+// If the token is not expired but renewable, it will attempt to renew the token.
+// If it fails to renew, it will remove the cached tokens associated with the
+// given method.
+func (h *Helper) getCachedToken(method config.VaultAuthMethod) string {
+	defer log.Flush()
+
+	// Get the cached token (if exists)
+	token, err := h.cacheUtil.LookupToken(method)
+	if err != nil {
+		// Log error and delete cached token
+		log.Warnf("error getting cached token: %v", err)
+		h.cacheUtil.ClearCachedToken(method)
+	}
+
+	// If an instance of cache.CachedToken was returned, check
+	// if the token is expired or if it can be renewed before
+	// attempting to use it to read the secret
+	var tokenID = ""
+	if token != nil {
+		if token.Expired() {
+			// Delete the cached token
+			h.cacheUtil.ClearCachedToken(method)
+		} else {
+			tokenID = token.Token
+			if token.EligibleForRenewal() {
+				err = h.cacheUtil.RenewToken(token)
+				if err != nil {
+					// Log error and delete cached token
+					log.Warnf("error attempting to renew token: %v", err)
+					h.cacheUtil.ClearCachedToken(method)
+					tokenID = ""
+				}
+			}
+		}
+	}
+	return tokenID
 }
