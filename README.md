@@ -1,6 +1,6 @@
 # Docker Credential Helper for Vault-stored Credentials
 
-<span style="display:block;text-align:center"><img src="doc/docker.png" width="150">&nbsp;&nbsp;&nbsp;&nbsp;<img src="doc/arrows.png" width="100"><img src="doc/vault.svg" width="150"></span>
+![Vocker](doc/vault.png)
 
 [![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/build-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
 

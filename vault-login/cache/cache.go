@@ -281,7 +281,7 @@ func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
 
 	// Open the cached token or create it if it
 	// doesn't already exist
-	file, err := os.OpenFile(c.TokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0664)
+	file, err := os.OpenFile(c.TokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}

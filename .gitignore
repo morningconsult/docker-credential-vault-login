@@ -2,3 +2,4 @@ src
 bin
 pkg
 scratch
+scripts/install-helper.sh
