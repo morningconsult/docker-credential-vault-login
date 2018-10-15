@@ -14,16 +14,16 @@
 package cache
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
+	"bytes"
+	"encoding/json"
+	"net/url"
 	"fmt"
+	"log"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/mitchellh/mapstructure"
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
-	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -34,7 +34,6 @@ import (
 const (
 	EnvCacheDir     string = "DOCKER_CREDS_CACHE_DIR"
 	EnvDisableCache string = "DOCKER_CREDS_DISABLE_CACHE"
-	EnvCipherKey    string = "DOCKER_CREDS_CACHE_ENCRYPTION_KEY"
 	DefaultCacheDir string = "~/.docker-credential-vault-login"
 	BackupCacheDir  string = "/tmp/.docker-credential-vault-login"
 )
@@ -42,76 +41,65 @@ const (
 var mutex sync.RWMutex
 
 type CacheUtil interface {
-	GetCacheDir() string
-	LookupToken(config.VaultAuthMethod) (*CachedToken, error)
-	CacheNewToken(interface{}, config.VaultAuthMethod) error
-	ClearCachedToken(config.VaultAuthMethod)
-	RenewToken(*CachedToken) error
-	TokenFilename(config.VaultAuthMethod) string
+	CacheDir() string
+	TokenFile() string
+	LookupToken(string, config.VaultAuthMethod) (*CachedToken, error)
+	CacheNewToken(*api.Secret, string, config.VaultAuthMethod) error
+	ClearCachedToken(string, config.VaultAuthMethod)
+	RenewToken(*CachedToken, *api.Client) error
 }
 
 // NewCacheUtil returns a new NullCacheUtil if the DOCKER_CREDS_DISABLE_CACHE
 // environment variable is set. Otherwise, it returns a new DefaultCacheUtil.
-func NewCacheUtil(vaultAPI *api.Client) CacheUtil {
+func NewCacheUtil(cacheDir string) CacheUtil {
+	// Environmental variable takes precedence over config file
 	if disableCache, err := strconv.ParseBool(os.Getenv(EnvDisableCache)); err == nil {
 		if disableCache {
-			return NewNullCacheUtil()
+			return NewNullCacheUtil(cacheDir)
 		}
 	}
-	return NewDefaultCacheUtil(vaultAPI)
+	return NewDefaultCacheUtil(cacheDir)
 }
 
 type DefaultCacheUtil struct {
 	cacheDir      string
-	tokenCacheDir string
-	vaultAPI      *api.Client
-	block         cipher.Block
+	tokenFilename string
 }
 
-// NewDefaultCacheUtil creates a new CacheUtil object. The value of its cacheDir
-// field is set to the value of the DOCKER_CREDS_CACHE_DIR environment variable
-// if it is set. Otherwise, it uses the default directory.
-func NewDefaultCacheUtil(vaultAPI *api.Client) *DefaultCacheUtil {
-	var block cipher.Block = nil
-	if v := os.Getenv(EnvCipherKey); v != "" {
-		if len(v) > 32 {
-			v = v[:32]
-		}
-		block, _ = aes.NewCipher([]byte(fmt.Sprintf("%-32v", v)))
+// NewDefaultCacheUtil creates a new CacheUtil object. It will store tokens
+// at the cacheDir directory
+func NewDefaultCacheUtil(cacheDir string) *DefaultCacheUtil {
+	if cacheDir == "" {
+		cacheDir = SetupCacheDir()
 	}
-
-	cacheDir := buildCacheDir()
 
 	return &DefaultCacheUtil{
 		cacheDir:      cacheDir,
-		tokenCacheDir: filepath.Join(cacheDir, "tokens"),
-		vaultAPI:      vaultAPI,
-		block:         block,
+		tokenFilename: filepath.Join(cacheDir, "tokens.json"),
 	}
 }
 
 // GetCacheDir returns the cache directory
-func (c *DefaultCacheUtil) GetCacheDir() string {
+func (c *DefaultCacheUtil) CacheDir() string {
 	return c.cacheDir
 }
 
+func (c *DefaultCacheUtil) TokenFile() string {
+	return c.tokenFilename
+}
 // RenewToken attempts to renew a Vault client token. If successful, it will
 // update the token's expiration date and write the file to disk ("cache"
 // the token). If it fails, it will return an error.
-func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
+func (c *DefaultCacheUtil) RenewToken(cached *CachedToken, client *api.Client) error {
 	var err error
 
-	// Create a new Vault API client
-	client := c.vaultAPI
 	if client == nil {
-		client, err = api.NewClient(nil)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("no Vault client provided")
 	}
 
-	// Give the Vault API client the cached token
-	client.SetToken(cached.Token)
+	originalToken := client.Token()
+	client.SetToken(cached.TokenID())
+	defer client.SetToken(originalToken)
 
 	// Renew the token
 	secret, err := client.Auth().Token().RenewSelf(0)
@@ -120,7 +108,7 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 	}
 
 	// Cache the token
-	return c.CacheNewToken(secret, cached.AuthMethod)
+	return c.CacheNewToken(secret, client.Address(), cached.AuthMethod())
 }
 
 // LookupToken attempts to retrieve a cached token that corresponds to the given
@@ -130,56 +118,71 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken) error {
 // set before JSON-decoding it. If it finds an unencrypted token (filename with
 // .json extension), it will JSON-decode it without decryption. If no cached
 // tokens are found, it will return a nil *CachedToken and a nil error.
-func (c *DefaultCacheUtil) LookupToken(method config.VaultAuthMethod) (*CachedToken, error) {
-	files, err := filepath.Glob(c.basename(method) + "*")
-	if err != nil {
-		return nil, err
-	}
-
+func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuthMethod) (*CachedToken, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
 
-	for _, filename := range files {
-		file, err := os.Open(filename)
-		if err != nil {
-			if os.IsNotExist(err) {
-				// No token cache file found
-				continue
-			}
-			return nil, err
+	file, err := os.Open(c.tokenFilename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// No token cache file found
+			return nil, nil
 		}
+		return nil, err
+	}
+	defer file.Close()
 
-		data, err := ioutil.ReadAll(file)
-		if err != nil {
-			file.Close()
-			return nil, err
-		}
-		file.Close()
-
-		// Decrypt if it is an encrypted file (encrypted file
-		// should have no extension)
-		if filepath.Ext(filename) == "" && c.block != nil {
-			data, err = c.decrypt(data)
-			if err != nil {
-				return nil, fmt.Errorf("error decrypting token: %v", err)
-			}
-		}
-
-		var cached = new(CachedToken)
-		if err = jsonutil.DecodeJSON(data, cached); err != nil {
-			return nil, fmt.Errorf("error JSON-decoding cached token %s: %v", filename, err)
-		}
-		cached.AuthMethod = method
-
-		if cached.Token == "" {
-			return nil, fmt.Errorf("no token found in cache file %s", filename)
-		}
-
-		return cached, nil
+	// Decode cached tokens
+	var tokenFile = make(map[string]interface{})
+	if err = jsonutil.DecodeJSONFromReader(file, &tokenFile); err != nil {
+		return nil, fmt.Errorf("error JSON-decoding token file %s: %v", c.tokenFilename, err)
 	}
 
-	// No cached tokens found
-	return nil, nil
+	u, err := url.Parse(vaultAddr)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing Vault server URL %q: %v", vaultAddr, err)
+	}
+	
+	v, ok := tokenFile[u.Host]
+	if !ok {
+		// No tokens for this host
+		return nil, nil
+	}
+
+	serverTokens, ok := v.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("cached token is malformed (host: %q)", u.Host)
+	}
+
+	t, ok := serverTokens[string(method)]
+	if !ok {
+		// No token for this server-method combination
+		return nil, nil
+	}
+
+	tokenMap, ok := t.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("cached token is malformed (host: %q, method: %q)", u.Host, string(method))
+	}
+
+	// Decode cached token from JSON into a *CachedToken instance
+	var token = new(CachedToken)
+	if err = mapstructure.Decode(tokenMap, token); err != nil {
+		return nil, fmt.Errorf("error decoding cached token: %v", err)
+	}
+
+	if token.TokenID() == "" {
+		return nil, fmt.Errorf("no token found (host: %s, method: %s)", u.Host, string(method))
+	}
+
+	if token.ExpirationTS() == 0 {
+		return nil, fmt.Errorf("token has no expiration date")
+	}
+
+	token.SetAuthMethod(method)
+	token.SetVaultHost(u.Host)
+
+	return token, nil
 }
 
 // CacheNewToken accepts either a *CachedToken or a
@@ -197,25 +200,15 @@ func (c *DefaultCacheUtil) LookupToken(method config.VaultAuthMethod) (*CachedTo
 //
 // ~/.docker-credential-vault-login/tokens/cached-token-iam-auth
 //
-func (c *DefaultCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
+func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, vaultAddr string, method config.VaultAuthMethod) error {
 	var (
 		token *CachedToken
 		err   error
 	)
 
-	switch v.(type) {
-	case *api.Secret:
-		token, err = c.buildCachedTokenFromSecret(v.(*api.Secret), method)
-		if err != nil {
-			return fmt.Errorf("error creating cache.CachedToken instance from a *github.com/hashicorp/vault/api.Secret instance: %v", err)
-		}
-	case *CachedToken:
-		token = v.(*CachedToken)
-		if string(token.AuthMethod) == "" {
-			token.AuthMethod = method
-		}
-	default:
-		return fmt.Errorf("first argument passed to CacheNewToken not a unsupported type")
+	token, err = c.buildCachedTokenFromSecret(secret, method, vaultAddr)
+	if err != nil {
+		return fmt.Errorf("error creating cache.CachedToken instance from a *github.com/hashicorp/vault/api.Secret instance: %v", err)
 	}
 
 	err = c.writeTokenToFile(token)
@@ -225,8 +218,49 @@ func (c *DefaultCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthM
 	return nil
 }
 
+// ClearCachedToken deletes all cached tokens associated with the given
+// authentication method.
+func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.VaultAuthMethod) {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	file, err := os.OpenFile(c.tokenFilename, os.O_RDWR, 0600)
+	if err != nil {
+		return
+	}
+
+	var tokenFile = make(map[string]interface{})
+	if err = jsonutil.DecodeJSONFromReader(file, &tokenFile); err != nil {
+		file.Close()
+		os.Remove(c.tokenFilename)
+		return
+	}
+
+	u, err := url.Parse(vaultAddr)
+	if err != nil {
+		return
+	}
+
+	serverTokens, ok := tokenFile[u.Host].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	delete(serverTokens, string(method))
+
+	tokenFile[u.Host] = serverTokens
+
+	if err = c.writePrettyJSON(file, tokenFile); err != nil {
+		file.Close()
+		os.Remove(c.tokenFilename)
+		return
+	}
+
+	file.Close()
+}
+
 func (c *DefaultCacheUtil) buildCachedTokenFromSecret(secret *api.Secret,
-	method config.VaultAuthMethod) (*CachedToken, error) {
+	method config.VaultAuthMethod, vaultAddr string) (*CachedToken, error) {
 
 	// Get the token from the secret
 	token, err := secret.TokenID()
@@ -247,142 +281,128 @@ func (c *DefaultCacheUtil) buildCachedTokenFromSecret(secret *api.Secret,
 		return nil, err
 	}
 
+	u, err := url.Parse(vaultAddr)
+	if err != nil {
+		return nil, err
+	}
+
 	return &CachedToken{
 		Token:      token,
 		Expiration: expiration,
 		Renewable:  renewable,
-		AuthMethod: method,
+		host:       u.Host,
+		method:     method,
 	}, nil
 }
 
 func (c *DefaultCacheUtil) writeTokenToFile(token *CachedToken) error {
-	// JSON-encode the CachedToken instance
-	data, err := jsonutil.EncodeJSON(token)
-	if err != nil {
-		return err
-	}
-
-	// Encrypt if encryption is enabled
-	if c.block != nil {
-		data, err = c.encrypt(data)
-		if err != nil {
-			return fmt.Errorf("error encrypting token: %v", err)
-		}
-	}
-
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// Create the token cache directory and its parents
-	// in case they don't already exist
-	if err := os.MkdirAll(c.tokenCacheDir, 0765); err != nil {
+	// Create the token cache directory and its parents in case they don't
+	// already exist
+	if err := os.MkdirAll(filepath.Dir(c.tokenFilename), 0700); err != nil {
 		return err
 	}
 
-	// Open the cached token or create it if it
-	// doesn't already exist
-	file, err := os.OpenFile(c.TokenFilename(token.AuthMethod), os.O_WRONLY|os.O_CREATE, 0600)
+	// Open the cached token or create it if it doesn't already exist
+	file, err := os.OpenFile(c.tokenFilename, os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
-	_, err = file.Write(data)
+	var tokenFile = make(map[string]interface{})
 
+	// Ignore error DecodeJSONFromReader returns. If there is an error
+	// decoding the file into a map[string]interface{}, then the file is
+	// malformed anyways so it will just overwrite the entire file
+	jsonutil.DecodeJSONFromReader(file, &tokenFile)
+
+	host := token.VaultHost()
+	var serverTokens = make(map[string]interface{})
+	if t, ok := tokenFile[host].(map[string]interface{}); ok {
+		serverTokens = t
+	}
+
+	serverTokens[string(token.AuthMethod())] = token.ToMap()
+	tokenFile[host] = serverTokens
+
+	return c.writePrettyJSON(file, tokenFile)
+}
+
+func (c *DefaultCacheUtil) writePrettyJSON(file *os.File, v interface{}) error {
+	// JSON-encode the interface{} v
+	data, err := jsonutil.EncodeJSON(v)
+	if err != nil {
+		return err
+	}
+
+	// Change the file size to 0 to overwrite all file contents
+	if err = file.Truncate(0); err != nil {
+		return err
+	}
+
+	// Reset the I/O offset to the beginning of the file
+	if _, err = file.Seek(0, 0); err != nil {
+		return err
+	}
+
+	var out bytes.Buffer
+	if err = json.Indent(&out, data, "", "    "); err == nil {
+		_, err = file.Write(out.Bytes())
+	} else {
+		_, err = file.Write(data)
+	}
 	return err
 }
 
-// ClearCachedToken deletes all cached tokens associated with the given
-// authentication method.
-func (c *DefaultCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
-	files, _ := filepath.Glob(c.basename(method) + "*")
-	mutex.Lock()
-	for _, file := range files {
-		os.Remove(file)
-	}
-	mutex.Unlock()
-}
-
-// TokenFilename returns the name of the file in which a token of the given
-// authentication method is stored on disk. If $DOCKER_CREDS_CACHE_ENCRYPTION_KEY
-// is set (i.e. encryption is enabled), it will return a filename with no
-// extension. Otherwise, it will return a filename with a .json extension.
-func (c *DefaultCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
-	extension := ".json"
-
-	// If the file is encrypted, do not include a file extension
-	if c.block != nil {
-		extension = ""
-	}
-	return c.basename(method) + extension
-}
-
-func (c *DefaultCacheUtil) encrypt(data []byte) ([]byte, error) {
-	ciphertext := make([]byte, aes.BlockSize+len(data))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-	stream := cipher.NewCFBEncrypter(c.block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], data)
-	return ciphertext, nil
-}
-
-func (c *DefaultCacheUtil) decrypt(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < aes.BlockSize {
-		return nil, fmt.Errorf("ciphertext too short")
-	}
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-	stream := cipher.NewCFBDecrypter(c.block, iv)
-	stream.XORKeyStream(ciphertext, ciphertext)
-	return ciphertext, nil
-}
-
-func (c *DefaultCacheUtil) basename(method config.VaultAuthMethod) string {
-	return filepath.Join(c.tokenCacheDir, "cached-token-"+string(method)+"-auth")
-}
-
-// NullCacheUtil conforms to the CacheUtil interface
-// and implements stub functions (with the exception of
-// GetCacheDir()). It is primarily for testing purposes
+// NullCacheUtil conforms to the CacheUtil interface and implements stub
+// functions (with the exception of GetCacheDir())
 type NullCacheUtil struct {
 	cacheDir string
+	tokenFilename string
 }
 
-// NewNullCacheUtil creates a new CacheUtil object. The value of
-// its cacheDir field is set to the value of the
-// DOCKER_CREDS_CACHE_DIR environment variable if it is set.
-// Otherwise, it uses the default directory.
-func NewNullCacheUtil() *NullCacheUtil {
-	return &NullCacheUtil{buildCacheDir()}
+// NewNullCacheUtil creates a new CacheUtil object. The value of its cacheDir
+// field is set to the value of the DOCKER_CREDS_CACHE_DIR environment variable
+// if it is set. Otherwise, it uses the default directory.
+func NewNullCacheUtil(cacheDir string) *NullCacheUtil {
+	if cacheDir == "" {
+		cacheDir = SetupCacheDir()
+	}
+	return &NullCacheUtil{
+		cacheDir: cacheDir,
+		tokenFilename: filepath.Join(cacheDir, "tokens.json"),
+	}
 }
 
-func (n *NullCacheUtil) GetCacheDir() string {
+func (n *NullCacheUtil) CacheDir() string {
 	return n.cacheDir
 }
 
-func (n *NullCacheUtil) LookupToken(method config.VaultAuthMethod) (*CachedToken, error) {
+func (n *NullCacheUtil) TokenFile() string {
+	return n.tokenFilename
+}
+
+func (n *NullCacheUtil) LookupToken(host string, method config.VaultAuthMethod) (*CachedToken, error) {
 	return nil, nil
 }
 
-func (n *NullCacheUtil) CacheNewToken(v interface{}, method config.VaultAuthMethod) error {
+func (n *NullCacheUtil) CacheNewToken(secret *api.Secret, vaultAddr string, method config.VaultAuthMethod) error {
 	return nil
 }
 
-func (n *NullCacheUtil) ClearCachedToken(method config.VaultAuthMethod) {
+func (n *NullCacheUtil) ClearCachedToken(addr string, method config.VaultAuthMethod) {
 	return
 }
 
-func (n *NullCacheUtil) RenewToken(token *CachedToken) error {
+func (n *NullCacheUtil) RenewToken(token *CachedToken, client *api.Client) error {
 	return nil
 }
 
-func (n *NullCacheUtil) TokenFilename(method config.VaultAuthMethod) string {
-	return ""
-}
-
-func buildCacheDir() string {
+// configDir should be the value of cache.dir directly from the config.json file
+func SetupCacheDir() string {
 	var cacheDirRaw = DefaultCacheDir
 	if v := os.Getenv(EnvCacheDir); v != "" {
 		cacheDirRaw = v
@@ -390,10 +410,15 @@ func buildCacheDir() string {
 
 	cacheDir, err := homedir.Expand(cacheDirRaw)
 	if err != nil {
-		fmt.Printf("Failed to create cache file at %s.\nCreating log file at %s instead.\n",
+		log.Printf("Failed to create cache file at %s.\nCreating log file at %s instead.\n",
 			cacheDirRaw, BackupCacheDir)
 		cacheDir = BackupCacheDir
 	}
 
-	return filepath.Clean(cacheDir)
+	cleaned := filepath.Clean(cacheDir)
+
+	if _, err = os.Stat(cleaned); err != nil {
+		os.MkdirAll(cleaned, 0700)
+	}
+	return cleaned
 }

@@ -22,7 +22,7 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	vault "github.com/morningconsult/docker-credential-vault-login/vault-login"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
@@ -39,17 +39,11 @@ func main() {
 		os.Exit(0)
 	}
 
-	cacheUtil := cache.NewCacheUtil(nil)
-
 	defer log.Flush()
-	logging.SetupLogger(cacheUtil.GetCacheDir())
+	cacheDir := cache.SetupCacheDir()
+	logging.SetupLogger(cacheDir)
 
-	// Create a new vault.Helper instance
-	helper, err := vault.NewHelper(&vault.HelperOptions{CacheUtil: cacheUtil})
-	if err != nil {
-		log.Errorf("error creating new vault.Helper instance: %v", err)
-		os.Exit(1)
-	}
-
-	credentials.Serve(helper)
+	credentials.Serve(vault.NewHelper(&vault.HelperOptions{
+		CacheDir: cacheDir,
+	}))
 }

@@ -15,6 +15,7 @@ package cache
 
 import (
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	"sync"
 	"time"
 )
 
@@ -22,24 +23,32 @@ const GracePeriodSeconds int64 = 600 // 10 minutes
 
 type CachedToken struct {
 	// Token is the cached Vault token
-	Token string `json:"token"`
+	Token string `json:"token,omitempty"`
 
-	// Expiration is the date and time at which this
-	// token expires (represented as a Unix timestamp)
+	// Expiration is the date and time at which this token expires
+	// (represented as a Unix timestamp)
 	Expiration int64 `json:"expiration"`
 
 	// Renewable is whether the token can be renewed
 	Renewable bool `json:"renewable"`
 
-	// AuthMethod is the authentication method by which
-	// the token was obtained (specified in the
-	// config.json file)
-	AuthMethod config.VaultAuthMethod `json:"-"`
+	// Method is the authentication method by which the token was
+	// obtained (specified in the config.json file)
+	method config.VaultAuthMethod `json:"-"`
+
+	// Host is the host of the Vault server from which this token was
+	// obtained
+	host string `json:"-"`
+
+	mutex sync.RWMutex
 }
 
 // Expired returns true if the token's expiration
 // timestamp is in the past.
 func (t *CachedToken) Expired() bool {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
 	return time.Now().After(time.Unix(t.Expiration, 0))
 }
 
@@ -49,8 +58,64 @@ func (t *CachedToken) Expired() bool {
 // GracePeriodSeconds seconds before the expiration
 // timestamp.
 func (t *CachedToken) EligibleForRenewal() bool {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
 	now := time.Now()
 	expiration := time.Unix(t.Expiration, 0)
 	windowStart := expiration.Add(time.Second * time.Duration(-1*GracePeriodSeconds))
 	return t.Renewable && now.Before(expiration) && now.After(windowStart)
+}
+
+func (t *CachedToken) ToMap() map[string]interface{} {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return map[string]interface{}{
+		"token":      t.Token,
+		"expiration": t.Expiration,
+		"renewable":  t.Renewable,
+	}
+}
+
+func (t *CachedToken) TokenID() string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.Token
+}
+
+func (t *CachedToken) ExpirationTS() int64 {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.Expiration
+}
+
+func (t *CachedToken) SetAuthMethod(method config.VaultAuthMethod) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.method = method
+}
+
+func (t *CachedToken) AuthMethod() config.VaultAuthMethod {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.method
+}
+
+func (t *CachedToken) SetVaultHost(host string) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.host = host
+}
+
+func (t *CachedToken) VaultHost() string {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return t.host
 }

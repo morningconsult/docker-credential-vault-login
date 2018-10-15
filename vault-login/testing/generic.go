@@ -23,12 +23,12 @@ func ErrorsEqual(t *testing.T, got interface{}, expected string) {
 	switch e := got.(type) {
 	case string:
 		if got != expected {
-			t.Fatalf("GetCredHelperConfig returned unexpected error message.\nExpected:\n%q\n\nGot:\n%q",
+			t.Fatalf("returned unexpected error message.\nExpected:\n%q\n\nGot:\n%q",
 				expected, got)
 		}
 	case error:
 		if e.Error() != expected {
-			t.Fatalf("GetCredHelperConfig returned unexpected error message.\nExpected:\n%q\n\nGot:\n%q",
+			t.Fatalf("returned unexpected error message.\nExpected:\n%q\n\nGot:\n%q",
 				expected, e.Error())
 		}
 	default:

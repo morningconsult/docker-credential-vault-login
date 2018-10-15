@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"net/url"
 	"time"
 
 	"github.com/aws/aws-sdk-go/awstesting"
@@ -27,9 +28,10 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/mitchellh/mapstructure"
 
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -48,238 +50,155 @@ const (
 	TestSecretKey string = "F+B46nGe/FCVEem5WO7IXQtRl9B72ehob7VWpMdx"
 )
 
+const testDataDir string = "testdata"
+
 var (
-	testConfigFilename  string = filepath.Join("testdata", "shared_config")
-	testIAMConfigFile   string = filepath.Join("testdata", "config_iam.json")
-	testEC2ConfigFile   string = filepath.Join("testdata", "config_ec2.json")
-	testTokenConfigFile string = filepath.Join("testdata", "config_token.json")
+	testConfigFilename  string = filepath.Join(testDataDir, "shared_config")
+	testIAMConfigFile   string = filepath.Join(testDataDir, "config_iam.json")
+	testEC2ConfigFile   string = filepath.Join(testDataDir, "config_ec2.json")
+	testTokenConfigFile string = filepath.Join(testDataDir, "config_token.json")
 )
 
-func TestHelperGet_IAM_Success(t *testing.T) {
+var testConfigFileWithVaultClientConfig string = filepath.Join(testDataDir, "config_client.json")
+
+func TestHelperGet_ErrCreateClient(t *testing.T) {
+	rl := os.Getenv(api.EnvRateLimit)
+
+	// This will trigger an error when github.com/hashicorp/vault/api.NewClient()
+	// is called
+	os.Setenv(api.EnvRateLimit, "not an int!")
+	defer os.Setenv(api.EnvRateLimit, rl)
+
+	os.Setenv(config.EnvConfigFilePath, testTokenConfigFile)
+	helper := NewHelper(&HelperOptions{
+		CacheDir: testDataDir,
+		VaultAPI: nil,
+	})
+
+	_, _, err := helper.Get("")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+}
+
+// TestHelperGet_ClientConfig tests that if Vault client configuration
+// parameters are specified in the config.json file, it will use them
+// to configure the Vault client
+func TestHelperGet_ClientConfig(t *testing.T) {
+	os.Unsetenv(api.EnvVaultAddress)
+	os.Unsetenv(api.EnvVaultToken)
+
+	os.Setenv(config.EnvConfigFilePath, testConfigFileWithVaultClientConfig)
+
+	cfg := readConfig(t, testConfigFileWithVaultClientConfig)
+
+	helper := NewHelper(&HelperOptions{
+		CacheDir: testDataDir,
+	})
+
+	helper.Get("")
+
+	client := helper.VaultClient()
+
+	if client.Token() != cfg.Client.Token {
+		t.Fatalf("expected client token %q but got %q", cfg.Client.Token, client.Token())
+	}
+
+	if client.Address() != cfg.Client.Address {
+		t.Fatalf("expected client address %q but got %q", cfg.Client.Address, client.Address())
+	}
+}
+
+func TestHelperGet_AWS(t *testing.T) {
 	var (
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret: map[string]interface{}{
+	)
+
+	// Disable caching
+	os.Setenv(cache.EnvDisableCache, "true")
+
+	// Set the environment variable informing the program where
+	// the config.json file is located
+	os.Setenv(config.EnvConfigFilePath, testConfigFile)
+
+	// Set AWS credential environment variables
+	test.SetTestAWSEnvVars()
+
+	cases := []struct {
+		name       string
+		secretPath string
+		secret     map[string]interface{}
+		role       string
+		err        bool
+	}{
+		{
+			"success",
+			cfg.Secret,
+			map[string]interface{}{
 				"username": "frodo.baggins@shire.com",
 				"password": "potato",
 			},
-			Role: cfg.Role,
-		}
-	)
-
-	// Disable caching
-	os.Setenv(cache.EnvDisableCache, "true")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	user, pw, err := helper.Get("")
-	if err != nil {
-		t.Fatalf("error retrieving Docker credentials from Vault: %v", err)
-	}
-	if v, _ := opts.Secret["username"].(string); v != user {
-		t.Errorf("Expected username %q, got %q", v, user)
-	}
-	if v, _ := opts.Secret["password"].(string); v != pw {
-		t.Errorf("Expected password %q, got %q", v, pw)
-	}
-}
-
-// TestHelperGet_IAM_BadPath tests that when a user does not provide
-// the path to their Docker credentials in the "secret_path"
-// field of the config.json file, the helper.Get() method returns
-// an error
-func TestHelperGet_IAM_BadPath(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			// secretPath delibarately does not match the "secret_path" field
-			// of the config.json file in order to cause an error -- this is the
-			// purpose of this unit test
-			SecretPath: "secret/bim/baz",
-			Secret: map[string]interface{}{
+			cfg.Auth.Role,
+			false,
+		},
+		{
+			"no-secret",
+			cfg.Secret,
+			map[string]interface{}{},
+			cfg.Auth.Role,
+			true,
+		},
+		{
+			"bad-path",
+			// path is different from the secret_path in the config.json file
+			"secret/bim/baz",
+			map[string]interface{}{
 				"username": "frodo.baggins@shire.com",
 				"password": "potato",
 			},
-			Role: cfg.Role,
-		}
-	)
-
-	// Disable caching
-	os.Setenv(cache.EnvDisableCache, "true")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
-	if err == nil {
-		t.Errorf("should have returned and error, but didn't.")
-	}
-}
-
-// TestHelperGet_IAM_NoSecret tests that when a user provides the path
-// to their Docker credentials in the "secret_path" field of
-// the config.json file but no credentials are present at that location,
-// the helper.Get() method returns an error.
-func TestHelperGet_IAM_NoSecret(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			// secret is initialized with no data so that when the helper
-			// attempts to read the secret at secretPath, it will get
-			// no data, and then return an error
-			Secret: map[string]interface{}{},
-			Role:   cfg.Role,
-		}
-	)
-
-	// Disable caching
-	os.Setenv(cache.EnvDisableCache, "true")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
-	if err == nil {
-		t.Errorf("should have returned and error, but didn't.")
-	}
-}
-
-// TestHelperGet_IAM_BadRole tests that when a user provides a Vault role
-// in the "role" field of the config.json file that has not been
-// configured with the IAM role used to authenticate againt AWS,
-// the helper.Get() method returns an error.
-func TestHelperGet_IAM_BadRole(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret:     map[string]interface{}{},
-			Role:       "fake-role",
-		}
-	)
-
-	// Disable caching
-	os.Setenv(cache.EnvDisableCache, "true")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
-	if err == nil {
-		t.Errorf("should have returned and error, but didn't.")
-	}
-}
-
-// TestHelperGet_IAM_MalformedSecret tests that when the Vault secret
-// representing the Docker credentials is not properly formatted,
-// the helper.Get() method returns an error. Note that this program
-// expects the Docker credentials to be stored in Vault as follows:
-// {
-//      "username": "docker_user",
-//      "password": "password"
-// }
-func TestHelperGet_IAM_MalformedSecret(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret: map[string]interface{}{
-				// Expects field to be spelled "username"
-				"usename":  "docker@user.com",
+			cfg.Auth.Role,
+			true,
+		},
+		{
+			"bad-role",
+			cfg.Secret,
+			map[string]interface{}{
+				"username": "frodo.baggins@shire.com",
 				"password": "potato",
 			},
-			Role: "fake-role",
-		}
-	)
-
-	// Disable caching
-	os.Setenv(cache.EnvDisableCache, "true")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
+			// role has not been configured to login via aws auth
+			"bad role",
+			true,
+		},
 	}
-	_, _, err = helper.Get("")
-	if err == nil {
-		t.Errorf("should have returned and error, but didn't.")
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			server, _ := test.MakeMockVaultServerIAMAuth(t, &test.TestVaultServerOptions{
+				SecretPath: tc.secretPath,
+				Secret:     tc.secret,
+				Role:       tc.role,
+			})
+			go server.ListenAndServe()
+			defer server.Close()
+
+			os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
+
+			helper := NewHelper(nil)
+
+			_, _, err := helper.Get("")
+
+			if tc.err && (err == nil) {
+				t.Fatal("should have returned and error, but didn't.")
+			}
+
+			if !tc.err && (err != nil) {
+				t.Fatal("should not have returned an error")
+			}
+		})
 	}
+
 }
 
 func TestHelperGet_IAM_FactoryError(t *testing.T) {
@@ -300,11 +219,9 @@ func TestHelperGet_IAM_FactoryError(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
+	helper := NewHelper(nil)
+
+	_, _, err := helper.Get("")
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
@@ -336,11 +253,9 @@ func TestHelperGet_EC2_FactoryError(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
+	helper := NewHelper(nil)
+
+	_, _, err := helper.Get("")
 	if err == nil {
 		t.Fatal("should have returned and error, but didn't.")
 	}
@@ -413,14 +328,13 @@ func TestHelperGet_Token(t *testing.T) {
 			true,
 		},
 		{
-			"bad-client",
+			"no-token",
 			cfg.Secret,
 			map[string]interface{}{
-				// Malformed "username" field
 				"username": "frodo.baggins@theshire.com",
 				"password": "potato",
 			},
-			true,
+			false,
 		},
 	}
 
@@ -430,21 +344,16 @@ func TestHelperGet_Token(t *testing.T) {
 			test.WriteSecret(t, client, tc.actualPath, tc.secret)
 			defer test.DeleteSecret(t, client, tc.actualPath)
 
-			if tc.name == "bad-client" {
-				os.Setenv(api.EnvRateLimit, "not an int!")
-				defer os.Unsetenv(api.EnvRateLimit)
-				_, err := NewHelper(nil)
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				return
-			}
-
-			helper, err := NewHelper(&HelperOptions{
-				VaultClient: client,
+			helper := NewHelper(&HelperOptions{
+				VaultAPI: client,
 			})
-			if err != nil {
-				t.Fatal(err)
+
+			if tc.name == "no-token" {
+				rootToken := client.Token()
+				defer client.SetToken(rootToken)
+
+				// Should get the token from the environment if not set
+				client.ClearToken()
 			}
 
 			user, pw, err := helper.Get("")
@@ -477,15 +386,15 @@ func TestHelperGet_Token_NoTokenEnv(t *testing.T) {
 	// the config.json file is located
 	os.Setenv(config.EnvConfigFilePath, testTokenConfigFile)
 	token := os.Getenv(api.EnvVaultToken)
+
+	// If you select the "token" auth method, the VAULT_TOKEN 
+	// environmental varaible must be set or it will throw an error
 	os.Unsetenv(api.EnvVaultToken)
 	defer os.Setenv(api.EnvVaultToken, token)
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	helper := NewHelper(nil)
 
-	_, _, err = helper.Get("")
+	_, _, err := helper.Get("")
 	if err == nil {
 		t.Fatal("expected an error but didn't receive one")
 	}
@@ -495,11 +404,9 @@ func TestHelperList(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = helper.List()
+	helper := NewHelper(nil)
+
+	_, err := helper.List()
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -511,11 +418,9 @@ func TestHelperAdd(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = helper.Add(&credentials.Credentials{})
+	helper := NewHelper(nil)
+
+	err := helper.Add(&credentials.Credentials{})
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -527,11 +432,9 @@ func TestHelperDelete(t *testing.T) {
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = helper.Delete("")
+	helper := NewHelper(nil)
+	
+	err := helper.Delete("")
 	if err == nil {
 		t.Fatal("Expected to receive an error but didn't")
 	}
@@ -543,7 +446,7 @@ func TestHelperDelete(t *testing.T) {
 // but the config.json file is improperly formatted (and thus
 // cannot be decoded) the correct error is returned.
 func TestHelperGet_ParseError(t *testing.T) {
-	const testFilePath = "/tmp/docker-credential-vault-login-testfile.json"
+	const testFilePath = "testdata/docker-credential-vault-login-testfile.json"
 
 	// Disable caching
 	os.Setenv(cache.EnvDisableCache, "true")
@@ -554,11 +457,9 @@ func TestHelperGet_ParseError(t *testing.T) {
 
 	os.Setenv("DOCKER_CREDS_CONFIG_FILE", testFilePath)
 
-	helper, err := NewHelper(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
+	helper := NewHelper(nil)
+
+	_, _, err := helper.Get("")
 	if err == nil {
 		t.Fatal("expected to receive an error but didn't")
 	}
@@ -566,140 +467,9 @@ func TestHelperGet_ParseError(t *testing.T) {
 	test.ErrorsEqual(t, err.Error(), credentials.NewErrCredentialsNotFound().Error())
 }
 
-func TestHelperGet_MalformedToken(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret: map[string]interface{}{
-				"username": "frodo.baggins@shire.com",
-				"password": "potato",
-			},
-			Role: cfg.Role,
-		}
-	)
-
-	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	cacheUtil := cache.NewCacheUtil(nil)
-
-	tokenfile := cacheUtil.TokenFilename(cfg.Method)
-
-	// Write a malformed token to file
-	var badtoken = "i am not a token"
-	json := map[string]interface{}{
-		"token":      badtoken,
-		"expiration": "not an int!",
-	}
-	writeJSONToFile(t, json, tokenfile)
-
-	helper, err := NewHelper(&HelperOptions{
-		CacheUtil: cacheUtil,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, err = helper.Get("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure that a new, properly-formatted token was cached
-	token := loadTokenFromFile(t, tokenfile)
-
-	// Ensure that a new token was obtained
-	if token.Token == badtoken {
-		t.Fatal("should have obtained a new token but didn't")
-	}
-
-	// Ensure that the token is not expired
-	if token.Expired() {
-		t.Fatal("did not expect token to be expired but it was")
-	}
-}
-
-func TestHelperGet_NoToken(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret: map[string]interface{}{
-				"username": "frodo.baggins@shire.com",
-				"password": "potato",
-			},
-			Role: cfg.Role,
-		}
-	)
-
-	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-
-	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	// Set AWS credential environment variables
-	test.SetTestAWSEnvVars()
-
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	cacheUtil := cache.NewCacheUtil(nil)
-
-	tokenfile := cacheUtil.TokenFilename(cfg.Method)
-
-	// Delete the cached token (if exists)
-	cacheUtil.ClearCachedToken(cfg.Method)
-
-	helper, err := NewHelper(&HelperOptions{
-		CacheUtil: cacheUtil,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, _, err = helper.Get("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure that a new, properly-formatted token was cached
-	token := loadTokenFromFile(t, tokenfile)
-
-	// Ensure that a new token was obtained
-	if token.Token == "" {
-		t.Fatal("should have obtained a new token but didn't")
-	}
-
-	// Ensure that the token is not expired
-	if token.Expired() {
-		t.Fatal("did not expect token to be expired but it was")
-	}
-}
-
-// Tests that
 func TestHelperGet_RenewableToken(t *testing.T) {
 	var (
+		cacheDir       = testDataDir
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		secret         = map[string]interface{}{
@@ -709,19 +479,26 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 	)
 
 	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
 
 	// Set the environment variable informing the program where
 	// the config.json file is located
 	os.Setenv(config.EnvConfigFilePath, testConfigFile)
 
-	cacheUtil := cache.NewCacheUtil(nil)
+	cacheUtil := cache.NewCacheUtil(cacheDir)
 
 	// Start test Vault cluster
 	cluster := test.StartTestCluster(t)
 	defer cluster.Cleanup()
 	client := test.NewPreConfiguredVaultClient(t, cluster)
 	rootToken := client.Token()
+
+	addr := client.Address()
+	u, err := url.Parse(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	host := u.Host
 
 	// Write the secret to Vault at the endpoint
 	// given in config.json
@@ -732,7 +509,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 	policy := `path "` + cfg.Secret + `" {
 		capabilities = ["read", "list"]
 	}`
-	err := client.Sys().PutPolicy(testPolicy, policy)
+	err = client.Sys().PutPolicy(testPolicy, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -757,9 +534,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Make sure that at this point the client has
-			// the root token
-			client.SetToken(rootToken)
+			client.SetToken(rootToken)			
 
 			// Create a new token for the policy
 			resp, err := client.Logical().Write(filepath.Join("auth", "token", "create"), map[string]interface{}{
@@ -779,25 +554,26 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 			// to the Vault API client
 			client.SetToken(token)
 
-			helper, err := NewHelper(&HelperOptions{
-				VaultClient: client,
+			helper := NewHelper(&HelperOptions{
+				VaultAPI: client,
+				CacheDir: cacheDir,
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			// Delete the cached token (if exists)
-			cacheUtil.ClearCachedToken(cfg.Method)
+			clearTestdata(cacheDir)
+			defer clearTestdata(cacheDir)
 
 			// Cache the token
-			err = cacheUtil.CacheNewToken(&cache.CachedToken{
-				Token:      token,
-				Expiration: tc.expiration,
-				Renewable:  true,
-			}, cfg.Method)
-			if err != nil {
-				t.Fatal(err)
+			tokenFile := map[string]interface{}{
+				host: map[string]interface{}{
+					string(cfg.Auth.Method): map[string]interface{}{
+						"token":      token,
+						"expiration": tc.expiration,
+						"renewable":  true,
+					},
+				},
 			}
+			writeTokenFile(t, tokenFile, cacheUtil.TokenFile())
 
 			// Sleep for a couple seconds so that the next time
 			// time.Now().Unix() is called a different value
@@ -810,8 +586,6 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			defer cacheUtil.ClearCachedToken(cfg.Method)
-
 			// Check that the secret was successfully read
 			if username, ok := secret["username"].(string); !ok || username != user {
 				t.Fatalf("Wrong username (got %q, expected %q)", user, username)
@@ -820,10 +594,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
 			}
 
-			cachedToken, err := cacheUtil.LookupToken(cfg.Method)
-			if err != nil {
-				t.Fatal(err)
-			}
+			cachedToken := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, cfg.Auth.Method)
 
 			switch tc.comparison {
 			case "gt":
@@ -841,6 +612,8 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 
 func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	var (
+		cacheDir       = testDataDir
+		badtoken       = "i am not a token"
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
@@ -849,73 +622,105 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 				"username": "frodo.baggins@shire.com",
 				"password": "potato",
 			},
-			Role: cfg.Role,
+			Role: cfg.Auth.Role,
 		}
 	)
 
+	test.SetTestAWSEnvVars()
 	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-	cacheUtil := cache.NewCacheUtil(nil)
+	cacheUtil := cache.NewCacheUtil(cacheDir)
 
 	// Spin up mock Vault server
 	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
 	go server.ListenAndServe()
 	defer server.Close()
 
-	test.SetTestAWSEnvVars()
+	addr := fmt.Sprintf("http://127.0.0.1%s", server.Addr)
+	u, err := url.Parse(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := u.Host
 
 	// Set the environment variable informing the program where
 	// the config.json file is located
 	os.Setenv(config.EnvConfigFilePath, testConfigFile)
-	os.Setenv(api.EnvVaultAddress, fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-
-	// var badtoken = "i am not a token"
+	os.Setenv(api.EnvVaultAddress, addr)
 
 	cases := []struct {
-		name       string
-		expiration int64
-		renewable  bool
+		name string
+		file map[string]interface{}
 	}{
 		{
 			"renew-fails",
-			time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix(),
-			true,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(cfg.Auth.Method): map[string]interface{}{
+						"token":      badtoken,
+						"expiration": time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix(),
+						"renewable":  true,
+					},
+				},
+			},
 		},
 		{
 			"expired",
-			time.Now().Add(-10 * time.Hour).Unix(),
-			false,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(cfg.Auth.Method): map[string]interface{}{
+						"token":      badtoken,
+						"expiration": time.Now().Add(-10 * time.Hour).Unix(),
+						"renewable":  false,
+					},
+				},
+			},
+		},
+		{
+			"bad-token-file",
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(cfg.Auth.Method): "I should be a map",
+				},
+			},
+		},
+		{
+			"wrong-cached-creds",
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(cfg.Auth.Method): map[string]interface{}{
+						"token":      badtoken,
+						"expiration": time.Now().Add(time.Hour * 10).Unix(),
+						"renewable":  true,
+					},
+				},
+			},
+		},
+		{
+			"empty-file",
+			map[string]interface{}{},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			var badtoken = "i am a bad token"
+			clearTestdata(cacheDir)
+			defer clearTestdata(cacheDir)
 
-			cacheUtil.ClearCachedToken(cfg.Method)
-			defer cacheUtil.ClearCachedToken(cfg.Method)
-			writeJSONToFile(t, map[string]interface{}{
-				"token":      badtoken, // this should trigger an error when CacheUtil.RenewToken() is called
-				"expiration": tc.expiration,
-				"renewable":  tc.renewable,
-			}, cacheUtil.TokenFilename(cfg.Method))
+			writeTokenFile(t, tc.file, cacheUtil.TokenFile())
 
-			helper, err := NewHelper(&HelperOptions{
-				CacheUtil: cacheUtil,
+			helper := NewHelper(&HelperOptions{
+				CacheDir: cacheDir,
 			})
+
+			_, _, err := helper.Get("")
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			_, _, err = helper.Get("")
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			token := loadTokenFromFile(t, cacheUtil.TokenFilename(cfg.Method))
+			token := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, cfg.Auth.Method)
 
 			// Ensure that a new token was obtained
-			if token.Token == badtoken {
+			if token.TokenID() == badtoken {
 				t.Fatal("should have obtained a new token but didn't")
 			}
 
@@ -925,96 +730,6 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestHelperGet_CachedTokenUnauthorized(t *testing.T) {
-	var (
-		testConfigFile = testIAMConfigFile
-		cfg            = readConfig(t, testConfigFile)
-		opts           = &test.TestVaultServerOptions{
-			SecretPath: cfg.Secret,
-			Secret: map[string]interface{}{
-				"username": "frodo.baggins@shire.com",
-				"password": "potato",
-			},
-			Role: cfg.Role,
-		}
-	)
-
-	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-	cacheUtil := cache.NewCacheUtil(nil)
-
-	// Spin up mock Vault server
-	server, token := test.MakeMockVaultServerIAMAuth(t, opts)
-	go server.ListenAndServe()
-	defer server.Close()
-
-	cacheUtil.ClearCachedToken(cfg.Method)
-	defer cacheUtil.ClearCachedToken(cfg.Method)
-	writeJSONToFile(t, map[string]interface{}{
-		"token":      "bad token",
-		"expiration": time.Now().Add(1 * time.Hour).Unix(),
-		"renewable":  false,
-	}, cacheUtil.TokenFilename(cfg.Method))
-
-	client, err := api.NewClient(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client.SetAddress(fmt.Sprintf("http://127.0.0.1%s", server.Addr))
-	helper, err := NewHelper(&HelperOptions{
-		VaultClient: client,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, _, err = helper.Get("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Should cache the token returned during authentication
-	cachedToken := loadTokenFromFile(t, cacheUtil.TokenFilename(cfg.Method))
-	if cachedToken.Token != token {
-		t.Fatalf("expected cached token ID %q, but got %q instead", token, cachedToken.Token)
-	}
-}
-
-func writeJSONToFile(t *testing.T, json map[string]interface{}, tokenfile string) {
-	data, err := jsonutil.EncodeJSON(json)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(tokenfile), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	file, err := os.OpenFile(tokenfile, os.O_WRONLY|os.O_CREATE, 0664)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-
-	_, err = file.Write(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func loadTokenFromFile(t *testing.T, filename string) *cache.CachedToken {
-	file, err := os.Open(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-
-	var token = new(cache.CachedToken)
-	if err = jsonutil.DecodeJSONFromReader(file, token); err != nil {
-		t.Fatal(err)
-	}
-	return token
 }
 
 func TestMain(m *testing.M) {
@@ -1030,16 +745,7 @@ func TestMain(m *testing.M) {
 	defer seelog.Flush()
 	logger.SetupTestLogger()
 	status := m.Run()
-	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, "testdata")
-	cacheUtil := cache.NewCacheUtil(nil)
-	methods := []config.VaultAuthMethod{
-		config.VaultAuthMethodAWSIAM,
-		config.VaultAuthMethodAWSEC2,
-	}
-	for _, method := range methods {
-		cacheUtil.ClearCachedToken(method)
-	}
+	clearTestdata(testDataDir)
 	os.Exit(status)
 }
 
@@ -1054,4 +760,85 @@ func readConfig(t *testing.T, testConfigFile string) *config.CredHelperConfig {
 		t.Fatal(err)
 	}
 	return cfg
+}
+
+func writeTokenFile(t *testing.T, v interface{}, tokenfile string) {
+	data, err := jsonutil.EncodeJSON(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeDataToFile(t, data, tokenfile)
+}
+
+func readTokenFile(t *testing.T, tokenfile string) map[string]interface{} {
+	data, err := ioutil.ReadFile(tokenfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var tokenFile map[string]interface{}
+	if err = jsonutil.DecodeJSON(data, &tokenFile); err != nil {
+		t.Fatal(err)
+	}
+	
+	return tokenFile
+}
+
+func writeDataToFile(t *testing.T, data []byte, tokenfile string) {
+	if err := os.MkdirAll(filepath.Dir(tokenfile), 0700); err != nil {
+		t.Fatal(err)
+	}
+
+	file, err := os.OpenFile(tokenfile, os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	_, err = file.Write(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func loadTokenFromFile(t *testing.T, filename string, vaultAddr string, method config.VaultAuthMethod) *cache.CachedToken {
+	file, err := os.Open(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	var tokenFile = make(map[string]interface{})
+	if err = jsonutil.DecodeJSONFromReader(file, &tokenFile); err != nil {
+		t.Fatal(err)
+	}
+
+	u, err := url.Parse(vaultAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverTokens, ok := tokenFile[u.Host].(map[string]interface{})
+	if !ok {
+		t.Fatalf("no cached tokens for host %q", u.Host)
+	}
+
+	tokenMap, ok := serverTokens[string(method)].(map[string]interface{})
+	if !ok {
+		t.Fatalf("no cached token found (host: %q, method: %q)", u.Host, string(method))
+	}
+
+	var cachedToken = new(cache.CachedToken)
+	if err = mapstructure.Decode(tokenMap, cachedToken); err != nil {
+		t.Fatal(err)
+	}
+
+	return cachedToken
+}
+
+func clearTestdata(dir string) {
+	files, _ := filepath.Glob(filepath.Join(dir, "*token*"))
+	for _, file := range files {
+		os.Remove(file)
+	}
 }

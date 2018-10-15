@@ -27,8 +27,8 @@ import (
 var notImplementedError = fmt.Errorf("not implemented")
 
 type HelperOptions struct {
-	VaultClient *api.Client
-	CacheUtil   cache.CacheUtil
+	CacheDir string
+	VaultAPI *api.Client
 }
 
 type Helper struct {
@@ -40,29 +40,23 @@ type Helper struct {
 var _ credentials.Helper = (*Helper)(nil)
 
 // NewHelper creates a new Helper
-func NewHelper(opts *HelperOptions) (*Helper, error) {
-	var err error
-
+func NewHelper(opts *HelperOptions) *Helper {
 	if opts == nil {
 		opts = &HelperOptions{}
 	}
 
-	// Create a new Vault API client
-	if opts.VaultClient == nil {
-		opts.VaultClient, err = api.NewClient(nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if opts.CacheUtil == nil {
-		opts.CacheUtil = cache.NewCacheUtil(opts.VaultClient)
+	if opts.CacheDir == "" {
+		opts.CacheDir = cache.SetupCacheDir()
 	}
 
 	return &Helper{
-		vaultAPI:  opts.VaultClient,
-		cacheUtil: opts.CacheUtil,
-	}, nil
+		vaultAPI:  opts.VaultAPI,
+		cacheUtil: cache.NewCacheUtil(opts.CacheDir),
+	}
+}
+
+func (h *Helper) VaultClient() *api.Client {
+	return h.vaultAPI
 }
 
 func (h *Helper) Add(creds *credentials.Credentials) error {
@@ -77,17 +71,26 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	defer log.Flush()
 
 	// Parse the config.json file
-	cfg, err := config.GetCredHelperConfig()
+	cfg, err := config.ParseConfigFile()
 	if err != nil {
 		log.Errorf("error parsing configuration file: %v", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
+	if h.vaultAPI == nil {
+		// Configure Vault API client if any configurations were provided in
+		// the config.json file
+		if err = h.newVaultClient(cfg.Client); err != nil {
+			log.Errorf("error creating Vault client: %v", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+	}
+
 	// Handle according to the chosen authentication method
-	switch cfg.Method {
+	switch cfg.Auth.Method {
 	case config.VaultAuthMethodAWSIAM, config.VaultAuthMethodAWSEC2:
 		// If a valid cached token is found, attempt to read secret with it
-		if token := h.getCachedToken(cfg.Method); token != "" {
+		if token := h.getCachedToken(h.vaultAPI.Address(), cfg.Auth.Method); token != "" {
 			h.vaultAPI.SetToken(token)
 			client := auth.NewDefaultClient(h.vaultAPI)
 			creds, err := client.GetCredentials(cfg.Secret)
@@ -95,16 +98,16 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 				return creds.Username, creds.Password, nil
 			}
 			log.Debugf("error getting Docker credentials from Vault using cached token: %v", err)
-			h.cacheUtil.ClearCachedToken(cfg.Method)
+			h.cacheUtil.ClearCachedToken(h.vaultAPI.Address(), cfg.Auth.Method)
 		}
 
 		// Authenticate against Vault in the manner specified in the
 		// config.json file to obtain a new client token
 		var factory auth.ClientFactory
-		if cfg.Method == config.VaultAuthMethodAWSIAM {
-			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Role, cfg.ServerID, cfg.MountPath)
+		if cfg.Auth.Method == config.VaultAuthMethodAWSIAM {
+			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Auth.Role, cfg.Auth.ServerID, cfg.Auth.AWSMountPath)
 		} else {
-			factory, err = auth.NewClientFactoryAWSEC2Auth(cfg.Role, cfg.MountPath)
+			factory, err = auth.NewClientFactoryAWSEC2Auth(cfg.Auth.Role, cfg.Auth.AWSMountPath)
 		}
 		if err != nil {
 			log.Errorf("error creating new client factory: %v", err)
@@ -119,7 +122,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		// Attempt to cache the token; log if it fails but don't return
 		// an error
-		if err = h.cacheUtil.CacheNewToken(secret, cfg.Method); err != nil {
+		if err = h.cacheUtil.CacheNewToken(secret, h.vaultAPI.Address(), cfg.Auth.Method); err != nil {
 			log.Debugf("error caching new token: %v", err)
 		}
 
@@ -131,8 +134,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
-		// If the Vault API client doesn't have a token,
-		// attempt to get it from $VAULT_TOKEN
+		// If the Vault API client doesn't have a token, attempt to
+		// get it from $VAULT_TOKEN
 		if h.vaultAPI.Token() == "" {
 			token := os.Getenv(api.EnvVaultToken)
 			if token == "" {
@@ -151,13 +154,44 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 		return creds.Username, creds.Password, nil
 	default:
-		log.Errorf("unknown authentication method: %q", cfg.Method)
+		log.Errorf("unknown authentication method: %q", cfg.Auth.Method)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 }
 
 func (h *Helper) List() (map[string]string, error) {
 	return nil, notImplementedError
+}
+
+func (h *Helper) newVaultClient(cfg config.VaultClientConfig) error {
+	if os.Getenv(api.EnvVaultAddress) == "" && cfg.Address != "" {
+		os.Setenv(api.EnvVaultAddress, cfg.Address)
+	}
+
+	if os.Getenv(api.EnvVaultToken) == "" && cfg.Token != "" {
+		os.Setenv(api.EnvVaultToken, cfg.Token)
+	}
+
+	if os.Getenv(api.EnvVaultCACert) == "" && cfg.CACert != "" {
+		os.Setenv(api.EnvVaultCACert, cfg.CACert)
+	}
+
+	if os.Getenv(api.EnvVaultClientCert) == "" && cfg.ClientCert != "" {
+		os.Setenv(api.EnvVaultClientCert, cfg.ClientCert)
+	}
+
+	if os.Getenv(api.EnvVaultClientKey) == "" && cfg.ClientKey != "" {
+		os.Setenv(api.EnvVaultClientKey, cfg.ClientKey)
+	}
+
+	client, err := api.NewClient(nil)
+	if err != nil {
+		return err
+	}
+
+	h.vaultAPI = client
+
+	return nil
 }
 
 // getCachedToken attempts to retrieve a cached token. This function serves to
@@ -170,37 +204,36 @@ func (h *Helper) List() (map[string]string, error) {
 // If the token is not expired but renewable, it will attempt to renew the token.
 // If it fails to renew, it will remove the cached tokens associated with the
 // given method.
-func (h *Helper) getCachedToken(method config.VaultAuthMethod) string {
+func (h *Helper) getCachedToken(vaultAddr string, method config.VaultAuthMethod) string {
 	defer log.Flush()
 
 	// Get the cached token (if exists)
-	token, err := h.cacheUtil.LookupToken(method)
+	token, err := h.cacheUtil.LookupToken(vaultAddr, method)
 	if err != nil {
 		// Log error and delete cached token
 		log.Warnf("error getting cached token: %v", err)
-		h.cacheUtil.ClearCachedToken(method)
+		h.cacheUtil.ClearCachedToken(vaultAddr, method)
+		return ""
 	}
 
-	// If an instance of cache.CachedToken was returned, check
-	// if the token is expired or if it can be renewed before
-	// attempting to use it to read the secret
-	var tokenID = ""
-	if token != nil {
-		if token.Expired() {
-			// Delete the cached token
-			h.cacheUtil.ClearCachedToken(method)
-		} else {
-			tokenID = token.Token
-			if token.EligibleForRenewal() {
-				err = h.cacheUtil.RenewToken(token)
-				if err != nil {
-					// Log error and delete cached token
-					log.Warnf("error attempting to renew token: %v", err)
-					h.cacheUtil.ClearCachedToken(method)
-					tokenID = ""
-				}
-			}
+	if token == nil {
+		return ""
+	}
+	
+	if token.Expired() {
+		// Delete the cached token
+		h.cacheUtil.ClearCachedToken(vaultAddr, method)
+		return ""
+	}
+
+	if token.EligibleForRenewal() {
+		if err = h.cacheUtil.RenewToken(token, h.vaultAPI); err != nil {
+			// Log error and delete cached token
+			log.Warnf("error attempting to renew token: %v", err)
+			h.cacheUtil.ClearCachedToken(vaultAddr, method)
+			return ""
 		}
 	}
-	return tokenID
+
+	return token.TokenID()
 }

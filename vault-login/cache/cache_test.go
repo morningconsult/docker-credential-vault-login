@@ -1,10 +1,20 @@
+// Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License"). You may
+// not use this file except in compliance with the License. A copy of the
+// License is located at
+//
+//         https://www.apache.org/licenses/LICENSE-2.0
+//
+// or in the "license" file accompanying this file. This file is distributed
+// on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+// express or implied. See the License for the specific language governing
+// permissions and limitations under the License.
+
 package cache
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"io"
+	"net/url"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,18 +22,51 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/awstesting"
-	"github.com/hashicorp/go-uuid"
+	"github.com/mitchellh/mapstructure"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
 
+func TestSetupCacheDir_EnvCacheDir(t *testing.T) {
+	os.Setenv(EnvCacheDir, "testdata")
+
+	cacheDir := SetupCacheDir()
+
+	if cacheDir != "testdata" {
+		t.Fatalf("expected \"testdata\", but got %q instead", cacheDir)
+	}
+}
+
+func TestSetupCacheDir_BackupCache(t *testing.T) {
+	// This will cause github.com/mitchellh/go-homedir.Expand() to fail
+	env := awstesting.StashEnv()
+	defer awstesting.PopEnv(env)
+
+	cacheDir := SetupCacheDir()
+
+	if cacheDir != BackupCacheDir {
+		t.Fatalf("expected %q, but got %q instead",
+			BackupCacheDir, cacheDir)
+	}
+}
+
+func TestSetupCacheDir_CreatesCacheDir(t *testing.T) {
+	cacheDir := "testdata"
+	os.RemoveAll(cacheDir)
+	os.Setenv(EnvCacheDir, cacheDir)
+
+	SetupCacheDir()
+
+	if _, err := os.Stat(cacheDir); err != nil {
+		t.Fatal("SetupCacheDir() should have created cache directory, but it didn't")
+	}
+}
+
 func TestNewCacheUtil(t *testing.T) {
 	const cacheDir = "testdata"
-
-	os.Setenv(EnvCacheDir, cacheDir)
 
 	cases := []struct {
 		name      string
@@ -65,7 +108,7 @@ func TestNewCacheUtil(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			os.Setenv(EnvDisableCache, tc.env)
-			cacheUtilUntyped := NewCacheUtil(nil)
+			cacheUtilUntyped := NewCacheUtil(cacheDir)
 
 			switch tc.cacheType {
 			case "default":
@@ -83,138 +126,38 @@ func TestNewCacheUtil(t *testing.T) {
 	}
 }
 
-func TestNewCacheUtil_BackupCache(t *testing.T) {
-	// This will cause github.com/mitchellh/go-homedir.Expand() to fail
-	env := awstesting.StashEnv()
-	defer awstesting.PopEnv(env)
-
-	cacheUtil := NewCacheUtil(nil)
-
-	if cacheUtil.GetCacheDir() != BackupCacheDir {
-		t.Fatalf("expected CacheUtil.cacheDir to be %q, but got %q instead",
-			BackupCacheDir, cacheUtil.GetCacheDir())
-	}
-}
-
-func TestDefaultCacheUtil_GetCacheDir(t *testing.T) {
+func TestCacheUtil_CacheDir(t *testing.T) {
 	const cacheDir = "testdata"
 
 	os.Unsetenv(EnvDisableCache)
 	os.Setenv(EnvCacheDir, cacheDir)
+	cacheUtil := NewCacheUtil("")
 
-	cacheUtil := NewDefaultCacheUtil(nil)
-	if cacheUtil.GetCacheDir() != cacheDir {
+	if cacheUtil.CacheDir() != cacheDir {
 		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
-			cacheDir, cacheUtil.cacheDir)
+			cacheDir, cacheUtil.CacheDir())
 	}
 }
 
-// func TestDefaultCacheUtil_GetCachedToken_ClearsTokens(t *testing.T) {
-// 	const cacheDir = "testdata"
-// 	const method = config.VaultAuthMethodAWSIAM
-
-// 	os.Unsetenv(EnvDisableCache)
-// 	os.Unsetenv(EnvCipherKey)
-// 	os.Setenv(EnvCacheDir, cacheDir)
-
-// 	cacheUtil := NewDefaultCacheUtil(nil)
-// 	cacheUtil.ClearCachedToken(method)
-// 	defer cacheUtil.ClearCachedToken(method)
-
-// 	cases := []struct {
-// 		name      string
-// 		tokenJSON map[string]interface{}
-// 	}{
-// 		{
-// 			"expired",
-// 			map[string]interface{}{
-// 				"token":      "token!",
-// 				"expiration": time.Now().Add(-10 * time.Hour).Unix(),
-// 				"renewable":  false,
-// 			},
-// 		},
-// 		{
-// 			"lookup-fails",
-// 			map[string]interface{}{
-// 				"token":      "token!",
-// 				"expiration": "not an int",
-// 				"renewable":  false,
-// 			},
-// 		},
-// 		{
-// 			"renew-fails",
-// 			map[string]interface{}{
-// 				"token":      "token!",
-// 				"expiration": time.Now().Add(time.Second * time.Duration(GracePeriodSeconds/2)).Unix(),
-// 				"renewable":  true,
-// 			},
-// 		},
-// 	}
-
-// 	for _, tc := range cases {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			cacheUtil.ClearCachedToken(method)
-// 			defer cacheUtil.ClearCachedToken(method)
-// 			writeJSONToFile(t, tc.tokenJSON, cacheUtil.TokenFilename(method))
-
-// 			if tc.name == "renew-fails" {
-// 				// This will trigger an error when
-// 				// github.com/hasicorp/vault/api.Client.NewClient()
-// 				// is called
-// 				os.Setenv(api.EnvRateLimit, "not an int!")
-// 				defer os.Unsetenv(api.EnvRateLimit)
-// 			}
-
-// 			token := cacheUtil.GetCachedToken(method)
-// 			if token != "" {
-// 				t.Fatal("returned token should be an empty string")
-// 			}
-
-// 			files, err := filepath.Glob(cacheUtil.basename(method) + "*")
-// 			if err != nil {
-// 				t.Fatal(err)
-// 			}
-
-// 			if len(files) > 0 {
-// 				t.Fatal("GetCachedToken() should have cleared all tokens")
-// 			}
-// 		})
-// 	}
-// }
-
 func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
-	const roleName = "dev-test"
+	const cacheDir = "testdata"
+	const method = config.VaultAuthMethodAWSIAM
+	const token = "a unique client token"
+	const addr = "https://vault.service.consul"
 
 	os.Unsetenv(EnvDisableCache)
-	os.Setenv(EnvCacheDir, "testdata")
-	os.Unsetenv(EnvCipherKey)
 
-	cacheUtil := NewDefaultCacheUtil(nil)
-
-	// Setup some test values
-	method := config.VaultAuthMethodAWSIAM
-	goodExpiration := time.Now().Add(time.Minute * 20).Unix()
-	token, err := uuid.GenerateUUID()
-	if err != nil {
-		t.Fatal(err)
-	}
+	cacheUtil := NewCacheUtil(cacheDir)
 
 	cases := []struct {
 		name string
-		arg  interface{}
+		url  string
+		arg  *api.Secret
 		err  bool
 	}{
 		{
-			"with-cached-token",
-			&CachedToken{
-				Token:      token,
-				Expiration: goodExpiration,
-				Renewable:  true,
-			},
-			false,
-		},
-		{
-			"with-secret",
+			"success",
+			addr,
 			&api.Secret{
 				Auth: &api.SecretAuth{
 					ClientToken:   token,
@@ -225,7 +168,20 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 			false,
 		},
 		{
-			"secret-bad-token",
+			"bad-vault-address",
+			"@!#$&^@#$%&@$%&",
+			&api.Secret{
+				Auth: &api.SecretAuth{
+					ClientToken:   token,
+					Renewable:     true,
+					LeaseDuration: 86400,
+				},
+			},
+			true,
+		},
+		{
+			"bad-token",
+			addr,
 			&api.Secret{
 				Data: map[string]interface{}{
 					// Token is not a string
@@ -235,7 +191,8 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 			true,
 		},
 		{
-			"secret-bad-ttl",
+			"bad-ttl",
+			addr,
 			&api.Secret{
 				Data: map[string]interface{}{
 					// Token is not a string
@@ -245,7 +202,8 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 			true,
 		},
 		{
-			"secret-bad-renewable",
+			"bad-renewable",
+			addr,
 			&api.Secret{
 				Data: map[string]interface{}{
 					// Token is not a string
@@ -254,18 +212,13 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 			},
 			true,
 		},
-		{
-			"unsupported-type",
-			"i'm just a string",
-			true,
-		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cacheUtil.ClearCachedToken(method)
-			err := cacheUtil.CacheNewToken(tc.arg, method)
-			defer cacheUtil.ClearCachedToken(method)
+			clearTestdata(cacheDir)
+			err := cacheUtil.CacheNewToken(tc.arg, tc.url, method)
+			defer clearTestdata(cacheDir)
 
 			if tc.err {
 				if err == nil {
@@ -278,92 +231,249 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 				t.Fatalf("expected no error but received one: %v", err)
 			}
 
-			cachedToken := loadTokenFromFile(t, cacheUtil.TokenFilename(method))
-			if cachedToken.Token != token {
-				t.Fatalf("expected token %q but got %q instead", token, cachedToken.Token)
+			cachedToken := loadTokenFromFile(t, cacheUtil.TokenFile(), tc.url, method)
+
+			// Must select the field corresponding to "method"
+			if cachedToken.TokenID() == "" {
+				t.Fatalf("token for method %q should not have been empty", string(method))
 			}
-			if cachedToken.Expiration == 0 {
-				t.Fatal("expected token to have an expiration date, but it didn't")
+
+			if cachedToken.TokenID() != token {
+				t.Fatalf("expected token %q, but got %q", token, cachedToken.Token)
+			}
+
+			if cachedToken.ExpirationTS() == 0 {
+				t.Fatal("expiration should not be 0")
 			}
 		})
 	}
 }
 
-func TestDefaultCacheUtil_LookupToken(t *testing.T) {
-	const roleName = "dev-test"
+func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
+	const cacheDir = "testdata"
+	const token = "a unique Vault token"
+	const method = config.VaultAuthMethodAWSIAM
+	const addr = "https://vault.service.consul"
 
-	os.Unsetenv(EnvDisableCache)
+	clearTestdata(cacheDir)
+	defer clearTestdata(cacheDir)
+
 	os.Setenv(EnvCacheDir, "testdata")
-	os.Unsetenv(EnvCipherKey)
+	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewDefaultCacheUtil(nil)
+	cacheUtil := NewCacheUtil("")
 
-	// Setup some test values
-	method := config.VaultAuthMethodAWSIAM
-	goodExpiration := time.Now().Add(time.Minute * 20).Unix()
-	token, err := uuid.GenerateUUID()
+	u, err := url.Parse(addr)
 	if err != nil {
 		t.Fatal(err)
 	}
+	host := u.Host
+
+	tokenFileOriginal := map[string]interface{}{
+		host: map[string]interface{}{
+			string(method): map[string]interface{}{
+				"token":      token,
+				"expiration": 1234,
+				"renewable":  true,
+			},
+			"other method": map[string]interface{}{
+				"token":      token,
+				"expiration": 5678,
+				"renewable":  false,
+			},
+		},
+	}
+	writeTokenFile(t, tokenFileOriginal, cacheUtil.TokenFile())
+
+	newSecret := &api.Secret{
+		Auth: &api.SecretAuth{
+			ClientToken:   "new token",
+			Renewable:     true,
+			LeaseDuration: 86400,
+		},
+	}
+
+	if err = cacheUtil.CacheNewToken(newSecret, addr, method); err != nil {
+		t.Fatal(err)
+	}
+
+	newToken := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, method)
+	if newToken.TokenID() != "new token" {
+		t.Fatalf("should have overwritten cached token entry (host: %q, method: %q)", host, string(method))
+	}
+}
+
+func TestDefaultCacheUtil_LookupToken(t *testing.T) {
+	const cacheDir = "testdata"
+	const token = "a unique Vault token"
+	const method = config.VaultAuthMethodAWSIAM
+	const addr = "https://vault.service.consul"
+
+	os.Setenv(EnvCacheDir, "testdata")
+	os.Unsetenv(EnvDisableCache)
+
+	cacheUtil := NewCacheUtil("")
+
+	u, err := url.Parse(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := u.Host
 
 	cases := []struct {
-		name       string
-		token      string
-		expiration interface{}
-		renewable  interface{}
-		err        bool
+		name string
+		addr string
+		file map[string]interface{}
+		err  bool
 	}{
 		{
 			"success",
-			token,
-			goodExpiration,
-			true,
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{
+						"token":      token,
+						"expiration": 1234,
+						"renewable":  true,
+					},
+				},
+			},
 			false,
 		},
 		{
-			"non-int-expiration",
-			token,
-			"i am not an int!",
+			"no-entry-for-host",
+			addr,
+			map[string]interface{}{
+				"different.host.com": "",
+			},
+			false,
+		},
+		{
+			"no-entry-for-method",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					"fake method": "",
+				},
+			},
+			false,
+		},
+		{
+			"malformed-host-entry",
+			addr,
+			map[string]interface{}{
+				host: "i'm just a string :(",
+			},
 			true,
+		},
+		{
+			"malformed-method-entry",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): "i'm just a string :(",
+				},
+			},
 			true,
+		},
+		{
+			"file-missing",
+			addr,
+			map[string]interface{}{},
+			false,
 		},
 		{
 			"empty-token",
-			"",
-			goodExpiration,
-			true,
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{
+						"token":      "",
+						"expiration": 1234,
+						"renewable":  true,
+					},
+				},
+			},
 			true,
 		},
 		{
-			"file-doesnt-exist",
-			token,
-			goodExpiration,
+			"no-expiration",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{
+						"token":     token,
+						"renewable": true,
+					},
+				},
+			},
 			true,
-			false,
+		},
+		{
+			"bad-expiration-type",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{
+						"token":      token,
+						"expiration": "i should be an int",
+						"renewable":  true,
+					},
+				},
+			},
+			true,
+		},
+		{
+			"bad-renewable-type",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{
+						"token":      token,
+						"expiration": 1234,
+						"renewable":  "i should be a bool",
+					},
+				},
+			},
+			true,
+		},
+		{
+			"empty-json",
+			addr,
+			map[string]interface{}{
+				host: map[string]interface{}{
+					string(method): map[string]interface{}{},
+				},
+			},
+			true,
+		},
+		{
+			"file-not-json",
+			addr,
+			map[string]interface{}{},
+			true,
+		},
+		{
+			"bad-address",
+			"#$%&^!#$",
+			map[string]interface{}{},
+			true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cacheUtil.ClearCachedToken(method)
+			clearTestdata(cacheDir)
+			defer clearTestdata(cacheDir)
 
-			// This represents a CachedToken instance. An actual
-			// CachedToken object is not created so that mismatched
-			// data types can be tested
-			json := map[string]interface{}{
-				"token":      tc.token,
-				"expiration": tc.expiration,
-				"renewable":  tc.renewable,
+			if tc.name == "file-not-json" {
+				writeDataToFile(t, []byte(""), cacheUtil.TokenFile())
+			} else if tc.name != "file-missing" {
+				writeTokenFile(t, tc.file, cacheUtil.TokenFile())
 			}
 
-			if tc.name != "file-doesnt-exist" {
-				writeJSONToFile(t, json, cacheUtil.TokenFilename(method))
-			}
+			_, err := cacheUtil.LookupToken(tc.addr, method)
 
-			// Delete the file at the end of the test
-			defer cacheUtil.ClearCachedToken(method)
-
-			_, err := cacheUtil.LookupToken(method)
 			if tc.err && (err == nil) {
 				t.Fatal("expected an error but didn't receive one")
 			}
@@ -376,67 +486,54 @@ func TestDefaultCacheUtil_LookupToken(t *testing.T) {
 }
 
 func TestDefaultCacheUtil_RenewToken(t *testing.T) {
-	const roleName = "dev-test"
+	const cacheDir = "testdata"
+	const method = config.VaultAuthMethodAWSIAM
 
 	os.Unsetenv(EnvDisableCache)
-	os.Setenv(EnvCacheDir, "testdata")
-	os.Unsetenv(EnvCipherKey)
+
+	cacheUtil := NewCacheUtil(cacheDir)
 
 	// Start the Vault testing cluster
 	cluster := test.StartTestCluster(t)
 	defer cluster.Cleanup()
 
 	client := test.NewPreConfiguredVaultClient(t, cluster)
-	rootToken := client.Token()
 
 	cases := []struct {
 		name      string
 		renewable bool
-		ttl       string
-		method    config.VaultAuthMethod
+		client    *api.Client
 		err       bool
 	}{
 		{
 			"renewable",
 			true,
-			"1h",
-			config.VaultAuthMethodAWSIAM,
+			client,
 			false,
 		},
 		{
 			"non-renewable",
 			false,
-			"1h",
-			config.VaultAuthMethodAWSIAM,
+			client,
 			true,
 		},
 		{
-			"new-vault-client-error",
-			true,
-			"1h",
-			config.VaultAuthMethodAWSIAM,
+			"nil-client",
+			false,
+			nil,
 			true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			client.SetToken(rootToken)
-
-			var cacheUtil *DefaultCacheUtil
-			if tc.name == "new-vault-client-error" {
-				// This will trigger an error
-				os.Setenv(api.EnvRateLimit, "not an int!")
-				defer os.Unsetenv(api.EnvRateLimit)
-				cacheUtil = NewDefaultCacheUtil(nil)
-			} else {
-				cacheUtil = NewDefaultCacheUtil(client)
-			}
+			clearTestdata(cacheDir)
+			defer clearTestdata(cacheDir)
 
 			// Create a token
 			secret, err := client.Logical().Write(filepath.Join("auth", "token", "create"), map[string]interface{}{
 				"renewable": tc.renewable,
-				"ttl":       tc.ttl,
+				"ttl":       "1h",
 				"policies":  []string{"test"},
 			})
 			if err != nil {
@@ -452,10 +549,8 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 				Token:      token,
 				Expiration: time.Now().Add(time.Hour * 1).Unix(),
 				Renewable:  tc.renewable,
-				AuthMethod: tc.method,
-			})
-
-			cacheUtil.ClearCachedToken(tc.method)
+				method:     method,
+			}, tc.client)
 
 			if tc.err && (err == nil) {
 				t.Fatal("expected an error but didn't receive one")
@@ -468,148 +563,131 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 	}
 }
 
-func TestDefaultCacheUtil_GetEncryptedToken(t *testing.T) {
+func TestDefaultCacheUtil_ClearCachedToken(t *testing.T) {
 	const (
-		roleName  = "dev-test"
-		cipherKey = "hello darkness my old friend ive"
-		method    = config.VaultAuthMethodAWSIAM
-		token     = "random token"
+		cacheDir     = "testdata"
+		addr         = "https://vault.server.consul"
+		erasedMethod = config.VaultAuthMethodAWSIAM
+		keptMethod   = config.VaultAuthMethodAWSEC2
 	)
 
-	var expiration = time.Now().Unix()
+	u, err := url.Parse(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := u.Host
 
 	os.Unsetenv(EnvDisableCache)
-	os.Setenv(EnvCacheDir, "testdata")
 
-	cases := []struct {
-		name string
-		key  string
-		err  bool
-	}{
-		{
-			"decrypts",
-			cipherKey,
-			false,
-		},
-		{
-			"wrong-key",
-			"asdfasdfasdfasdfasdfasdfasdfasdfasdf",
-			true,
-		},
-		{
-			"malformed-file",
-			cipherKey,
-			true,
+	cacheUtil := NewCacheUtil(cacheDir)
+
+	tokenFileOriginal := map[string]interface{}{
+		host: map[string]interface{}{
+			string(erasedMethod): map[string]interface{}{
+				"token":      "token",
+				"expiration": time.Now().Unix(),
+				"renewable":  false,
+			},
+			string(keptMethod): map[string]interface{}{
+				"token":      "other token",
+				"expiration": time.Now().Unix(),
+				"renewable":  true,
+			},
 		},
 	}
+
+	writeTokenFile(t, tokenFileOriginal, cacheUtil.TokenFile())
+
+	cacheUtil.ClearCachedToken(addr, erasedMethod)
+
+	// ClearCachedToken should have deleted the entry for erasedMethod
+	// but not the entry for keptMethod
+	tokenFileNew := readTokenFile(t, cacheUtil.TokenFile())
+	serverTokens, ok := tokenFileNew[host].(map[string]interface{})
+	if !ok {
+		t.Fatal("failed to read token file")
+	}
+	
+	if _, ok = serverTokens[string(erasedMethod)]; ok {
+		t.Fatalf("should have erased cached token for method %q", string(erasedMethod))
+	}
+	if _, ok = serverTokens[string(keptMethod)].(map[string]interface{}); !ok {
+		t.Fatalf("should not have erased cached token for method %q", string(erasedMethod))
+	}
+}
+
+func TestDefaultCacheUtil_ClearCachedToken_BadFile(t *testing.T) {
+	const cacheDir = "testdata"
+
+	os.Unsetenv(EnvDisableCache)
+
+	cacheUtil := NewCacheUtil(cacheDir)
+
+	cases := []struct {
+		name     string
+		fileData string
+	}{
+		{
+			"non-json",
+			"i am not a json",
+		},
+		{
+			"invalid-json",
+			"{{}",
+		},
+	}
+
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv(EnvCipherKey, tc.key)
-			defer os.Unsetenv(EnvCipherKey)
+			clearTestdata(cacheDir)
+			defer clearTestdata(cacheDir)
 
-			cacheUtil := NewDefaultCacheUtil(nil)
+			writeDataToFile(t, []byte(tc.fileData), cacheUtil.TokenFile())
 
-			cacheUtil.ClearCachedToken(method)
-			defer cacheUtil.ClearCachedToken(method)
+			cacheUtil.ClearCachedToken("https://vault.service.consul", config.VaultAuthMethodAWSIAM)
 
-			if tc.name == "malformed-file" {
-				writeDataToFile(t, []byte(""), cacheUtil.TokenFilename(method))
-			} else {
-				json := map[string]interface{}{
-					"token":      token,
-					"expiration": expiration,
-				}
-				encryptJSONAndWriteFile(t, json, cacheUtil.TokenFilename(method), cipherKey)
-			}
-
-			cachedToken, err := cacheUtil.LookupToken(method)
-			if tc.err {
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			if cachedToken.Token != token {
-				t.Fatalf("expected cached token ID of %q but got %q", token, cachedToken.Token)
-			}
-			if cachedToken.Expiration != expiration {
-				t.Fatalf("expected cached token expiration date of %d but got %d instead",
-					expiration, cachedToken.Expiration)
+			// ClearCachedToken should have deleted the file
+			if _, err := os.Stat(cacheUtil.TokenFile()); err == nil {
+				t.Fatal("should have deleted the tokens.json file")
 			}
 		})
 	}
 }
 
-func TestDefaultCacheUtil_EncryptAndCacheToken(t *testing.T) {
-	const (
-		roleName  = "dev-test"
-		cipherKey = "hello darkness my old friend ive"
-		method    = config.VaultAuthMethodAWSIAM
-		token     = "random token"
-	)
-
-	var expiration = time.Now().Unix()
-
-	os.Unsetenv(EnvDisableCache)
-	os.Setenv(EnvCacheDir, "testdata")
-	os.Setenv(EnvCipherKey, cipherKey)
-	defer os.Unsetenv(EnvCipherKey)
-
-	cacheUtil := NewDefaultCacheUtil(nil)
-
-	cacheUtil.CacheNewToken(&CachedToken{
-		Token:      token,
-		Expiration: time.Now().Unix(),
-	}, method)
-
-	cachedToken := decryptJSONFile(t, cacheUtil.TokenFilename(method), cipherKey)
-
-	if cachedToken.Token != token {
-		t.Fatalf("expected cached token ID of %q but got %q", token, cachedToken.Token)
-	}
-	if cachedToken.Expiration != expiration {
-		t.Fatalf("expected cached token expiration date of %d but got %d instead",
-			expiration, cachedToken.Expiration)
-	}
-}
-
-func TestNullCacheUtil_GetCacheDir(t *testing.T) {
+func TestNullCacheUtil_CacheDir(t *testing.T) {
 	const cacheDir = "testdata"
 
-	os.Setenv(EnvDisableCache, "true")
 	os.Setenv(EnvCacheDir, cacheDir)
+	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewNullCacheUtil()
-	if cacheUtil.GetCacheDir() != cacheDir {
+	cacheUtil := NewCacheUtil("")
+	if cacheUtil.CacheDir() != cacheDir {
 		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
-			cacheDir, cacheUtil.cacheDir)
+			cacheDir, cacheUtil.CacheDir())
 	}
 }
 
-// func TestNullCacheUtil_GetCachedToken(t *testing.T) {
-// 	const cacheDir = "testdata"
+func TestNullCacheUtil_TokenFile(t *testing.T) {
+	const cacheDir = "testdata"
+	var expected = filepath.Join(cacheDir, "tokens.json")
 
-// 	os.Setenv(EnvDisableCache, "true")
-// 	os.Setenv(EnvCacheDir, cacheDir)
+	os.Setenv(EnvCacheDir, cacheDir)
+	os.Setenv(EnvDisableCache, "true")
 
-// 	cacheUtil := NewNullCacheUtil()
-// 	token := cacheUtil.GetCachedToken(config.VaultAuthMethodAWSIAM)
-// 	if token != "" {
-// 		t.Fatal("expected an empty string")
-// 	}
-// }
+	cacheUtil := NewCacheUtil("")
+	if cacheUtil.TokenFile() != expected {
+		t.Fatalf("Expected cacheUtil.tokenFilename to be %q, but got %q instead",
+			expected, cacheUtil.TokenFile())
+	}
+}
 
 func TestNullCacheUtil_LookupToken(t *testing.T) {
 	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewNullCacheUtil()
-	token, err := cacheUtil.LookupToken(config.VaultAuthMethodAWSIAM)
+	cacheUtil := NewCacheUtil(cacheDir)
+	token, err := cacheUtil.LookupToken("", config.VaultAuthMethodAWSIAM)
 	if err != nil {
 		t.Fatal("expected a nil error")
 	}
@@ -622,11 +700,10 @@ func TestNullCacheUtil_CacheNewToken(t *testing.T) {
 	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewNullCacheUtil()
+	cacheUtil := NewCacheUtil(cacheDir)
 
-	err := cacheUtil.CacheNewToken("", config.VaultAuthMethodAWSIAM)
+	err := cacheUtil.CacheNewToken(nil, "", config.VaultAuthMethodAWSIAM)
 	if err != nil {
 		t.Fatal("expected a nil error")
 	}
@@ -636,11 +713,10 @@ func TestNullCacheUtil_RenewToken(t *testing.T) {
 	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewNullCacheUtil()
+	cacheUtil := NewCacheUtil(cacheDir)
 
-	err := cacheUtil.RenewToken(nil)
+	err := cacheUtil.RenewToken(nil, nil)
 	if err != nil {
 		t.Fatal("expected a nil error")
 	}
@@ -650,108 +726,48 @@ func TestNullCacheUtil_ClearCachedToken(t *testing.T) {
 	const cacheDir = "testdata"
 
 	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
 
-	cacheUtil := NewNullCacheUtil()
+	cacheUtil := NewCacheUtil(cacheDir)
 
 	// Should return nothing and have no effect at all
-	cacheUtil.ClearCachedToken(config.VaultAuthMethodAWSIAM)
-}
-
-func TestNullCacheUtil_TokenFilename(t *testing.T) {
-	const cacheDir = "testdata"
-
-	os.Setenv(EnvDisableCache, "true")
-	os.Setenv(EnvCacheDir, cacheDir)
-
-	cacheUtil := NewNullCacheUtil()
-
-	fname := cacheUtil.TokenFilename(config.VaultAuthMethodAWSIAM)
-	if fname != "" {
-		t.Fatal("expected an empty string")
-	}
+	cacheUtil.ClearCachedToken("", config.VaultAuthMethodAWSIAM)
 }
 
 func TestMain(m *testing.M) {
 	logging.SetupTestLogger()
 	status := m.Run()
-	os.Unsetenv(EnvDisableCache)
-	os.Setenv(EnvCacheDir, "testdata")
-	cacheUtil := NewCacheUtil(nil)
-	methods := []config.VaultAuthMethod{
-		config.VaultAuthMethodAWSIAM,
-		config.VaultAuthMethodAWSEC2,
-	}
-	for _, method := range methods {
-		cacheUtil.ClearCachedToken(method)
-	}
+	clearTestdata("testdata")
 	os.Exit(status)
 }
 
-func writeJSONToFile(t *testing.T, json map[string]interface{}, tokenfile string) {
-	data, err := jsonutil.EncodeJSON(json)
+func writeTokenFile(t *testing.T, v interface{}, tokenfile string) {
+	data, err := jsonutil.EncodeJSON(v)
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeDataToFile(t, data, tokenfile)
 }
 
-func encryptJSONAndWriteFile(t *testing.T, json map[string]interface{}, tokenfile, key string) {
-	data, err := jsonutil.EncodeJSON(json)
+func readTokenFile(t *testing.T, tokenfile string) map[string]interface{} {
+	data, err := ioutil.ReadFile(tokenfile)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	block, err := aes.NewCipher([]byte(key))
-	if err != nil {
+	var tokenFile map[string]interface{}
+	if err = jsonutil.DecodeJSON(data, &tokenFile); err != nil {
 		t.Fatal(err)
 	}
-
-	ciphertext := make([]byte, aes.BlockSize+len(data))
-	iv := ciphertext[:aes.BlockSize]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		t.Fatal(err)
-	}
-
-	stream := cipher.NewCFBEncrypter(block, iv)
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], data)
-
-	writeDataToFile(t, ciphertext, tokenfile)
-}
-
-func decryptJSONFile(t *testing.T, tokenfile, key string) *CachedToken {
-	block, err := aes.NewCipher([]byte(key))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ciphertext, err := ioutil.ReadFile(tokenfile)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(ciphertext) < aes.BlockSize {
-		t.Fatal("ciphertext too short")
-	}
-
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-	stream := cipher.NewCFBDecrypter(block, iv)
-	stream.XORKeyStream(ciphertext, ciphertext)
-
-	var token = new(CachedToken)
-	if err = jsonutil.DecodeJSON(ciphertext, token); err != nil {
-		t.Fatal(err)
-	}
-	return token
+	
+	return tokenFile
 }
 
 func writeDataToFile(t *testing.T, data []byte, tokenfile string) {
-	if err := os.MkdirAll(filepath.Dir(tokenfile), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(tokenfile), 0700); err != nil {
 		t.Fatal(err)
 	}
 
-	file, err := os.OpenFile(tokenfile, os.O_WRONLY|os.O_CREATE, 0664)
+	file, err := os.OpenFile(tokenfile, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -763,16 +779,44 @@ func writeDataToFile(t *testing.T, data []byte, tokenfile string) {
 	}
 }
 
-func loadTokenFromFile(t *testing.T, filename string) *CachedToken {
+func loadTokenFromFile(t *testing.T, filename string, vaultAddr string, method config.VaultAuthMethod) *CachedToken {
 	file, err := os.Open(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer file.Close()
 
-	var token = new(CachedToken)
-	if err = jsonutil.DecodeJSONFromReader(file, token); err != nil {
+	var tokenFile = make(map[string]interface{})
+	if err = jsonutil.DecodeJSONFromReader(file, &tokenFile); err != nil {
 		t.Fatal(err)
 	}
-	return token
+
+	u, err := url.Parse(vaultAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverTokens, ok := tokenFile[u.Host].(map[string]interface{})
+	if !ok {
+		t.Fatalf("no cached tokens for host %q", u.Host)
+	}
+
+	tokenMap, ok := serverTokens[string(method)].(map[string]interface{})
+	if !ok {
+		t.Fatalf("no cached token found (host: %q, method: %q)", u.Host, string(method))
+	}
+
+	var cachedToken = new(CachedToken)
+	if err = mapstructure.Decode(tokenMap, cachedToken); err != nil {
+		t.Fatal(err)
+	}
+
+	return cachedToken
+}
+
+func clearTestdata(dir string) {
+	files, _ := filepath.Glob(filepath.Join(dir, "*token*"))
+	for _, file := range files {
+		os.Remove(file)
+	}
 }

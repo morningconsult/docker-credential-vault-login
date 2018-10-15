@@ -36,51 +36,77 @@ const (
 	EnvConfigFilePath string = "DOCKER_CREDS_CONFIG_FILE"
 )
 
-type CredHelperConfig struct {
-	// Method is the method Vault will use to
-	// authenticate a user. Accepted values include
-	// "token", "iam", and "ec2". This field is
-	// always required
-	Method VaultAuthMethod `json:"auth_method"`
+type AuthConfig struct {
 
-	// Role is the Vault role which has been configured
-	// to be able to authenticate via the EC2 or IAM
-	// method (this field is only required when either
-	// "iam" or "ec2" is chosen as the authentication
-	// method).
+	// Method is the method Vault will use to authenticate a user. Accepted
+	// values include "token", "iam", and "ec2". This field is
+	// always required.
+	Method VaultAuthMethod `json:"method"`
+
+	// Role is the Vault role which has been configured to be able to
+	// authenticate via the EC2 or IAM method (this field is only required
+	// when either "iam" or "ec2" is chosen as the authentication method).
 	Role string `json:"role"`
 
-	// Secret is the path in Vault at which the Docker
-	// credentials are stored (e.g. "secret/foo/bar").
-	// This field is always required.
+	// ServerID is used as the value of the X-Vault-AWS-IAM-Server-ID when
+	// Vault makes an sts:GetCallerIdentity request to AWS as part of the
+	// AWS IAM authentication method. This field is optional and is only
+	// used when "iam" is chosen as the authentication method.
+	ServerID string `json:"iam_server_id_header"`
+
+	// AWSMountPath is used to specify the path at which the AWS secrets
+	// engine is enable (if at all). If this is empty, the default mount
+	// path "aws" will be used instead.
+	AWSMountPath string `json:"aws_mount_path"`
+}
+
+type VaultClientConfig struct {
+
+	// Address is the URL of your Vault server.
+	Address string `json:"vault_addr"`
+
+	// Token is a valid Vault client token. This will only be used if the
+	// "token" authentication method is chosen.
+	Token string `json:"vault_token"`
+
+	// CACert is the path to a PEM-encoded CA certificate file on the local
+	// disk. This file is used to verify the Vault server's SSL certificate.
+	CACert string `json:"vault_cacert"`
+
+	// ClientCert is the path to a PEM-encoded client certificate on the
+	// local disk. This file is used for TLS communication with the Vault
+	// server.
+	ClientCert string `json:"vault_client_cert"`
+
+	// ClientKey is the path to an unencrypted, PEM-encoded private key on
+	// disk which corresponds to the matching client certificate.
+	ClientKey string `json:"vault_client_key"`
+}
+
+type CredHelperConfig struct {
+
+	// Auth is used to specify the authentication parameters
+	Auth AuthConfig `json:"auth"`
+
+	// ClientConfig is used to configure the Vault API client used to
+	// make requests to your Vault server.
+	Client VaultClientConfig `json:"client"`
+
+	// Secret is the path in Vault at which the Docker credentials are
+	// stored (e.g. "secret/foo/bar"). This field is always required
 	Secret string `json:"secret_path"`
 
-	// ServerID is used as the value of the
-	// X-Vault-AWS-IAM-Server-ID when Vault makes an
-	// sts:GetCallerIdentity request to AWS. This field
-	// is optional and is only used when "iam" is chosen
-	// as the authentication method.
-	ServerID string `json:"iam_server_id_header_value"`
-
-	// MountPath is used to specify the path at which the
-	// aws secrets engine is enable (if at all). If this
-	// is empty, the default mount path "aws" will be
-	// used instead.
-	MountPath string `json:"aws_mount_path"`
-
-	// Path is the full path to the config.json file.
-	// This field is primarily used for error logging.
+	// Path is the full path to the config.json file. This field is
+	// primarily used for error logging.
 	Path string `json:"-"`
 }
 
-// GetCredHelperConfig first searches for the config.json
-// file at the DOCKER_CREDS_CONFIG_FILE environment variable
-// if it is set, otherwise it searches for it at the
-// DefaultConfigFilePath location. If it is found in neither
-// location, GetCredHelperConfig will return an error.
-// If it finds the config.json file, GetCredHelperConfig
-// will parse and validate it.
-func GetCredHelperConfig() (*CredHelperConfig, error) {
+// ParseConfigFile first searches for the config.json file at the
+// DOCKER_CREDS_CONFIG_FILE environment variable if it is set, otherwise it
+// searches for it at the DefaultConfigFilePath location. If it is found in
+// neither location, ParseConfigFile will return an error. If it finds the
+// config.json file, ParseConfigFile will parse and validate it.
+func ParseConfigFile() (*CredHelperConfig, error) {
 	cfg, err := parseConfigFile()
 	if err != nil {
 		return nil, err
@@ -123,21 +149,19 @@ func parseConfigFile() (*CredHelperConfig, error) {
 func (c *CredHelperConfig) validate() error {
 	var errors []string
 
-	method := c.Method
-
-	switch method {
+	switch c.Auth.Method {
 	case "":
-		errors = append(errors, `No Vault authentication method ("auth_method") is provided`)
+		errors = append(errors, `No Vault authentication method (auth.method) is provided`)
 	case VaultAuthMethodToken:
 	case VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2:
-		if c.Role == "" {
+		if c.Auth.Role == "" {
 			errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("role") is`,
 				"provided (required when the AWS authentication method is chosen)"))
 		}
 	default:
 		errors = append(errors, fmt.Sprintf("%s %s %q (must be one of %q, %q, or %q)",
-			"Unrecognized Vault authentication method", `("auth_method") value`,
-			method, VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2, VaultAuthMethodToken))
+			"Unrecognized Vault authentication method", `(auth.method) value`,
+			c.Auth.Method, VaultAuthMethodAWSIAM, VaultAuthMethodAWSEC2, VaultAuthMethodToken))
 	}
 
 	if c.Secret == "" {
@@ -150,8 +174,8 @@ func (c *CredHelperConfig) validate() error {
 			c.Path, strings.Join(errors, "\n* "))
 	}
 
-	if c.MountPath == "" {
-		c.MountPath = "aws"
+	if c.Auth.AWSMountPath == "" {
+		c.Auth.AWSMountPath = "aws"
 	}
 
 	return nil
