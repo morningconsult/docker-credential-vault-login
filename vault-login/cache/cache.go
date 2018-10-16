@@ -240,11 +240,13 @@ func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.Vaul
 
 	u, err := url.Parse(vaultAddr)
 	if err != nil {
+		file.Close()
 		return
 	}
 
 	serverTokens, ok := tokenFile[u.Host].(map[string]interface{})
 	if !ok {
+		file.Close()
 		return
 	}
 
