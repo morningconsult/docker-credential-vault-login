@@ -124,11 +124,11 @@ If the `iam` method of authentication is chosen, the process will attempt to aut
 
 ### Environmental Variables
 
-Additionally, in order for the helper to work properly you must first set some Vault environmental variables on your system:
+If not specified in the `config.json` file (see the [configuration file](#configuration-section) section), you must specify some Vault parameters with environment variables:
 * **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - Your Vault instance's URL. This environmental variable is always required.
 * **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - A valid Vault token with permission to read your secret. This environmenal variable is only required if the `token` authentication method is chosen.
 
-If your Vault instance uses TLS, you must also set the following environment variables:
+If your Vault instance uses TLS, you must also set the following environment variables if not already specified in the configuration file:
 * **[VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)**
 * **[VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert)**
 * **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
