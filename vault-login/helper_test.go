@@ -128,7 +128,9 @@ func TestHelperGet_ClientConfig(t *testing.T) {
 	helper := NewHelper(&HelperOptions{
 		CacheDir: testDataDir,
 	})
-	helper.Get("")
+	if helper.VaultClient() == nil {
+		t.Fatal("no Vault client was created")
+	}
 	if helper.VaultClient().Address() != vaultAddr {
 		t.Fatalf("expected Vault client address to be %q but got %q", vaultAddr, helper.VaultClient().Address())
 	}
