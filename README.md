@@ -91,8 +91,8 @@ This application requires a configuration file `config.json` in order to determi
 }
 ```
 ### Configuration File Parameters
-* `auth` ([Auth](#auth-parameters): `nil`) - This field is used to specify parameters related to the method of authorization. See the [Auth](#auth-struct) section for more details. This section is required.
-* `client` ([Client](#client-parameters): `nil`) - This field is used to configure the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). This section is optional.
+* `auth` ([Auth](#auth-parameters): `nil`) - This field is used to specify parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
+* `client` ([Client](#client-parameters): `nil`) - This field is used to configure the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details This section is optional.
 * `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
 
 ### `auth` Parameters
