@@ -166,22 +166,32 @@ func (h *Helper) List() (map[string]string, error) {
 func (h *Helper) newVaultClient(cfg config.VaultClientConfig) error {
 	if os.Getenv(api.EnvVaultAddress) == "" && cfg.Address != "" {
 		os.Setenv(api.EnvVaultAddress, cfg.Address)
+		defer os.Unsetenv(api.EnvVaultAddress)
 	}
 
 	if os.Getenv(api.EnvVaultToken) == "" && cfg.Token != "" {
 		os.Setenv(api.EnvVaultToken, cfg.Token)
+		defer os.Unsetenv(api.EnvVaultToken)
 	}
 
 	if os.Getenv(api.EnvVaultCACert) == "" && cfg.CACert != "" {
 		os.Setenv(api.EnvVaultCACert, cfg.CACert)
+		defer os.Unsetenv(api.EnvVaultCACert)
 	}
 
 	if os.Getenv(api.EnvVaultClientCert) == "" && cfg.ClientCert != "" {
 		os.Setenv(api.EnvVaultClientCert, cfg.ClientCert)
+		defer os.Unsetenv(api.EnvVaultClientCert)
 	}
 
 	if os.Getenv(api.EnvVaultClientKey) == "" && cfg.ClientKey != "" {
 		os.Setenv(api.EnvVaultClientKey, cfg.ClientKey)
+		defer os.Unsetenv(api.EnvVaultClientKey)
+	}
+
+	if os.Getenv(api.EnvVaultTLSServerName) == "" && cfg.TLSServerName != "" {
+		os.Setenv(api.EnvVaultTLSServerName, cfg.TLSServerName)
+		defer os.Unsetenv(api.EnvVaultTLSServerName)
 	}
 
 	client, err := api.NewClient(nil)

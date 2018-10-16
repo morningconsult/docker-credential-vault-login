@@ -142,8 +142,9 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 	if err != nil {
 		return nil, fmt.Errorf("error parsing Vault server URL %q: %v", vaultAddr, err)
 	}
+	host := u.Host
 	
-	v, ok := tokenFile[u.Host]
+	v, ok := tokenFile[host]
 	if !ok {
 		// No tokens for this host
 		return nil, nil
@@ -151,7 +152,7 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 
 	serverTokens, ok := v.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("cached token is malformed (host: %q)", u.Host)
+		return nil, fmt.Errorf("cached token is malformed (host: %q)", host)
 	}
 
 	t, ok := serverTokens[string(method)]
@@ -162,7 +163,7 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 
 	tokenMap, ok := t.(map[string]interface{})
 	if !ok {
-		return nil, fmt.Errorf("cached token is malformed (host: %q, method: %q)", u.Host, string(method))
+		return nil, fmt.Errorf("cached token is malformed (host: %q, method: %q)", host, string(method))
 	}
 
 	// Decode cached token from JSON into a *CachedToken instance
@@ -172,15 +173,15 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 	}
 
 	if token.TokenID() == "" {
-		return nil, fmt.Errorf("no token found (host: %s, method: %s)", u.Host, string(method))
+		return nil, fmt.Errorf("no token found (host: %s, method: %s)", host, string(method))
 	}
 
 	if token.ExpirationTS() == 0 {
-		return nil, fmt.Errorf("token has no expiration date")
+		return nil, fmt.Errorf("token has no expiration date (host: %s, method: %s)", host, string(method))
 	}
 
 	token.SetAuthMethod(method)
-	token.SetVaultHost(u.Host)
+	token.SetVaultHost(host)
 
 	return token, nil
 }

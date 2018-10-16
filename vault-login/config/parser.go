@@ -81,6 +81,10 @@ type VaultClientConfig struct {
 	// ClientKey is the path to an unencrypted, PEM-encoded private key on
 	// disk which corresponds to the matching client certificate.
 	ClientKey string `json:"vault_client_key"`
+
+	// TLSServerName is the name to use use as the SNI host when connecting
+	// via TLS.
+	TLSServerName string `json:"vault_tls_server_name"`
 }
 
 type CredHelperConfig struct {

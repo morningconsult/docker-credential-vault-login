@@ -59,7 +59,7 @@ var (
 	testTokenConfigFile string = filepath.Join(testDataDir, "config_token.json")
 )
 
-var testConfigFileWithVaultClientConfig string = filepath.Join(testDataDir, "config_client.json")
+// var testConfigFileWithVaultClientConfig string = filepath.Join(testDataDir, "config_client.json")
 
 func TestHelperGet_ErrCreateClient(t *testing.T) {
 	rl := os.Getenv(api.EnvRateLimit)
@@ -84,30 +84,9 @@ func TestHelperGet_ErrCreateClient(t *testing.T) {
 // TestHelperGet_ClientConfig tests that if Vault client configuration
 // parameters are specified in the config.json file, it will use them
 // to configure the Vault client
-func TestHelperGet_ClientConfig(t *testing.T) {
-	os.Unsetenv(api.EnvVaultAddress)
-	os.Unsetenv(api.EnvVaultToken)
+// func TestHelperGet_ClientConfig(t *testing.T) {
 
-	os.Setenv(config.EnvConfigFilePath, testConfigFileWithVaultClientConfig)
-
-	cfg := readConfig(t, testConfigFileWithVaultClientConfig)
-
-	helper := NewHelper(&HelperOptions{
-		CacheDir: testDataDir,
-	})
-
-	helper.Get("")
-
-	client := helper.VaultClient()
-
-	if client.Token() != cfg.Client.Token {
-		t.Fatalf("expected client token %q but got %q", cfg.Client.Token, client.Token())
-	}
-
-	if client.Address() != cfg.Client.Address {
-		t.Fatalf("expected client address %q but got %q", cfg.Client.Address, client.Address())
-	}
-}
+// }
 
 func TestHelperGet_AWS(t *testing.T) {
 	var (
@@ -552,7 +531,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 
 			// Give the newly-created, non-root client token
 			// to the Vault API client
-			client.SetToken(token)
+			client.ClearToken()
 
 			helper := NewHelper(&HelperOptions{
 				VaultAPI: client,
