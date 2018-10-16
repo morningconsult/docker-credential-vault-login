@@ -84,9 +84,61 @@ func TestHelperGet_ErrCreateClient(t *testing.T) {
 // TestHelperGet_ClientConfig tests that if Vault client configuration
 // parameters are specified in the config.json file, it will use them
 // to configure the Vault client
-// func TestHelperGet_ClientConfig(t *testing.T) {
+func TestHelperGet_ClientConfig(t *testing.T) {
+	vaultEnvVars := []string{
+		api.EnvVaultAddress,
+		api.EnvVaultToken,
+		api.EnvVaultCACert,
+		api.EnvVaultClientCert,
+		api.EnvVaultClientKey,
+		api.EnvVaultTLSServerName,
+	}
+	
+	for _, env := range vaultEnvVars {
+		os.Unsetenv(env)
+	}
 
-// }
+	const vaultAddr = "https://vault.service.consul"
+
+	cfg := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"method": "token",
+		},
+		"client": map[string]interface{}{
+			"vault_addr":            vaultAddr,
+			"vault_cacert":          filepath.Join("testdata", "vault-ca.pem"),
+			"vault_client_cert":     filepath.Join("testdata", "client.pem"),
+			"vault_client_key":      filepath.Join("testdata", "client-key.pem"),
+			"vault_tls_server_name": "my.server.name",
+		},
+		"secret_path": "secret/foo/bar",
+	}
+	data, err := jsonutil.EncodeJSON(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	configFile := filepath.Join(testDataDir, "client_config.json")
+	if err = ioutil.WriteFile(configFile, data, 0666); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(configFile)
+	os.Setenv(config.EnvConfigFilePath, configFile)
+
+	helper := NewHelper(&HelperOptions{
+		CacheDir: testDataDir,
+	})
+	helper.Get("")
+	if helper.VaultClient().Address() != vaultAddr {
+		t.Fatalf("expected Vault client address to be %q but got %q", vaultAddr, helper.VaultClient().Address())
+	}
+
+	for _, env := range vaultEnvVars {
+		if os.Getenv(env) != "" {
+			t.Fatalf("expected $%s to be unset", env)
+		}
+	}
+}
 
 func TestHelperGet_AWS(t *testing.T) {
 	var (

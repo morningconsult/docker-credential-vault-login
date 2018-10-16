@@ -73,22 +73,41 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 ### Configuration File
 This application requires a configuration file `config.json` in order to determine which authentication method to use. At runtime, the process will first search for this file at the path specified by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the process will fail.
 
-The configuration file should include the following:
-* `auth_method` (string: `""`) - Method by which this application should authenticate against Vault. The only values that are accepted are `iam`, `ec2`, or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate. If the `iam` method is used, it will retrieve your AWS credentials and use them to log into Vault in order to obtain a Vault token. If `ec2` is used, it will retrieve the PKCS7 signature from the EC2 instance's metadata and log into Vault with it in order to obtain a token. If either the `iam` or `ec2` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
-* `role` (string: `""`) - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This is only required when using the `iam` and `ec2` authentication methods. 
-* `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
-* `iam_server_id_header_value` (string: `""`) - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
-* `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`.
-
-**Sample Configuration File**
 ```json
 {
-  "auth_method": "iam",
-  "role": "dev-role-iam",
-  "secret_path": "secret/docker/creds",
-  "iam_server_id_header_value": "vault.example.com"
+  "auth": {
+    "method": "iam",
+    "role": "dev-role-iam",
+    "iam_server_id_header": "vault.service.consul"
+  },
+  "client": {
+    "vault_addr": "https://vault.service.consul",
+    "vault_cacert": "/tmp/cacert.pem",
+    "vault_client_cert": "/tmp/client.pem",
+    "vault_client_key": "/tmp/client-key.pem",
+    "vault_tls_server_name": "my.server.name"
+  },
+  "secret_path": "secret/docker/creds"
 }
 ```
+### Configuration File Parameters
+* `auth` (`[Auth](#auth-parameters)`: `nil`) - This field is used to specify parameters related to the method of authorization. See the [Auth](#auth-struct) section for more details. This section is required.
+* `client` (`[Client](#client-parameters)`: `nil`) - This field is used to configure the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). This section is optional.
+* `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
+
+### `auth` Parameters
+* `method` (string: `""`) - The method by which this application should authenticate against Vault. The only values that are accepted are `iam`, `ec2`, or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate or the value of the `vault_token` field of the client stanza of the `config.json` file. If the `iam` method is used, it will retrieve your AWS credentials and use them to log into Vault in order to obtain a Vault token. If `ec2` is used, it will retrieve the PKCS7 signature from the EC2 instance's metadata and log into Vault with it in order to obtain a token. If either the `iam` or `ec2` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
+* `role` (string: `""`) - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This field is only required when using the `iam` and `ec2` authentication methods.
+* `iam_server_id_header` (string: `""`) - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
+* `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`.
+
+### `client` Parameters
+* `vault_addr` (string: `""`) - Address of the Vault server expressed as a URL and port, for example: `https://127.0.0.1:8200/`.
+* `vault_token` (string: `""`) - Vault authentication token. This will only be used when the `token` authentication method is used.
+* `vault_cacert` (string: `""`) - Path to a PEM-encoded CA certificate file on the local disk. This file is used to verify the Vault server's SSL certificate.
+* `vault_client_cert` (string: `""`) - Path to a PEM-encoded client certificate on the local disk. This file is used for TLS communication with the Vault server.
+* `vault_client_key` (string: `""`) - Path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.
+* `vault_tls_server_name` (string: `""`) - Name to use as the SNI host when connecting via TLS.
 
 ## Usage
 
@@ -118,7 +137,6 @@ Finally, there are a few optional application-specific environment variables whi
 * **DOCKER_CREDS_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.json"`) - The path to your `config.json` file.
 * **DOCKER_CREDS_CACHE_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
 * **DOCKER_CREDS_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens. Tokens are cached at the `tokens` subfolder of the directory given by the `DOCKER_CREDS_CONFIG_FILE` environment variable (if set), and at `~/.docker-credential-vault-login/tokens` if not set.
-* **DOCKER_CREDS_CACHE_ENCRYPTION_KEY** (default: `""`) - If set, the application will encrypt Vault client tokens before caching them using AES-256 encryption. The value of this variable serves as the cipher key. For strong protection, it should be as close to 32 characters in length as possible.
 
 ## Error Logs
 
