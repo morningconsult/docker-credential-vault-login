@@ -1,0 +1,5 @@
+{
+  "auth_method": "ec2",
+  "role": "dev-iam-role",
+  "secret_path": "secret/foo/bar"
+}

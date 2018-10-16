@@ -3,9 +3,11 @@
 
 package duration
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
+import (
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	math "math"
+)
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ = proto.Marshal
@@ -101,7 +103,9 @@ func (*Duration) ProtoMessage()    {}
 func (*Duration) Descriptor() ([]byte, []int) {
 	return fileDescriptor_23597b2ebd7ac6c5, []int{0}
 }
+
 func (*Duration) XXX_WellKnownType() string { return "Duration" }
+
 func (m *Duration) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Duration.Unmarshal(m, b)
 }

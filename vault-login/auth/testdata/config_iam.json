@@ -1,0 +1,6 @@
+{
+    "auth_method": "iam",
+    "role": "dev-iam-role",
+    "secret_path": "secret/foo/bar",
+    "iam_server_id_header_value": "vault.example.com"
+}

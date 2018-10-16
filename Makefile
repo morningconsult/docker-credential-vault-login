@@ -1,9 +1,21 @@
+# Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License"). You may
+# not use this file except in compliance with the License. A copy of the
+# License is located at
+#
+#         https://www.apache.org/licenses/LICENSE-2.0
+#
+# or in the "license" file accompanying this file. This file is distributed
+# on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+# express or implied. See the License for the specific language governing
+# permissions and limitations under the License.
+
+FLY := $(shell which fly)
 
 BIN_DIR := $(shell pwd)/bin
-REPO=gitlab.morningconsult.com/mci/docker-credential-vault-login
+REPO=github.com/morningconsult/docker-credential-vault-login
 SOURCES := $(shell find . -name '*.go')
-VERSION := $(shell cat VERSION)
-GITCOMMIT_SHA := $(shell git rev-parse HEAD)
 BINARY_NAME=docker-credential-vault-login
 LOCAL_BINARY=bin/local/$(BINARY_NAME)
 EXTERNAL_TOOLS=\
@@ -13,9 +25,9 @@ EXTERNAL_TOOLS=\
 
 all: build
 
-update-deps:
+update_deps:
 	@sh -c "$(CURDIR)/scripts/update-deps.sh"
-.PHONY: update-deps
+.PHONY: update_deps
 
 git_chglog_check:
 	if [ -z "$(shell which git-chglog)" ]; then \
@@ -35,12 +47,12 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	@go test -v -cover  $(go list ./vault-login/... | grep -v testing)
+	@go test -v -cover $(shell go list ./vault-login/... | grep -v testing)
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(VERSION)' '$(GITCOMMIT_SHA)' '$(REPO)'"
+	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse HEAD)' '$(shell date +"%b %d, %Y")' '$(REPO)'"
 	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
 
 mocktools:
@@ -52,5 +64,32 @@ mocktools:
 .PHONY: mocktools
 
 build_mocks: mocktools
-	PATH=$$PATH:$$$(CURDIR)/scripts/generate scripts/build-mocks.sh
+	scripts/build-mocks.sh
 .PHONY: build_mocks
+
+#=============================================================================
+# Release and Deployment tasks
+
+CONCOURSE_PIPELINE := docker-credential-vault-login
+
+
+check_fly:
+	if [ -z "$(FLY)" ]; then \
+		sudo mkdir -p /usr/local/bin; \
+		sudo wget -q -O /usr/local/bin/fly "https://ci.morningconsultintelligence.com/api/v1/cli?arch=amd64&platform=linux"; \
+		sudo chmod +x /usr/local/bin/fly; \
+		/usr/local/bin/fly --version; \
+	fi
+.PHONY: check_fly
+
+
+set_pipeline: check_fly
+	$(FLY) --target mci-ci-oss set-pipeline \
+		--config ci/pipeline.yml \
+		--pipeline $(CONCOURSE_PIPELINE) \
+		--non-interactive \
+		-v github-repo="$$(git config remote.origin.url)" \
+
+	$(FLY) --target mci-ci-oss unpause-pipeline \
+		--pipeline $(CONCOURSE_PIPELINE)
+.PHONY: set_pipeline

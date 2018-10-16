@@ -1,4 +1,0 @@
-{
-    "vault_auth_method": "token",
-    "vault_secret_path": "secret/foo/bar"
-}

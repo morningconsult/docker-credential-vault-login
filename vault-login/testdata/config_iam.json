@@ -1,6 +1,8 @@
 {
-    "vault_auth_method": "iam",
-    "vault_role": "dev-iam-role",
-    "vault_secret_path": "secret/foo/bar",
-    "vault_iam_server_id_header_value": "vault.example.com"
+    "auth": {
+      "method": "iam",
+      "role": "dev-iam-role",
+      "iam_server_id_header": "vault.example.com"
+    },
+    "secret_path": "secret/foo/bar"
 }
