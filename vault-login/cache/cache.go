@@ -243,8 +243,9 @@ func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.Vaul
 		file.Close()
 		return
 	}
+	host := u.Host
 
-	serverTokens, ok := tokenFile[u.Host].(map[string]interface{})
+	serverTokens, ok := tokenFile[host].(map[string]interface{})
 	if !ok {
 		file.Close()
 		return
@@ -252,7 +253,7 @@ func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.Vaul
 
 	delete(serverTokens, string(method))
 
-	tokenFile[u.Host] = serverTokens
+	tokenFile[host] = serverTokens
 
 	if err = c.writePrettyJSON(file, tokenFile); err != nil {
 		file.Close()
