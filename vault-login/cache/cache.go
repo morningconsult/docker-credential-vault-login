@@ -203,18 +203,14 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 //         }
 // }
 func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, vaultAddr string, method config.VaultAuthMethod) error {
-	var (
-		token *CachedToken
-		err   error
-	)
+	var token *CachedToken
 
-	token, err = c.buildCachedTokenFromSecret(secret, method, vaultAddr)
+	token, err := c.buildCachedTokenFromSecret(secret, method, vaultAddr)
 	if err != nil {
 		return fmt.Errorf("error creating cache.CachedToken instance from a *github.com/hashicorp/vault/api.Secret instance: %v", err)
 	}
 
-	err = c.writeTokenToFile(token)
-	if err != nil {
+	if err = c.writeTokenToFile(token); err != nil {
 		return fmt.Errorf("error writing cache.CachedToken instance to disk: %v", err)
 	}
 	return nil
