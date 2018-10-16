@@ -228,6 +228,9 @@ func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.Vaul
 
 	file, err := os.OpenFile(c.tokenFilename, os.O_RDWR, 0600)
 	if err != nil {
+		if !os.IsNotExist(err) {
+			os.Remove(c.tokenFilename)
+		}
 		return
 	}
 
