@@ -816,7 +816,7 @@ func loadTokenFromFile(t *testing.T, filename string, vaultAddr string, method c
 }
 
 func clearTestdata(dir string) {
-	files, _ := filepath.Glob(filepath.Join(dir, "*token*"))
+	files, _ := filepath.Glob(filepath.Join(dir, "tokens.json"))
 	for _, file := range files {
 		os.Remove(file)
 	}

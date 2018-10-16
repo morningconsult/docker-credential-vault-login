@@ -53,18 +53,6 @@ func TestSetupCacheDir_BackupCache(t *testing.T) {
 	}
 }
 
-func TestSetupCacheDir_CreatesCacheDir(t *testing.T) {
-	cacheDir := "testdata"
-	os.RemoveAll(cacheDir)
-	os.Setenv(EnvCacheDir, cacheDir)
-
-	SetupCacheDir()
-
-	if _, err := os.Stat(cacheDir); err != nil {
-		t.Fatal("SetupCacheDir() should have created cache directory, but it didn't")
-	}
-}
-
 func TestNewCacheUtil(t *testing.T) {
 	const cacheDir = "testdata"
 
