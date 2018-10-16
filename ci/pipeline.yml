@@ -38,7 +38,7 @@ resources:
     private_key: ((github-private-key))
     access_token: ((github-token))
     uri: ((github-repo))
-    branch: github-migration
+    branch: master
     tag_filter: 'v[0-9]*'
 
 - name: golang
