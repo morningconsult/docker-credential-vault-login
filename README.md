@@ -102,8 +102,9 @@ This application requires a configuration file `config.json` in order to determi
 * `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`.
 
 ### `client` Parameters
+Note: All of these parameters will be overridden by their corresponding [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) if set.
 * `vault_addr` (string: `""`) - Address of the Vault server expressed as a URL and port, for example: `https://127.0.0.1:8200/`.
-* `vault_token` (string: `""`) - Vault authentication token. This token will only be used when the `token` authentication method is chosen. The `VAULT_TOKEN` environment variable will override this value if set.
+* `vault_token` (string: `""`) - Vault authentication token. This token will only be used when the `token` authentication method is chosen.
 * `vault_cacert` (string: `""`) - Path to a PEM-encoded CA certificate file on the local disk. This file is used to verify the Vault server's SSL certificate.
 * `vault_client_cert` (string: `""`) - Path to a PEM-encoded client certificate on the local disk. This file is used for TLS communication with the Vault server.
 * `vault_client_key` (string: `""`) - Path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.
