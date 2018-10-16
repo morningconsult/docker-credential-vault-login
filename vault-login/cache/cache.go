@@ -84,6 +84,7 @@ func (c *DefaultCacheUtil) CacheDir() string {
 	return c.cacheDir
 }
 
+// TokenFile returns the name of the file in which cached tokens are stored
 func (c *DefaultCacheUtil) TokenFile() string {
 	return c.tokenFilename
 }
@@ -112,12 +113,9 @@ func (c *DefaultCacheUtil) RenewToken(cached *CachedToken, client *api.Client) e
 }
 
 // LookupToken attempts to retrieve a cached token that corresponds to the given
-// method. It will search for both an encrypted and an unencrypted token in the
-// token cache directory. If it finds an encrypted token (filename with no
-// extension) first, it will decrypt it if $DOCKER_CREDS_CACHE_ENCRYPTION_KEY is
-// set before JSON-decoding it. If it finds an unencrypted token (filename with
-// .json extension), it will JSON-decode it without decryption. If no cached
-// tokens are found, it will return a nil *CachedToken and a nil error.
+// host-method. If no token is found for the given host-method combination, it
+// will return a nil *CachedToken and a nil error. If the file is in any way
+// malformed, it will return a nil *CachedToken and an error.
 func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuthMethod) (*CachedToken, error) {
 	mutex.RLock()
 	defer mutex.RUnlock()
@@ -188,19 +186,22 @@ func (c *DefaultCacheUtil) LookupToken(vaultAddr string, method config.VaultAuth
 
 // CacheNewToken accepts either a *CachedToken or a
 // *github.com/hashicorp/vault/api.Secret and writes it to disk ("caches it")
-// for use in future Vault API calls. If $DOCKER_CREDS_CACHE_ENCRYPTION_KEY is
-// set, it will first encrypt the JSON data before caching it. If encryption is
-// enabled, it will be cached with no file extension. Otherwise, it will be
-// cached as a .json file. Tokens are cached according to the method of
-// authentication by which it was obtained. For example, if a token was obtained
-// using the "iam" method and encryption is disabled, it will be cached as:
-//
-// ~/.docker-credential-vault-login/tokens/cached-token-iam-auth.json
-//
-// If encryption is enabled, it will be cached as:
-//
-// ~/.docker-credential-vault-login/tokens/cached-token-iam-auth
-//
+// for use in future Vault API calls. Tokens are cached according to the address
+// of the Vault server from which it was created and method of authentication
+// by which it was created, for example:
+// {
+//     "vault.service.consul": {
+//         "iam": {
+//             "token": "694c1667-bac3-481f-8383-ae300b879302",
+//             "expiration": 1539709042,
+//             "renewable": true
+//         },
+//         "ec2": {
+//             "token": "0f1288cf-e4fa-4965-af4c-ddc27ae22aa9",
+//             "expiration": 1539709092,
+//             "renewable": false
+//         }
+// }
 func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, vaultAddr string, method config.VaultAuthMethod) error {
 	var (
 		token *CachedToken
@@ -220,7 +221,7 @@ func (c *DefaultCacheUtil) CacheNewToken(secret *api.Secret, vaultAddr string, m
 }
 
 // ClearCachedToken deletes all cached tokens associated with the given
-// authentication method.
+// Vault host-authentication method combination.
 func (c *DefaultCacheUtil) ClearCachedToken(vaultAddr string, method config.VaultAuthMethod) {
 	mutex.Lock()
 	defer mutex.Unlock()
