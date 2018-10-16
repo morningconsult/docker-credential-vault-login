@@ -70,7 +70,7 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 }
 ```
 
-### Configuration File
+## Configuration File
 This application requires a configuration file `config.json` in order to determine which authentication method to use. At runtime, the process will first search for this file at the path specified by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the process will fail.
 
 ```json
