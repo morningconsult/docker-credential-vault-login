@@ -99,7 +99,7 @@ This application requires a configuration file `config.json` in order to determi
 ### Configuration File Parameters
 
 * `auth` ([Auth](#auth-parameters): `nil`) - Specifies parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
-* `cache` ([Cache](#cache-parameters): `nil`) - Specifies caching behavior, including where logs/tokens should be stored and whether Vault tokens should be cached. See the [Cache](#cache-parameters) section for more details. This field is optional.
+* `cache` ([Cache](#cache-parameters): `nil`) - Specifies caching behavior, including where logs/tokens should be stored and whether Vault tokens should be cached. See the [Cache](#cache-parameters) section for more details. This section is optional.
 * `client` ([Client](#client-parameters): `nil`) - Configures the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details. This section is optional.
 * `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
 
