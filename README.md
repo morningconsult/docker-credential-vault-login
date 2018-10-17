@@ -51,6 +51,7 @@ The binary will be output to `bin/local` of the local directory.
 ## Setup
 
 ### Docker configuration
+
 Once you have the `docker-credential-vault-login` binary, place it on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
 ```json
@@ -71,6 +72,7 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 ```
 
 ## Configuration File
+
 This application requires a configuration file `config.json` in order to determine which authentication method to use. At runtime, the process will first search for this file at the path specified by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the process will fail.
 
 ```json
@@ -94,23 +96,28 @@ This application requires a configuration file `config.json` in order to determi
   "secret_path": "secret/docker/creds"
 }
 ```
+
 ### Configuration File Parameters
+
 * `auth` ([Auth](#auth-parameters): `nil`) - Specifies parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
 * `cache` ([Cache](#cache-parameters): `nil`) - Specifies caching behavior, including where logs/tokens should be stored and whether Vault tokens should be cached. See the [Cache](#cache-parameters) section for more details. This field is optional.
 * `client` ([Client](#client-parameters): `nil`) - Configures the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details. This section is optional.
 * `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
 
 ### `auth` Parameters
+
 * `method` (string: `""`) - The method by which this application should authenticate against Vault. The only values that are accepted are `iam`, `ec2`, or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate or the value of the `vault_token` field of the client stanza of the `config.json` file. If the `iam` method is used, it will retrieve your AWS credentials and use them to log into Vault in order to obtain a Vault token (see the [IAM authentication section](#iam-authentication-method)). If `ec2` is used, it will retrieve the PKCS7 signature from the EC2 instance's metadata and log into Vault with it in order to obtain a token (see the [EC2 authentication section](#ec2-authentication-method)). If either the `iam` or `ec2` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
 * `role` (string: `""`) - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This field is only required when using the `iam` and `ec2` authentication methods.
 * `iam_server_id_header` (string: `""`) - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
 * `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`. This field is optional and will only be used when using the `iam` and `ec2` authentication methods.
 
 ### `cache` Parameters
+
 * `dir` (string: `"~/.docker-credential-vault-login"`) - The directory where logs and tokens will be stored. The value of this field can be overridden by setting the `DOCKER_CREDS_CACHE_DIR` environment variable.
 * `disable_token_caching` (bool: `false`) - Whether tokens issued by your Vault server after successful authentication should be written to disk ("cached") for future use. Enabling caching avoids the need to re-authenticate every time the binary is executed. The value of this field can be overridden by setting the `DOCKER_CREDS_DISABLE_CACHE` environment variable.
 
 ### `client` Parameters
+
 Note: All of these parameters will be overridden by setting their corresponding [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables).
 * `vault_addr` (string: `"https://127.0.0.1:8200/"`) - Address of the Vault server expressed as a URL and port.
 * `vault_token` (string: `""`) - Vault authentication token. This token will only be used when the `token` authentication method is chosen.
@@ -136,7 +143,8 @@ If the `iam` method of authentication is chosen, the process will attempt to aut
 * An [IAM role for Amazon EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html)
 
 ### Environmental Variables
-Finally, there are a few optional application-specific environment variables which configure the its behavior:
+
+There are also a few optional application-specific environment variables which configure the its behavior:
 * **DOCKER_CREDS_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.json"`) - The path to your `config.json` file.
 * **DOCKER_CREDS_CACHE_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
 * **DOCKER_CREDS_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens. Tokens are cached at the `tokens` subfolder of the directory given by the `DOCKER_CREDS_CONFIG_FILE` environment variable (if set), and at `~/.docker-credential-vault-login/tokens.json` if not set.
