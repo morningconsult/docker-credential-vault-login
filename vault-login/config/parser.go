@@ -60,31 +60,15 @@ type AuthConfig struct {
 	AWSMountPath string `json:"aws_mount_path"`
 }
 
-type VaultClientConfig struct {
+type CacheConfig struct {
 
-	// Address is the URL of your Vault server.
-	Address string `json:"vault_addr"`
+	// Dir is the directory where cached files (including logs and tokens)
+	// will be written to disk.
+	Dir string `json:"dir"`
 
-	// Token is a valid Vault client token. This will only be used if the
-	// "token" authentication method is chosen.
-	Token string `json:"vault_token"`
-
-	// CACert is the path to a PEM-encoded CA certificate file on the local
-	// disk. This file is used to verify the Vault server's SSL certificate.
-	CACert string `json:"vault_cacert"`
-
-	// ClientCert is the path to a PEM-encoded client certificate on the
-	// local disk. This file is used for TLS communication with the Vault
-	// server.
-	ClientCert string `json:"vault_client_cert"`
-
-	// ClientKey is the path to an unencrypted, PEM-encoded private key on
-	// disk which corresponds to the matching client certificate.
-	ClientKey string `json:"vault_client_key"`
-
-	// TLSServerName is the name to use use as the SNI host when connecting
-	// via TLS.
-	TLSServerName string `json:"vault_tls_server_name"`
+	// DisableTokenCaching, if true, will disable the caching of Vault
+	// client tokens.
+	DisableTokenCaching bool `json:"disable_token_caching"`
 }
 
 type CredHelperConfig struct {
@@ -94,10 +78,14 @@ type CredHelperConfig struct {
 
 	// ClientConfig is used to configure the Vault API client used to
 	// make requests to your Vault server.
-	Client VaultClientConfig `json:"client"`
+	Client map[string]string `json:"client"`
+
+	// CacheConfig is the used to configure where cached files (including
+	// logs and tokens) should be stored.
+	Cache CacheConfig
 
 	// Secret is the path in Vault at which the Docker credentials are
-	// stored (e.g. "secret/foo/bar"). This field is always required
+	// stored (e.g. "secret/foo/bar"). This field is always required.
 	Secret string `json:"secret_path"`
 
 	// Path is the full path to the config.json file. This field is
@@ -138,12 +126,11 @@ func parseConfigFile() (*CredHelperConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	defer file.Close()
 
 	var cfg = new(CredHelperConfig)
 	if err = jsonutil.DecodeJSONFromReader(file, cfg); err != nil {
-		return cfg, err
+		return nil, err
 	}
 
 	cfg.Path = path

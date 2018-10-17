@@ -217,3 +217,104 @@ func TestConfigBadAuthMethod(t *testing.T) {
 	}
 }
 
+func TestConfigGoodClientConfig(t *testing.T) {
+	cfg := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"method": "token",
+		},
+		"client": map[string]interface{}{
+			"vault_token": "unique Vault client token",
+		},
+		"secret_path": "secret/foo/bar",
+	}
+	data := test.EncodeJSON(t, cfg)
+	test.MakeFile(t, testFilePath, data)
+	defer test.DeleteFile(t, testFilePath)
+
+	path := os.Getenv(EnvConfigFilePath)
+	os.Setenv(EnvConfigFilePath, testFilePath)
+	defer os.Setenv(EnvConfigFilePath, path)
+
+	_, err := ParseConfigFile()
+	if err != nil {
+		t.Fatal("should not have received an error")
+	}
+}
+
+func TestConfigBadClientConfig(t *testing.T) {
+	cfg := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"method": "token",
+		},
+		"client": map[string]interface{}{
+			// "client" should be a map[string]string
+			"vault_token": map[string]interface{}{
+				"key": "value",
+			},
+		},
+		"secret_path": "secret/foo/bar",
+	}
+	data := test.EncodeJSON(t, cfg)
+	test.MakeFile(t, testFilePath, data)
+	defer test.DeleteFile(t, testFilePath)
+
+	path := os.Getenv(EnvConfigFilePath)
+	os.Setenv(EnvConfigFilePath, testFilePath)
+	defer os.Setenv(EnvConfigFilePath, path)
+
+	_, err := ParseConfigFile()
+	if err == nil {
+		t.Fatal("expected an error but didn't receive one")
+	}
+}
+
+func TestConfigGoodCacheConfig(t *testing.T) {
+	cfg := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"method": "token",
+		},
+		"cache": map[string]interface{}{
+			"disable_token_caching": true,
+		},
+		"secret_path": "secret/foo/bar",
+	}
+	data := test.EncodeJSON(t, cfg)
+	test.MakeFile(t, testFilePath, data)
+	defer test.DeleteFile(t, testFilePath)
+
+	path := os.Getenv(EnvConfigFilePath)
+	os.Setenv(EnvConfigFilePath, testFilePath)
+	defer os.Setenv(EnvConfigFilePath, path)
+
+	c, err := ParseConfigFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.Cache.DisableTokenCaching {
+		t.Fatal("cache.disable_token_caching should have been true")
+	}
+}
+
+func TestConfigBadCacheConfig(t *testing.T) {
+	cfg := map[string]interface{}{
+		"auth": map[string]interface{}{
+			"method": "token",
+		},
+		"cache": map[string]interface{}{
+			"disable_token_caching": "not a bool!",
+		},
+		"secret_path": "secret/foo/bar",
+	}
+	data := test.EncodeJSON(t, cfg)
+	test.MakeFile(t, testFilePath, data)
+	defer test.DeleteFile(t, testFilePath)
+
+	path := os.Getenv(EnvConfigFilePath)
+	os.Setenv(EnvConfigFilePath, testFilePath)
+	defer os.Setenv(EnvConfigFilePath, path)
+
+	_, err := ParseConfigFile()
+	if err == nil {
+		t.Fatal("expected an error but didn't receive one")
+	}
+}

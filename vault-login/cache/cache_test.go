@@ -33,7 +33,7 @@ import (
 func TestSetupCacheDir_EnvCacheDir(t *testing.T) {
 	os.Setenv(EnvCacheDir, "testdata")
 
-	cacheDir := SetupCacheDir()
+	cacheDir := SetupCacheDir("")
 
 	if cacheDir != "testdata" {
 		t.Fatalf("expected \"testdata\", but got %q instead", cacheDir)
@@ -45,11 +45,25 @@ func TestSetupCacheDir_BackupCache(t *testing.T) {
 	env := awstesting.StashEnv()
 	defer awstesting.PopEnv(env)
 
-	cacheDir := SetupCacheDir()
+	cacheDir := SetupCacheDir("")
 
 	if cacheDir != BackupCacheDir {
 		t.Fatalf("expected %q, but got %q instead",
 			BackupCacheDir, cacheDir)
+	}
+}
+
+func TestSetupCacheDir_CacheDirArg(t *testing.T) {
+	var cacheDirArg = "testdata"
+
+	env := awstesting.StashEnv()
+	defer awstesting.PopEnv(env)
+
+	cacheDir := SetupCacheDir(cacheDirArg)
+
+	if cacheDir != cacheDirArg {
+		t.Fatalf("expected %q, but got %q instead",
+			cacheDirArg, cacheDir)
 	}
 }
 
@@ -60,43 +74,56 @@ func TestNewCacheUtil(t *testing.T) {
 		name      string
 		env       string
 		cacheType string
+		configArg bool
 	}{
 		{
 			"enabled-a",
 			"false",
 			"default",
+			false,
 		},
 		{
 			"enabled-b",
 			"f",
 			"default",
+			false,
 		},
 		{
 			"enabled-c",
 			"i am not a bool",
 			"default",
+			false,
 		},
 		{
 			"enabled-d",
 			"",
 			"default",
+			false,
 		},
 		{
 			"disabled-a",
 			"true",
 			"null",
+			false,
 		},
 		{
 			"disabled-b",
 			"t",
 			"null",
+			false,
+		},
+		{
+			"disabled-c",
+			"false",
+			"null",
+			true,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			os.Setenv(EnvDisableCache, tc.env)
-			cacheUtilUntyped := NewCacheUtil(cacheDir)
+			cacheUtilUntyped := NewCacheUtil(cacheDir, tc.configArg)
 
 			switch tc.cacheType {
 			case "default":
@@ -119,7 +146,7 @@ func TestCacheUtil_CacheDir(t *testing.T) {
 
 	os.Unsetenv(EnvDisableCache)
 	os.Setenv(EnvCacheDir, cacheDir)
-	cacheUtil := NewCacheUtil("")
+	cacheUtil := NewCacheUtil("", false)
 
 	if cacheUtil.CacheDir() != cacheDir {
 		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
@@ -135,7 +162,7 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	cases := []struct {
 		name string
@@ -249,7 +276,7 @@ func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
 	os.Setenv(EnvCacheDir, "testdata")
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil("")
+	cacheUtil := NewCacheUtil("", false)
 
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -300,7 +327,7 @@ func TestDefaultCacheUtil_LookupToken(t *testing.T) {
 	os.Setenv(EnvCacheDir, "testdata")
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil("")
+	cacheUtil := NewCacheUtil("", false)
 
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -479,7 +506,7 @@ func TestDefaultCacheUtil_RenewToken(t *testing.T) {
 
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	// Start the Vault testing cluster
 	cluster := test.StartTestCluster(t)
@@ -567,7 +594,7 @@ func TestDefaultCacheUtil_ClearCachedToken(t *testing.T) {
 
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	tokenFileOriginal := map[string]interface{}{
 		host: map[string]interface{}{
@@ -609,7 +636,7 @@ func TestDefaultCacheUtil_ClearCachedToken_BadFile(t *testing.T) {
 
 	os.Unsetenv(EnvDisableCache)
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	cases := []struct {
 		name     string
@@ -648,7 +675,7 @@ func TestNullCacheUtil_CacheDir(t *testing.T) {
 	os.Setenv(EnvCacheDir, cacheDir)
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil("")
+	cacheUtil := NewCacheUtil("", false)
 	if cacheUtil.CacheDir() != cacheDir {
 		t.Fatalf("Expected cacheUtil.cacheDir to be %q, but got %q instead",
 			cacheDir, cacheUtil.CacheDir())
@@ -662,7 +689,7 @@ func TestNullCacheUtil_TokenFile(t *testing.T) {
 	os.Setenv(EnvCacheDir, cacheDir)
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil("")
+	cacheUtil := NewCacheUtil("", false)
 	if cacheUtil.TokenFile() != expected {
 		t.Fatalf("Expected cacheUtil.tokenFilename to be %q, but got %q instead",
 			expected, cacheUtil.TokenFile())
@@ -674,7 +701,7 @@ func TestNullCacheUtil_LookupToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 	token, err := cacheUtil.LookupToken("", config.VaultAuthMethodAWSIAM)
 	if err != nil {
 		t.Fatal("expected a nil error")
@@ -689,7 +716,7 @@ func TestNullCacheUtil_CacheNewToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	err := cacheUtil.CacheNewToken(nil, "", config.VaultAuthMethodAWSIAM)
 	if err != nil {
@@ -702,7 +729,7 @@ func TestNullCacheUtil_RenewToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	err := cacheUtil.RenewToken(nil, nil)
 	if err != nil {
@@ -715,7 +742,7 @@ func TestNullCacheUtil_ClearCachedToken(t *testing.T) {
 
 	os.Setenv(EnvDisableCache, "true")
 
-	cacheUtil := NewCacheUtil(cacheDir)
+	cacheUtil := NewCacheUtil(cacheDir, false)
 
 	// Should return nothing and have no effect at all
 	cacheUtil.ClearCachedToken("", config.VaultAuthMethodAWSIAM)

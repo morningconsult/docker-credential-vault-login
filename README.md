@@ -80,6 +80,10 @@ This application requires a configuration file `config.json` in order to determi
     "role": "dev-role-iam",
     "iam_server_id_header": "vault.service.consul"
   },
+  "cache": {
+    "dir": "/tmp/.docker-credential-vault-login",
+    "disable_token_caching": true
+  },
   "client": {
     "vault_addr": "https://vault.service.consul",
     "vault_cacert": "/tmp/cacert.pem",
@@ -91,8 +95,9 @@ This application requires a configuration file `config.json` in order to determi
 }
 ```
 ### Configuration File Parameters
-* `auth` ([Auth](#auth-parameters): `nil`) - This field is used to specify parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
-* `client` ([Client](#client-parameters): `nil`) - This field is used to configure the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details This section is optional.
+* `auth` ([Auth](#auth-parameters): `nil`) - Specifies parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
+* `cache` ([Cache](#cache-parameters): `nil`) - Specifies caching behavior, including where logs/tokens should be stored and whether Vault tokens should be cached. See the [Cache](#cache-parameters) section for more details. This field is optional.
+* `client` ([Client](#client-parameters): `nil`) - Configures the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details. This section is optional.
 * `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
 
 ### `auth` Parameters
@@ -101,14 +106,21 @@ This application requires a configuration file `config.json` in order to determi
 * `iam_server_id_header` (string: `""`) - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
 * `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`. This field is optional and will only be used when using the `iam` and `ec2` authentication methods.
 
+### `cache` Parameters
+* `dir` (string: `"~/.docker-credential-vault-login"`) - The directory where logs and tokens will be stored. The value of this field can be overridden by setting the `DOCKER_CREDS_CACHE_DIR` environment variable.
+* `disable_token_caching` (bool: `false`) - Whether tokens issued by your Vault server after successful authentication should be written to disk ("cached") for future use. Enabling caching avoids the need to re-authenticate every time the binary is executed. The value of this field can be overridden by setting the `DOCKER_CREDS_DISABLE_CACHE` environment variable.
+
 ### `client` Parameters
-Note: All of these parameters will be overridden by their corresponding [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) if set.
+Note: All of these parameters will be overridden by setting their corresponding [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables).
 * `vault_addr` (string: `"https://127.0.0.1:8200/"`) - Address of the Vault server expressed as a URL and port.
 * `vault_token` (string: `""`) - Vault authentication token. This token will only be used when the `token` authentication method is chosen.
 * `vault_cacert` (string: `""`) - Path to a PEM-encoded CA certificate file on the local disk. This file is used to verify the Vault server's SSL certificate.
 * `vault_client_cert` (string: `""`) - Path to a PEM-encoded client certificate on the local disk. This file is used for TLS communication with the Vault server.
 * `vault_client_key` (string: `""`) - Path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.
 * `vault_tls_server_name` (string: `""`) - Name to use as the SNI host when connecting via TLS.
+* `vault_client_timeout` (string: `"60s"`) - Timeout variable. This can be in seconds (e.g. "60s"), minutes (e.g. "10m"), or hours (e.g. "1h").
+* `vault_skip_verify` (bool: `false`) - Do not verify Vault's presented certificate before communicating with it. Setting this variable is not recommended.
+* `vault_max_retries` (int: `2`) - Maximum number of retries when a 5xx error code is encountered. Set this to 0 to or less to disable retrying.
 
 ## Usage
 
@@ -124,16 +136,6 @@ If the `iam` method of authentication is chosen, the process will attempt to aut
 * An [IAM role for Amazon EC2](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html)
 
 ### Environmental Variables
-
-If not specified in the `config.json` file (see the [configuration file](#configuration-section) section), you must specify some Vault parameters with environment variables:
-* **[VAULT_ADDR](https://www.vaultproject.io/docs/commands/index.html#vault_addr)** - Your Vault instance's URL. This environmental variable is always required.
-* **[VAULT_TOKEN](https://www.vaultproject.io/docs/commands/index.html#vault_token)** - A valid Vault token with permission to read your secret. This environmenal variable is only required if the `token` authentication method is chosen.
-
-If your Vault instance uses TLS, you must also set the following environment variables if not already specified in the configuration file:
-* **[VAULT_CACERT](https://www.vaultproject.io/docs/commands/index.html#vault_cacert)**
-* **[VAULT_CLIENT_CERT](https://www.vaultproject.io/docs/commands/index.html#vault_client_cert)**
-* **[VAULT_CLIENT_KEY](https://www.vaultproject.io/docs/commands/index.html#vault_client_key)**
-
 Finally, there are a few optional application-specific environment variables which configure the its behavior:
 * **DOCKER_CREDS_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.json"`) - The path to your `config.json` file.
 * **DOCKER_CREDS_CACHE_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.

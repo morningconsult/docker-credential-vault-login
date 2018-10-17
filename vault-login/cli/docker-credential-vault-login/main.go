@@ -18,11 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	vault "github.com/morningconsult/docker-credential-vault-login/vault-login"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-	"github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/version"
 )
 
@@ -39,11 +36,5 @@ func main() {
 		os.Exit(0)
 	}
 
-	defer log.Flush()
-	cacheDir := cache.SetupCacheDir()
-	logging.SetupLogger(cacheDir)
-
-	credentials.Serve(vault.NewHelper(&vault.HelperOptions{
-		CacheDir: cacheDir,
-	}))
+	credentials.Serve(vault.NewHelper(nil))
 }

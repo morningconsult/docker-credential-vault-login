@@ -14,20 +14,23 @@
 package vault
 
 import (
+	"flag"
 	"fmt"
+	golog "log"
 	log "github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/auth"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
+	"github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"os"
+	"strings"
 )
 
 var notImplementedError = fmt.Errorf("not implemented")
 
 type HelperOptions struct {
-	CacheDir string
 	VaultAPI *api.Client
 }
 
@@ -45,13 +48,8 @@ func NewHelper(opts *HelperOptions) *Helper {
 		opts = &HelperOptions{}
 	}
 
-	if opts.CacheDir == "" {
-		opts.CacheDir = cache.SetupCacheDir()
-	}
-
 	return &Helper{
 		vaultAPI:  opts.VaultAPI,
-		cacheUtil: cache.NewCacheUtil(opts.CacheDir),
 	}
 }
 
@@ -73,14 +71,22 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Parse the config.json file
 	cfg, err := config.ParseConfigFile()
 	if err != nil {
-		log.Errorf("error parsing configuration file: %v", err)
+		golog.Printf("error parsing configuration file: %v", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
+	// Build cache directory
+	cacheDir := cache.SetupCacheDir(cfg.Cache.Dir)
+
+	// Create a new cache.CacheUtil
+	h.cacheUtil = cache.NewCacheUtil(cacheDir, cfg.Cache.DisableTokenCaching)
+
+	// Set up seelog
+	h.setupLogger(cacheDir)
+
+	// Create a new Vault client if this Helper has none
 	if h.vaultAPI == nil {
-		// Configure Vault API client if any configurations were provided in
-		// the config.json file
-		if err = h.newVaultClient(cfg.Client); err != nil {
+		if err := h.newVaultClient(cfg.Client); err != nil {
 			log.Errorf("error creating Vault client: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
@@ -104,6 +110,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Authenticate against Vault in the manner specified in the
 		// config.json file to obtain a new client token
 		var factory auth.ClientFactory
+		var err error
 		if cfg.Auth.Method == config.VaultAuthMethodAWSIAM {
 			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Auth.Role, cfg.Auth.ServerID, cfg.Auth.AWSMountPath)
 		} else {
@@ -163,35 +170,26 @@ func (h *Helper) List() (map[string]string, error) {
 	return nil, notImplementedError
 }
 
-func (h *Helper) newVaultClient(cfg config.VaultClientConfig) error {
-	if os.Getenv(api.EnvVaultAddress) == "" && cfg.Address != "" {
-		os.Setenv(api.EnvVaultAddress, cfg.Address)
-		defer os.Unsetenv(api.EnvVaultAddress)
+func (h *Helper) newVaultClient(vaultConfig map[string]string) error {
+	vaultEnvVars := []string{
+		api.EnvVaultAddress,
+		api.EnvVaultCACert,
+		api.EnvVaultCAPath,
+		api.EnvVaultClientCert,
+		api.EnvVaultClientKey,
+		api.EnvVaultClientTimeout,
+		api.EnvVaultInsecure,
+		api.EnvVaultTLSServerName,
+		api.EnvVaultMaxRetries,
+		api.EnvVaultToken,
 	}
 
-	if os.Getenv(api.EnvVaultToken) == "" && cfg.Token != "" {
-		os.Setenv(api.EnvVaultToken, cfg.Token)
-		defer os.Unsetenv(api.EnvVaultToken)
-	}
-
-	if os.Getenv(api.EnvVaultCACert) == "" && cfg.CACert != "" {
-		os.Setenv(api.EnvVaultCACert, cfg.CACert)
-		defer os.Unsetenv(api.EnvVaultCACert)
-	}
-
-	if os.Getenv(api.EnvVaultClientCert) == "" && cfg.ClientCert != "" {
-		os.Setenv(api.EnvVaultClientCert, cfg.ClientCert)
-		defer os.Unsetenv(api.EnvVaultClientCert)
-	}
-
-	if os.Getenv(api.EnvVaultClientKey) == "" && cfg.ClientKey != "" {
-		os.Setenv(api.EnvVaultClientKey, cfg.ClientKey)
-		defer os.Unsetenv(api.EnvVaultClientKey)
-	}
-
-	if os.Getenv(api.EnvVaultTLSServerName) == "" && cfg.TLSServerName != "" {
-		os.Setenv(api.EnvVaultTLSServerName, cfg.TLSServerName)
-		defer os.Unsetenv(api.EnvVaultTLSServerName)
+	for _, env := range vaultEnvVars {
+		v, ok := vaultConfig[strings.ToLower(env)]
+		if ok && v != "" && os.Getenv(env) == "" {
+			os.Setenv(env, v)
+			defer os.Unsetenv(env)
+		}
 	}
 
 	client, err := api.NewClient(nil)
@@ -246,4 +244,12 @@ func (h *Helper) getCachedToken(vaultAddr string, method config.VaultAuthMethod)
 	}
 
 	return token.TokenID()
+}
+
+func (h *Helper) setupLogger(cacheDir string) {
+	if flag.Lookup("test.v") == nil {
+		logging.SetupLogger(cacheDir)
+	} else {
+		logging.SetupTestLogger()
+	}
 }

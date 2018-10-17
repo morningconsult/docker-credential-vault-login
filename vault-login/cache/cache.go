@@ -51,10 +51,10 @@ type CacheUtil interface {
 
 // NewCacheUtil returns a new NullCacheUtil if the DOCKER_CREDS_DISABLE_CACHE
 // environment variable is set. Otherwise, it returns a new DefaultCacheUtil.
-func NewCacheUtil(cacheDir string) CacheUtil {
+func NewCacheUtil(cacheDir string, disableFromConfig bool) CacheUtil {
 	// Environmental variable takes precedence over config file
 	if disableCache, err := strconv.ParseBool(os.Getenv(EnvDisableCache)); err == nil {
-		if disableCache {
+		if disableCache || disableFromConfig {
 			return NewNullCacheUtil(cacheDir)
 		}
 	}
@@ -70,7 +70,7 @@ type DefaultCacheUtil struct {
 // at the cacheDir directory
 func NewDefaultCacheUtil(cacheDir string) *DefaultCacheUtil {
 	if cacheDir == "" {
-		cacheDir = SetupCacheDir()
+		cacheDir = SetupCacheDir("")
 	}
 
 	return &DefaultCacheUtil{
@@ -373,7 +373,7 @@ type NullCacheUtil struct {
 // if it is set. Otherwise, it uses the default directory.
 func NewNullCacheUtil(cacheDir string) *NullCacheUtil {
 	if cacheDir == "" {
-		cacheDir = SetupCacheDir()
+		cacheDir = SetupCacheDir("")
 	}
 	return &NullCacheUtil{
 		cacheDir: cacheDir,
@@ -405,9 +405,19 @@ func (n *NullCacheUtil) RenewToken(token *CachedToken, client *api.Client) error
 	return nil
 }
 
-// configDir should be the value of cache.dir directly from the config.json file
-func SetupCacheDir() string {
-	var cacheDirRaw = DefaultCacheDir
+// SetupCacheDir creates the caching directory. In order of first to last, it
+// first looks for the cache directory in the environment variable. If set, it
+// will use this environment variable as the cache directory. Otherwise, it
+// uses the configCacheDir argument as the cache directory (if not an empty
+// string. If both the environment variable and configCacheDir are empty, it
+// uses the default cache directory (~/.docker-credential-vault-login) as the
+// cache directory. configCacheDir should be the value of cache.dir directly
+// from the config.json file.
+func SetupCacheDir(configCacheDir string) string {
+	cacheDirRaw := DefaultCacheDir
+	if configCacheDir != "" {
+		cacheDirRaw = configCacheDir
+	}
 	if v := os.Getenv(EnvCacheDir); v != "" {
 		cacheDirRaw = v
 	}
@@ -421,7 +431,8 @@ func SetupCacheDir() string {
 
 	cleaned := filepath.Clean(cacheDir)
 
-	if _, err = os.Stat(cleaned); err != nil {
+	// If cache directory does not yet exist, create it
+	if _, err = os.Stat(cleaned); os.IsNotExist(err) {
 		os.MkdirAll(cleaned, 0700)
 	}
 	return cleaned
