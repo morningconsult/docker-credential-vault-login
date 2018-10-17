@@ -174,7 +174,6 @@ func (h *Helper) newVaultClient(vaultConfig map[string]string) error {
 	vaultEnvVars := []string{
 		api.EnvVaultAddress,
 		api.EnvVaultCACert,
-		api.EnvVaultCAPath,
 		api.EnvVaultClientCert,
 		api.EnvVaultClientKey,
 		api.EnvVaultClientTimeout,
