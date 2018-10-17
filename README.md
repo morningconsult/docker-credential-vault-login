@@ -83,8 +83,7 @@ This application requires a configuration file `config.json` in order to determi
     "iam_server_id_header": "vault.service.consul"
   },
   "cache": {
-    "dir": "/tmp/.docker-credential-vault-login",
-    "disable_token_caching": true
+    "dir": "/tmp/.docker-credential-vault-login"
   },
   "client": {
     "vault_addr": "https://vault.service.consul",
