@@ -24,14 +24,12 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/awstesting"
-	"github.com/cihub/seelog"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/mitchellh/mapstructure"
 
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/cache"
-	logger "github.com/morningconsult/docker-credential-vault-login/vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault-login/config"
 	test "github.com/morningconsult/docker-credential-vault-login/vault-login/testing"
 )
@@ -70,10 +68,7 @@ func TestHelperGet_ErrCreateClient(t *testing.T) {
 	defer os.Setenv(api.EnvRateLimit, rl)
 
 	os.Setenv(config.EnvConfigFilePath, testTokenConfigFile)
-	helper := NewHelper(&HelperOptions{
-		CacheDir: testDataDir,
-		VaultAPI: nil,
-	})
+	helper := NewHelper(nil)
 
 	_, _, err := helper.Get("")
 	if err == nil {
@@ -85,6 +80,7 @@ func TestHelperGet_ErrCreateClient(t *testing.T) {
 // parameters are specified in the config.json file, it will use them
 // to configure the Vault client
 func TestHelperGet_ClientConfig(t *testing.T) {
+	testFilePath := filepath.Join("testdata", "config_client_test.json")
 	vaultEnvVars := []string{
 		api.EnvVaultAddress,
 		api.EnvVaultToken,
@@ -100,34 +96,28 @@ func TestHelperGet_ClientConfig(t *testing.T) {
 
 	const vaultAddr = "https://vault.service.consul"
 
-	cfg := map[string]interface{}{
-		"auth": map[string]interface{}{
-			"method": "token",
+	cfg := &config.CredHelperConfig{
+		Auth: config.AuthConfig{
+			Method: "token",
 		},
-		"client": map[string]interface{}{
+		Client: map[string]string{
 			"vault_addr":            vaultAddr,
 			"vault_cacert":          filepath.Join("testdata", "vault-ca.pem"),
 			"vault_client_cert":     filepath.Join("testdata", "client.pem"),
 			"vault_client_key":      filepath.Join("testdata", "client-key.pem"),
 			"vault_tls_server_name": "my.server.name",
 		},
-		"secret_path": "secret/foo/bar",
+		Secret: "secret/foo/bar",
 	}
 	data, err := jsonutil.EncodeJSON(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
+	test.MakeFile(t, testFilePath, data)
+	defer test.DeleteFile(t, testFilePath)
+	os.Setenv(config.EnvConfigFilePath, testFilePath)
 
-	configFile := filepath.Join(testDataDir, "client_config.json")
-	if err = ioutil.WriteFile(configFile, data, 0666); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(configFile)
-	os.Setenv(config.EnvConfigFilePath, configFile)
-
-	helper := NewHelper(&HelperOptions{
-		CacheDir: testDataDir,
-	})
+	helper := NewHelper(nil)
 	helper.Get("")
 	if helper.VaultClient() == nil {
 		t.Fatal("no Vault client was created")
@@ -489,7 +479,8 @@ func TestHelperGet_ParseError(t *testing.T) {
 	test.MakeFile(t, testFilePath, data)
 	defer test.DeleteFile(t, testFilePath)
 
-	os.Setenv("DOCKER_CREDS_CONFIG_FILE", testFilePath)
+	os.Setenv(config.EnvConfigFilePath, testFilePath)
+	defer os.Unsetenv(config.EnvConfigFilePath)
 
 	helper := NewHelper(nil)
 
@@ -505,6 +496,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 	var (
 		cacheDir       = testDataDir
 		testConfigFile = testIAMConfigFile
+		tokenFilename  = filepath.Join(cacheDir, "tokens.json")
 		cfg            = readConfig(t, testConfigFile)
 		secret         = map[string]interface{}{
 			"username": "frodo.baggins@shire.com",
@@ -512,13 +504,14 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 		}
 	)
 
+	// Enable caching
 	os.Unsetenv(cache.EnvDisableCache)
 
-	// Set the environment variable informing the program where
-	// the config.json file is located
-	os.Setenv(config.EnvConfigFilePath, testConfigFile)
+	// This tests that the cache.dir field of the config.json file
+	// gets passed to CacheUtil
+	os.Unsetenv(cache.EnvCacheDir)
 
-	cacheUtil := cache.NewCacheUtil(cacheDir)
+	os.Setenv(config.EnvConfigFilePath, testConfigFile)
 
 	// Start test Vault cluster
 	cluster := test.StartTestCluster(t)
@@ -590,7 +583,6 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 
 			helper := NewHelper(&HelperOptions{
 				VaultAPI: client,
-				CacheDir: cacheDir,
 			})
 
 			// Delete the cached token (if exists)
@@ -607,14 +599,16 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 					},
 				},
 			}
-			writeTokenFile(t, tokenFile, cacheUtil.TokenFile())
+
+			// "Cache" this token -- when helper.Get() is called, it will
+			// use this cached token when attempting to read the secret
+			writeTokenFile(t, tokenFile, tokenFilename)
 
 			// Sleep for a couple seconds so that the next time
-			// time.Now().Unix() is called a different value
+			// time.Now().Unix() is called, a different value
 			// is returned
 			time.Sleep(2 * time.Second)
 
-			// Execute helper.Get(""), the function being tested
 			user, pw, err := helper.Get("")
 			if err != nil {
 				t.Fatal(err)
@@ -628,7 +622,11 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
 			}
 
-			cachedToken := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, cfg.Auth.Method)
+			// The helper.Get() call should have (1) kept the same token and (2a) if
+			// the token was renewable, (3) renewed the token, and (4) updated the
+			// expiration date, or (2b) if the token was not renewable, (3) left the
+			// cached token's data unchanged.
+			cachedToken := loadTokenFromFile(t, tokenFilename, addr, cfg.Auth.Method)
 
 			switch tc.comparison {
 			case "gt":
@@ -647,7 +645,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	var (
 		cacheDir       = testDataDir
-		badtoken       = "i am not a token"
+		cachedToken       = "i am a cached token"
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
@@ -661,8 +659,11 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	)
 
 	test.SetTestAWSEnvVars()
+
+	// Enable caching
 	os.Unsetenv(cache.EnvDisableCache)
-	cacheUtil := cache.NewCacheUtil(cacheDir)
+
+	cacheUtil := cache.NewCacheUtil(cacheDir, false)
 
 	// Spin up mock Vault server
 	server, _ := test.MakeMockVaultServerIAMAuth(t, opts)
@@ -690,7 +691,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix(),
 						"renewable":  true,
 					},
@@ -702,7 +703,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(-10 * time.Hour).Unix(),
 						"renewable":  false,
 					},
@@ -722,7 +723,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(time.Hour * 10).Unix(),
 						"renewable":  true,
 					},
@@ -742,9 +743,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 
 			writeTokenFile(t, tc.file, cacheUtil.TokenFile())
 
-			helper := NewHelper(&HelperOptions{
-				CacheDir: cacheDir,
-			})
+			helper := NewHelper(nil)
 
 			_, _, err := helper.Get("")
 			if err != nil {
@@ -754,7 +753,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			token := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, cfg.Auth.Method)
 
 			// Ensure that a new token was obtained
-			if token.TokenID() == badtoken {
+			if token.TokenID() == cachedToken {
 				t.Fatal("should have obtained a new token but didn't")
 			}
 
@@ -776,8 +775,6 @@ func TestMain(m *testing.M) {
 	os.Setenv("PATH", path)
 
 	defer awstesting.PopEnv(env)
-	defer seelog.Flush()
-	logger.SetupTestLogger()
 	status := m.Run()
 	clearTestdata(testDataDir)
 	os.Exit(status)

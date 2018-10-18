@@ -1,7 +1,8 @@
 {
   "auth": {
     "method": "ec2",
-    "role": "dev-iam-role"
+    "role": "dev-iam-role",
+    "aws_mount_path": "aws"
   },
   "secret_path": "secret/foo/bar"
 }
