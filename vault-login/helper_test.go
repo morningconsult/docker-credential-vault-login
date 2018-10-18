@@ -599,14 +599,16 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 					},
 				},
 			}
+
+			// "Cache" this token -- when helper.Get() is called, it will
+			// use this cached token when attempting to read the secret
 			writeTokenFile(t, tokenFile, tokenFilename)
 
 			// Sleep for a couple seconds so that the next time
-			// time.Now().Unix() is called a different value
+			// time.Now().Unix() is called, a different value
 			// is returned
 			time.Sleep(2 * time.Second)
 
-			// Execute helper.Get(""), the function being tested
 			user, pw, err := helper.Get("")
 			if err != nil {
 				t.Fatal(err)
@@ -620,6 +622,10 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 				t.Fatalf("Wrong password (got %q, expected %q)", pw, password)
 			}
 
+			// The helper.Get() call should have (1) kept the same token and (2a) if
+			// the token was renewable, (3) renewed the token, and (4) updated the
+			// expiration date, or (2b) if the token was not renewable, (3) left the
+			// cached token's data unchanged.
 			cachedToken := loadTokenFromFile(t, tokenFilename, addr, cfg.Auth.Method)
 
 			switch tc.comparison {
@@ -639,7 +645,7 @@ func TestHelperGet_RenewableToken(t *testing.T) {
 func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	var (
 		cacheDir       = testDataDir
-		badtoken       = "i am not a token"
+		cachedToken       = "i am a cached token"
 		testConfigFile = testIAMConfigFile
 		cfg            = readConfig(t, testConfigFile)
 		opts           = &test.TestVaultServerOptions{
@@ -653,8 +659,9 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 	)
 
 	test.SetTestAWSEnvVars()
+
+	// Enable caching
 	os.Unsetenv(cache.EnvDisableCache)
-	os.Setenv(cache.EnvCacheDir, cacheDir)
 
 	cacheUtil := cache.NewCacheUtil(cacheDir, false)
 
@@ -684,7 +691,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(time.Second * time.Duration(cache.GracePeriodSeconds/2)).Unix(),
 						"renewable":  true,
 					},
@@ -696,7 +703,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(-10 * time.Hour).Unix(),
 						"renewable":  false,
 					},
@@ -716,7 +723,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			map[string]interface{}{
 				host: map[string]interface{}{
 					string(cfg.Auth.Method): map[string]interface{}{
-						"token":      badtoken,
+						"token":      cachedToken,
 						"expiration": time.Now().Add(time.Hour * 10).Unix(),
 						"renewable":  true,
 					},
@@ -746,7 +753,7 @@ func TestHelperGet_CantUseCachedToken(t *testing.T) {
 			token := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, cfg.Auth.Method)
 
 			// Ensure that a new token was obtained
-			if token.TokenID() == badtoken {
+			if token.TokenID() == cachedToken {
 				t.Fatal("should have obtained a new token but didn't")
 			}
 

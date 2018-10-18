@@ -23,14 +23,14 @@ const GracePeriodSeconds int64 = 600 // 10 minutes
 
 type CachedToken struct {
 	// Token is the cached Vault token
-	Token string `json:"token,omitempty"`
+	Token string `json:"token,omitempty" mapstructure:"token"`
 
 	// Expiration is the date and time at which this token expires
 	// (represented as a Unix timestamp)
-	Expiration int64 `json:"expiration"`
+	Expiration int64 `json:"expiration" mapstructure:"expiration"`
 
 	// Renewable is whether the token can be renewed
-	Renewable bool `json:"renewable"`
+	Renewable bool `json:"renewable" mapstructure:"renewable"`
 
 	// Method is the authentication method by which the token was
 	// obtained (specified in the config.json file)

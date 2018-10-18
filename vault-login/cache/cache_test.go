@@ -48,8 +48,7 @@ func TestSetupCacheDir_BackupCache(t *testing.T) {
 	cacheDir := SetupCacheDir("")
 
 	if cacheDir != BackupCacheDir {
-		t.Fatalf("expected %q, but got %q instead",
-			BackupCacheDir, cacheDir)
+		t.Fatalf("expected %q, but got %q instead", BackupCacheDir, cacheDir)
 	}
 }
 
@@ -62,8 +61,7 @@ func TestSetupCacheDir_CacheDirArg(t *testing.T) {
 	cacheDir := SetupCacheDir(cacheDirArg)
 
 	if cacheDir != cacheDirArg {
-		t.Fatalf("expected %q, but got %q instead",
-			cacheDirArg, cacheDir)
+		t.Fatalf("expected %q, but got %q instead", cacheDirArg, cacheDir)
 	}
 }
 
@@ -266,7 +264,8 @@ func TestDefaultCacheUtil_CacheNewToken(t *testing.T) {
 
 func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
 	const cacheDir = "testdata"
-	const token = "a unique Vault token"
+	const newToken = "new token"
+	const oldToken = "a unique Vault token"
 	const method = config.VaultAuthMethodAWSIAM
 	const addr = "https://vault.service.consul"
 
@@ -287,12 +286,12 @@ func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
 	tokenFileOriginal := map[string]interface{}{
 		host: map[string]interface{}{
 			string(method): map[string]interface{}{
-				"token":      token,
+				"token":      oldToken,
 				"expiration": 1234,
 				"renewable":  true,
 			},
 			"other method": map[string]interface{}{
-				"token":      token,
+				"token":      oldToken,
 				"expiration": 5678,
 				"renewable":  false,
 			},
@@ -302,7 +301,7 @@ func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
 
 	newSecret := &api.Secret{
 		Auth: &api.SecretAuth{
-			ClientToken:   "new token",
+			ClientToken:   newToken,
 			Renewable:     true,
 			LeaseDuration: 86400,
 		},
@@ -312,8 +311,8 @@ func TestDefaultCacheUtil_CacheNewToken_OverwritesEntries(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newToken := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, method)
-	if newToken.TokenID() != "new token" {
+	token := loadTokenFromFile(t, cacheUtil.TokenFile(), addr, method)
+	if token.TokenID() != newToken {
 		t.Fatalf("should have overwritten cached token entry (host: %q, method: %q)", host, string(method))
 	}
 }
@@ -611,6 +610,7 @@ func TestDefaultCacheUtil_ClearCachedToken(t *testing.T) {
 		},
 	}
 
+	// "Cache" this token
 	writeTokenFile(t, tokenFileOriginal, cacheUtil.TokenFile())
 
 	cacheUtil.ClearCachedToken(addr, erasedMethod)

@@ -92,13 +92,15 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 	}
 
-	// Handle according to the chosen authentication method
+	// Authenticate and obtain a new auth.Client according to the
+	// specified method
+	var client auth.Client
 	switch cfg.Auth.Method {
 	case config.VaultAuthMethodAWSIAM, config.VaultAuthMethodAWSEC2:
 		// If a valid cached token is found, attempt to read secret with it
 		if token := h.getCachedToken(h.vaultAPI.Address(), cfg.Auth.Method); token != "" {
 			h.vaultAPI.SetToken(token)
-			client := auth.NewDefaultClient(h.vaultAPI)
+			client = auth.NewDefaultClient(h.vaultAPI)
 			creds, err := client.GetCredentials(cfg.Secret)
 			if err == nil {
 				return creds.Username, creds.Password, nil
@@ -110,7 +112,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Authenticate against Vault in the manner specified in the
 		// config.json file to obtain a new client token
 		var factory auth.ClientFactory
-		var err error
 		if cfg.Auth.Method == config.VaultAuthMethodAWSIAM {
 			factory, err = auth.NewClientFactoryAWSIAMAuth(cfg.Auth.Role, cfg.Auth.ServerID, cfg.Auth.AWSMountPath)
 		} else {
@@ -121,7 +122,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
-		client, secret, err := factory.Authenticate(h.vaultAPI)
+		var secret *api.Secret
+		client, secret, err = factory.Authenticate(h.vaultAPI)
 		if err != nil {
 			log.Errorf("error authenticating against Vault: %v", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -132,14 +134,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		if err = h.cacheUtil.CacheNewToken(secret, h.vaultAPI.Address(), cfg.Auth.Method); err != nil {
 			log.Debugf("error caching new token: %v", err)
 		}
-
-		// Get the Docker credentials from Vault
-		creds, err := client.GetCredentials(cfg.Secret)
-		if err != nil {
-			log.Errorf("error getting Docker credentials from Vault: %v", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-		return creds.Username, creds.Password, nil
 	case config.VaultAuthMethodToken:
 		// If the Vault API client doesn't have a token, attempt to
 		// get it from $VAULT_TOKEN
@@ -153,17 +147,19 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 
 		// Get the Docker credentials from Vault
-		client := auth.NewDefaultClient(h.vaultAPI)
-		creds, err := client.GetCredentials(cfg.Secret)
-		if err != nil {
-			log.Errorf("error getting Docker credentials from Vault: %v", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-		return creds.Username, creds.Password, nil
+		client = auth.NewDefaultClient(h.vaultAPI)
 	default:
 		log.Errorf("unknown authentication method: %q", cfg.Auth.Method)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
+
+	// Get the Docker credentials from Vault
+	creds, err := client.GetCredentials(cfg.Secret)
+	if err != nil {
+		log.Errorf("error getting Docker credentials from Vault: %v", err)
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+	return creds.Username, creds.Password, nil
 }
 
 func (h *Helper) List() (map[string]string, error) {
