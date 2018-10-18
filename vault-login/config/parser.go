@@ -149,6 +149,9 @@ func (c *CredHelperConfig) validate() error {
 			errors = append(errors, fmt.Sprintf("%s %s", `No Vault role ("role") is`,
 				"provided (required when the AWS authentication method is chosen)"))
 		}
+		if c.Auth.AWSMountPath == "" {
+			c.Auth.AWSMountPath = "aws"
+		}
 	default:
 		errors = append(errors, fmt.Sprintf("%s %s %q (must be one of %q, %q, or %q)",
 			"Unrecognized Vault authentication method", `(auth.method) value`,
@@ -163,10 +166,6 @@ func (c *CredHelperConfig) validate() error {
 	if len(errors) > 0 {
 		return fmt.Errorf("Configuration file %s has the following errors:\n* %s",
 			c.Path, strings.Join(errors, "\n* "))
-	}
-
-	if c.Auth.AWSMountPath == "" {
-		c.Auth.AWSMountPath = "aws"
 	}
 
 	return nil
