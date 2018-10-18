@@ -113,7 +113,7 @@ This application requires a configuration file `config.json` in order to determi
 ### `cache` Parameters
 
 * `dir` (string: `"~/.docker-credential-vault-login"`) - The directory where logs and tokens will be stored. The value of this field can be overridden by setting the `DOCKER_CREDS_CACHE_DIR` environment variable.
-* `disable_token_caching` (bool: `false`) - Whether tokens issued by your Vault server after successful authentication should be written to disk ("cached") for future use. Enabling caching avoids the need to re-authenticate every time the binary is executed. The value of this field can be overridden by setting the `DOCKER_CREDS_DISABLE_CACHE` environment variable.
+* `disable_token_caching` (bool: `false`) - Whether tokens issued by your Vault server after successful authentication should be written to disk ("cached") for future use. **IT IS NOT RECOMMENDED THAT YOU DISABLE CACHING**. By disabling caching, the process will re-authenticate with each execution. The value of this field can be overridden by setting the `DOCKER_CREDS_DISABLE_CACHE` environment variable.
 
 ### `client` Parameters
 
