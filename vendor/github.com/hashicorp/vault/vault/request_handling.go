@@ -851,7 +851,7 @@ func (c *Core) handleLoginRequest(ctx context.Context, req *logical.Request) (re
 			NonHMACReqDataKeys: nonHMACReqDataKeys,
 		}
 		if err := c.auditBroker.LogRequest(ctx, logInput, c.auditedHeaders); err != nil {
-			c.logger.Error("core: failed to audit request", "path", req.Path, "error", err)
+			c.logger.Error("failed to audit request", "path", req.Path, "error", err)
 			return nil, nil, ErrInternalError
 		}
 
@@ -1072,16 +1072,17 @@ func (c *Core) RegisterAuth(ctx context.Context, tokenTTL time.Duration, path st
 		return err
 	}
 	te := logical.TokenEntry{
-		Path:         path,
-		Meta:         auth.Metadata,
-		DisplayName:  auth.DisplayName,
-		CreationTime: time.Now().Unix(),
-		TTL:          tokenTTL,
-		NumUses:      auth.NumUses,
-		EntityID:     auth.EntityID,
-		BoundCIDRs:   auth.BoundCIDRs,
-		Policies:     auth.TokenPolicies,
-		NamespaceID:  ns.ID,
+		Path:           path,
+		Meta:           auth.Metadata,
+		DisplayName:    auth.DisplayName,
+		CreationTime:   time.Now().Unix(),
+		TTL:            tokenTTL,
+		NumUses:        auth.NumUses,
+		EntityID:       auth.EntityID,
+		BoundCIDRs:     auth.BoundCIDRs,
+		Policies:       auth.TokenPolicies,
+		NamespaceID:    ns.ID,
+		ExplicitMaxTTL: auth.ExplicitMaxTTL,
 	}
 
 	if err := c.tokenStore.create(ctx, &te); err != nil {
