@@ -451,8 +451,6 @@ const (
 	POLLWRNORM = 0x4
 )
 
-type Sigset_t uint32
-
 type Utsname struct {
 	Sysname  [256]byte
 	Nodename [256]byte

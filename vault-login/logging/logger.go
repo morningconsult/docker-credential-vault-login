@@ -60,8 +60,7 @@ func getTestLoggerConfig() string {
 	return `
 <seelog type="asyncloop">
 	<outputs>
-		<rollingfile filename="/dev/null" type="date" 
-		datepattern="2006-01-02-15" archivetype="none" maxrolls="2" />
+		<file path="/dev/null" />
 	</outputs>
 </seelog>
 `

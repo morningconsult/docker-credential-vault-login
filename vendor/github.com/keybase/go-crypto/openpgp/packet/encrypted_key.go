@@ -5,6 +5,7 @@
 package packet
 
 import (
+	"crypto/rsa"
 	"encoding/binary"
 	"io"
 	"math/big"
@@ -13,7 +14,6 @@ import (
 	"github.com/keybase/go-crypto/openpgp/ecdh"
 	"github.com/keybase/go-crypto/openpgp/elgamal"
 	"github.com/keybase/go-crypto/openpgp/errors"
-	"github.com/keybase/go-crypto/rsa"
 )
 
 const encryptedKeyVersion = 3

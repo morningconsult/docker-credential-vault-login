@@ -6,6 +6,7 @@ package openpgp
 
 import (
 	"crypto/hmac"
+	"crypto/rsa"
 	"encoding/binary"
 	"io"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/keybase/go-crypto/openpgp/armor"
 	"github.com/keybase/go-crypto/openpgp/errors"
 	"github.com/keybase/go-crypto/openpgp/packet"
-	"github.com/keybase/go-crypto/rsa"
 )
 
 // PublicKeyType is the armor type for a PGP public key.
@@ -705,7 +705,7 @@ func NewEntity(name, comment, email string, config *packet.Config) (*Entity, err
 	}
 	isPrimaryId := true
 	e.Identities[uid.Id] = &Identity{
-		Name:   uid.Id,
+		Name:   uid.Name,
 		UserId: uid,
 		SelfSignature: &packet.Signature{
 			CreationTime: currentTime,
@@ -718,17 +718,6 @@ func NewEntity(name, comment, email string, config *packet.Config) (*Entity, err
 			FlagCertify:  true,
 			IssuerKeyId:  &e.PrimaryKey.KeyId,
 		},
-	}
-
-	// If the user passes in a DefaultHash via packet.Config, set the
-	// PreferredHash for the SelfSignature.
-	if config != nil && config.DefaultHash != 0 {
-		e.Identities[uid.Id].SelfSignature.PreferredHash = []uint8{hashToHashId(config.DefaultHash)}
-	}
-
-	// Likewise for DefaultCipher.
-	if config != nil && config.DefaultCipher != 0 {
-		e.Identities[uid.Id].SelfSignature.PreferredSymmetric = []uint8{uint8(config.DefaultCipher)}
 	}
 
 	e.Subkeys = make([]Subkey, 1)

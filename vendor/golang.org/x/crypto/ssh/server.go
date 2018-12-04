@@ -484,7 +484,6 @@ userAuthLoop:
 				// sig.Format.  This is usually the same, but
 				// for certs, the names differ.
 				if !isAcceptableAlgo(sig.Format) {
-					authErr = fmt.Errorf("ssh: algorithm %q not accepted", sig.Format)
 					break
 				}
 				signedData := buildDataSignedForAuth(sessionID, userAuthReq, algoBytes, pubKeyData)
