@@ -22,25 +22,24 @@ TEMPDIR=$(mktemp -d get-deps.XXXXXX)
 ## Set paths
 export GOPATH="$(pwd)/${TEMPDIR}"
 export PATH="${GOPATH}/bin:${PATH}"
-cd $TEMPDIR
 
-## Get repo
-mkdir -p "src/${ORG}"
-cd "src/${ORG}"
+mkdir -p "${GOPATH}/bin" "${GOPATH}/src/${ORG}"
+
+cd "${GOPATH}"
+
+# Install dep
+echo "==> Installing dep"
+curl --silent https://raw.githubusercontent.com/golang/dep/master/install.sh | sh > /dev/null
+
+cd "${GOPATH}/src/${ORG}"
 echo "Fetching ${TOOL}..."
-git clone git@github.com:morningconsult/${TOOL}
+git clone git@github.com:morningconsult/${TOOL}.git
 cd ${TOOL}
 
 ## Clean out earlier vendoring
-rm -rf Godeps vendor
+rm -rf Gopkg.* vendor
 
-## Get govendor
-go get -u github.com/kardianos/govendor
+echo "==> Fetching dependencies (this may take some time)"
+dep init
 
-govendor init
-
-## Fetch dependencies
-echo "Fetching dependencies. This will take some time..."
-govendor fetch +missing
-
-printf "Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${ORG}/${TOOL}\n\n"
+printf "==> Done; to commit, run: \n\n    $ cd ${GOPATH}/src/${ORG}/${TOOL}\n\n"

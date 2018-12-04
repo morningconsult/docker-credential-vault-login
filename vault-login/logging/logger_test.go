@@ -36,7 +36,11 @@ func TestMainLogger(t *testing.T) {
 	log.Debug(errmsg)
 	log.Flush()
 
-	data, err := ioutil.ReadFile(filepath.Join(abspath, "log", DefaultLogFilename))
+	files, err := filepath.Glob(filepath.Join(abspath, "log", "*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := ioutil.ReadFile(files[0])
 	if err != nil {
 		t.Fatal(err)
 	}
