@@ -41,3 +41,4 @@ docker cp "${CONTAINER_ID}:/go/src/${REPO}/${BIN_DIR}/${TOOL}" "${ROOT}/${BIN_DI
 docker kill "${CONTAINER_ID}" > /dev/null
 
 echo "==> Done. The binary can be found in:  ${ROOT}/${BIN_DIR}/${TOOL}"
+
