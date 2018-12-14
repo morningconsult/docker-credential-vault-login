@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.11
+FROM golang:1.11.3
 
 WORKDIR /go/src/github.com/morningconsult/docker-credential-vault-login
 
@@ -26,3 +26,4 @@ ENV GOARCH $TARGET_GOARCH
 RUN make
 
 ENTRYPOINT "/bin/bash"
+
