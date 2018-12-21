@@ -134,7 +134,6 @@ var requiredSignedHeaders = rules{
 			"X-Amz-Server-Side-Encryption-Customer-Key":                   struct{}{},
 			"X-Amz-Server-Side-Encryption-Customer-Key-Md5":               struct{}{},
 			"X-Amz-Storage-Class":                                         struct{}{},
-			"X-Amz-Tagging":					       struct{}{},
 			"X-Amz-Website-Redirect-Location":                             struct{}{},
 			"X-Amz-Content-Sha256":                                        struct{}{},
 		},
