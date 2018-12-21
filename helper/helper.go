@@ -2,6 +2,7 @@ package helper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -79,7 +80,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		w, err := logging.LogWriter(nil)
 		if err != nil {
-			h.logger.Error("Error opening log file. Logging errors to stderr instead.", "error", err)
+			h.logger.Error("error opening log file. Logging errors to stderr instead.", "error", err)
 		} else {
 			opts.Output = w
 			defer w.Close()
@@ -88,46 +89,16 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		h.logger = hclog.New(opts)
 	}
 
-	configFile := defaultConfigFile
-	if f := os.Getenv(envConfigFile); f != "" {
-		configFile = f
-	}
-
-	config, err := config.LoadConfig(configFile, h.logger)
+	config, err := h.parseConfig()
 	if err != nil {
-		h.logger.Error(fmt.Sprintf("Error loading configuration from %s", configFile), "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	if config == nil {
-		h.logger.Error("No configuration read. Please provide the configuration file with the " +
-			envConfigFile + " environment variable.")
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	if config.AutoAuth == nil {
-		h.logger.Error(fmt.Sprintf("No auto_auth block found in configuration file %s", configFile))
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	secretRaw, ok := config.AutoAuth.Method.Config["secret"]
-	if !ok {
-		h.logger.Error(fmt.Sprintf("No 'secret' field found in auto_auth.method.config of " +
-			"configuration file %s", configFile))
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	secret, ok := secretRaw.(string)
-	if !ok {
-		h.logger.Error(fmt.Sprintf("field auto_auth.method.config.secret of configuration file %s " +
-			"could not be converted to string", configFile))
+		h.logger.Error(fmt.Sprintf("error parsing configuration file %s", configFile), "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
 	if h.client == nil {
 		h.client, err = api.NewClient(nil)
 		if err != nil {
-			h.logger.Error("Error creating new Vault API client", "error", err)
+			h.logger.Error("error creating new Vault API client", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 	}
@@ -137,13 +108,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Get any cached tokens
 	cachedTokens, err := cache.GetCachedTokens(config.AutoAuth.Sinks, cloned)
 	if err != nil {
-		h.logger.Error("Error getting cached token(s). Re-authenticating.", "error", err)
+		h.logger.Error("error getting cached token(s). Re-authenticating.", "error", err)
 	}
 
 	// Renew the cached tokens
 	for _, token := range cachedTokens {
 		if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
-			h.logger.Error("Error renewing token", "error", err)
+			h.logger.Error("error renewing token", "error", err)
 		}
 	}
 
@@ -154,7 +125,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Get credentials
 		creds, err := vault.GetCredentials(secret, h.client)
 		if err != nil {
-			h.logger.Error("Error reading secret from Vault", "error", err)
+			h.logger.Error("error reading secret from Vault", "error", err)
 			continue
 		}
 		return creds.Username, creds.Password, nil
@@ -165,13 +136,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 	sinks, err := h.buildSinks(config.AutoAuth.Sinks)
 	if err != nil {
-		h.logger.Error("Error building sinks", "error", err)
+		h.logger.Error("error building sinks", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
 	method, err := h.buildMethod(config.AutoAuth.Method)
 	if err != nil {
-		h.logger.Error("Error building method", "error", err)
+		h.logger.Error("error building method", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
@@ -197,25 +168,25 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	var token string
 	select {
 	case <-ctx.Done():
-		h.logger.Error(fmt.Sprintf("Failed to get credentials within timeout (%s)", defaultTimeout.String()))
+		h.logger.Error(fmt.Sprintf("failed to get credentials within timeout (%s)", defaultTimeout.String()))
 		<-ah.DoneCh
 		<-ss.DoneCh
 		return "", "", credentials.NewErrCredentialsNotFound()
 	case token = <-ah.OutputCh:
-		// will have to unwrap if wrapped
-		h.logger.Info("Successfully authenticated")
+		// will have to unwrap token if wrapped
+		h.logger.Info("successfully authenticated")
 	}
 
 	newTokenCh <- token
 
 	select {
 	case <-ctx.Done():
-		h.logger.Error(fmt.Sprintf("Failed to write token to sink(s) within the timeout (%s)", defaultTimeout.String()))
+		h.logger.Error(fmt.Sprintf("failed to write token to sink(s) within the timeout (%s)", defaultTimeout.String()))
 		<-ah.DoneCh
 		<-ss.DoneCh
 		return "", "", credentials.NewErrCredentialsNotFound()
 	case <-ss.DoneCh:
-		h.logger.Info("Successfully wrote token to sink(s)")
+		h.logger.Info("successfully wrote token to sink(s)")
 	}
 
 	cancel()
@@ -226,10 +197,41 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	// Get credentials
 	creds, err := vault.GetCredentials(secret, h.client)
 	if err != nil {
-		h.logger.Error("Error reading secret from Vault", "error", err)
+		h.logger.Error("error reading secret from Vault", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 	return creds.Username, creds.Password, nil
+}
+
+func (h *Helper) parseConfig() (*config.Config, error) {
+	configFile := defaultConfigFile
+	if f := os.Getenv(envConfigFile); f != "" {
+		configFile = f
+	}
+
+	config.LoadConfig(configFile, h.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if config == nil {
+		return nil, errors.New("no configuration read. Please provide the configuration file with the " +
+			envConfigFile + " environment variable.")
+	}
+
+	if config.AutoAuth == nil {
+		return nil, errors.New("no 'auto_auth' block found")
+	}
+
+	secretRaw, ok := config.AutoAuth.Method.Config["secret"]
+	if !ok {
+		return nil, errors.New("no 'secret' field found in 'auto_auth.method.config'")
+	}
+
+	secret, ok := secretRaw.(string)
+	if !ok {
+		return nil, errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
+	}
 }
 
 func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {
@@ -248,12 +250,12 @@ func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {
 			}
 			s, err := file.NewFileSink(config)
 			if err != nil {
-				return nil, fmt.Errorf("Error creating file sink: %v", err)
+				return nil, fmt.Errorf("error creating file sink: %v", err)
 			}
 			config.Sink = s
 			sinks = append(sinks, config)
 		default:
-			return nil, fmt.Errorf("Unknown sink type %q", sc.Type)
+			return nil, fmt.Errorf("unknown sink type %q", sc.Type)
 		}
 	}
 	return sinks, nil
@@ -286,11 +288,10 @@ func (h *Helper) buildMethod(config *config.Method) (auth.AuthMethod, error) {
 	case "approle":
 		method, err = approle.NewApproleAuthMethod(authConfig)
 	default:
-		return nil, fmt.Errorf("Unknown auth method %q", config.Type)
+		return nil, fmt.Errorf("unknown auth method %q", config.Type)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Error creating %s auth method: %v", config.Type, err)
+		return nil, fmt.Errorf("error creating %s auth method: %v", config.Type, err)
 	}
 	return method, nil
 }
-
