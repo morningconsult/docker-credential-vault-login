@@ -23,6 +23,14 @@ func TestHelperGet_Logger(t *testing.T) {
 	t.SkipNow()
 }
 
+func TestHelperGet_Cache(t *testing.T) {
+	t.SkipNow()
+}
+
+func TestHelperGet_GetCreds(t *testing.T) {
+	t.SkipNow()
+}
+
 func TestHelper_parseConfig(t *testing.T) {
 	configFile := os.Getenv(envConfigFile)
 	defer os.Setenv(envConfigFile, configFile)
@@ -72,6 +80,12 @@ func TestHelper_parseConfig(t *testing.T) {
 			"testdata/secret-not-string.hcl",
 			"field 'auto_auth.method.config.secret' could not be converted to string",
 			"",
+		},
+		{
+			"no-mount-path",
+			"testdata/no-mount-path.hcl",
+			"",
+			"secret/docker/creds",
 		},
 		{
 			"valid",
@@ -195,13 +209,113 @@ func TestHelperGet_buildSinks(t *testing.T) {
 }
 
 func TestHelper_buildMethod(t *testing.T) {
-	t.SkipNow()
-}
+	h := NewHelper(&HelperOptions{
+		Logger: hclog.NewNullLogger(),
+	})
 
-func TestHelperGet_Cache(t *testing.T) {
-	t.SkipNow()
-}
+	cases := []struct {
+		name   string
+		config *config.Method
+		err    string
+	}{
+		{
+			"aws",
+			&config.Method{
+				Type:   "aws",
+				Config: map[string]interface{}{
+					"type": "iam",
+					"role": "dev-role",
+				},
+			},
+			"",
+		},
+		{
+			"azure",
+			&config.Method{
+				Type:   "azure",
+				Config: map[string]interface{}{
+					"role":     "dev-test",
+					"resource": "important-stuff",
+				},
+			},
+			"",
+		},
+		{
+			"gcp",
+			&config.Method{
+				Type:   "gcp",
+				Config: map[string]interface{}{
+					"type": "gce",
+					"role": "dev-test",
+				},
+			},
+			"",
+		},
+		{
+			"jwt",
+			&config.Method{
+				Type:   "jwt",
+				Config: map[string]interface{}{
+					"path": "jwt/token",
+					"role": "dev-test",
+				},
+			},
+			"",
+		},
+		{
+			"kubernetes",
+			&config.Method{
+				Type:   "kubernetes",
+				Config: map[string]interface{}{
+					"role": "dev-test",
+				},
+			},
+			"",
+		},
+		{
+			"approle",
+			&config.Method{
+				Type:   "approle",
+				Config: map[string]interface{}{
+					"role_id_file_path": "path/to/role/id",
+					"secret_id_file_path": "path/to/secret/id",
+				},
+			},
+			"",
+		},
+		{
+			"unknown",
+			&config.Method{
+				Type:   "fingerprint",
+				Config: map[string]interface{}{},
+			},
+			`unknown auth method "fingerprint"`,
+		},
+		{
+			"error",
+			&config.Method{
+				Type:   "alicloud",
+				Config: map[string]interface{}{},
+			},
+			"error creating alicloud auth method: 'role' is required but is not provided",
+		},
+	}
 
-func TestHelperGet_GetCreds(t *testing.T) {
-	t.SkipNow()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := h.buildMethod(tc.config)
+			if tc.err != "" {
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				if err.Error() != tc.err {
+					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
