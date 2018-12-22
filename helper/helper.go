@@ -89,21 +89,30 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		h.logger = hclog.New(opts)
 	}
 
-	config, err := h.parseConfig()
+	configFile := defaultConfigFile
+	if f := os.Getenv(envConfigFile); f != "" {
+		configFile = f
+	}
+
+	config, secret, err := h.parseConfig(configFile)
 	if err != nil {
 		h.logger.Error(fmt.Sprintf("error parsing configuration file %s", configFile), "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
 	if h.client == nil {
-		h.client, err = api.NewClient(nil)
+		h.client, err = newVaultClient(config.AutoAuth.Method.Config)
 		if err != nil {
 			h.logger.Error("error creating new Vault API client", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 	}
 
-	cloned, _ := h.client.Clone()
+	cloned, err := h.client.Clone()
+	if err != nil {
+		h.logger.Error("error cloning Vault API client", "error", err)
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
 
 	// Get any cached tokens
 	cachedTokens, err := cache.GetCachedTokens(config.AutoAuth.Sinks, cloned)
@@ -203,35 +212,32 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	return creds.Username, creds.Password, nil
 }
 
-func (h *Helper) parseConfig() (*config.Config, error) {
-	configFile := defaultConfigFile
-	if f := os.Getenv(envConfigFile); f != "" {
-		configFile = f
-	}
-
-	config.LoadConfig(configFile, h.logger)
+func (h *Helper) parseConfig(configFile string) (*config.Config, string, error) {
+	config, err := config.LoadConfig(configFile, h.logger)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if config == nil {
-		return nil, errors.New("no configuration read. Please provide the configuration file with the " +
+		return nil, "", errors.New("no configuration read. Please provide the configuration file with the " +
 			envConfigFile + " environment variable.")
 	}
 
 	if config.AutoAuth == nil {
-		return nil, errors.New("no 'auto_auth' block found")
+		return nil, "", errors.New("no 'auto_auth' block found")
 	}
 
 	secretRaw, ok := config.AutoAuth.Method.Config["secret"]
 	if !ok {
-		return nil, errors.New("no 'secret' field found in 'auto_auth.method.config'")
+		return nil, "", errors.New("field 'auto_auth.method.config.secret' not found")
 	}
 
 	secret, ok := secretRaw.(string)
 	if !ok {
-		return nil, errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
+		return nil, "", errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
 	}
+
+	return config, secret, nil
 }
 
 func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {
