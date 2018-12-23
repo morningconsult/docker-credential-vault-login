@@ -34,7 +34,7 @@ func LogWriter(opts *LoggingOptions) (io.WriteCloser, error) {
 
 	logDir, err := homedir.Expand(opts.LogDir)
 	if err != nil {
-		return nil, fmt.Errorf("error expanding loggig directory %s: %v", opts.LogDir, err)
+		return nil, fmt.Errorf("error expanding logging directory %s: %v", opts.LogDir, err)
 	}
 
 	if err = os.MkdirAll(logDir, 0755); err != nil {

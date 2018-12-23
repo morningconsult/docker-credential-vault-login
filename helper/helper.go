@@ -108,100 +108,102 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 	}
 
-	cloned, err := h.client.Clone()
-	if err != nil {
-		h.logger.Error("error cloning Vault API client", "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	// Get any cached tokens
-	cachedTokens, err := cache.GetCachedTokens(config.AutoAuth.Sinks, cloned)
-	if err != nil {
-		h.logger.Error("error getting cached token(s). Re-authenticating.", "error", err)
-	}
-
-	// Renew the cached tokens
-	for _, token := range cachedTokens {
-		if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
-			h.logger.Error("error renewing token", "error", err)
-		}
-	}
-
-	// Use any token to get credentials
-	for _, token := range cachedTokens {
-		h.client.SetToken(token)
-
-		// Get credentials
-		creds, err := vault.GetCredentials(secret, h.client)
+	if h.client.Token() == "" {
+		cloned, err := h.client.Clone()
 		if err != nil {
-			h.logger.Error("error reading secret from Vault", "error", err)
-			continue
+			h.logger.Error("error cloning Vault API client", "error", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
 		}
-		return creds.Username, creds.Password, nil
-	}
 
-	// Failed to read secret with cached token. Reauthenticate.
-	h.client.ClearToken()
+		// Get any cached tokens
+		cachedTokens, err := cache.GetCachedTokens(config.AutoAuth.Sinks, cloned)
+		if err != nil {
+			h.logger.Error("error getting cached token(s). Re-authenticating.", "error", err)
+		}
 
-	sinks, err := h.buildSinks(config.AutoAuth.Sinks)
-	if err != nil {
-		h.logger.Error("error building sinks", "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
+		// Renew the cached tokens
+		for _, token := range cachedTokens {
+			if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
+				h.logger.Error("error renewing token", "error", err)
+			}
+		}
 
-	method, err := h.buildMethod(config.AutoAuth.Method)
-	if err != nil {
-		h.logger.Error("error building method", "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
+		// Use any token to get credentials
+		for _, token := range cachedTokens {
+			h.client.SetToken(token)
 
-	ss := sink.NewSinkServer(&sink.SinkServerConfig{
-		Logger:        h.logger.Named("sink.server"),
-		Client:        h.client,
-		ExitAfterAuth: true,
-	})
+			// Get credentials
+			creds, err := vault.GetCredentials(secret, h.client)
+			if err != nil {
+				h.logger.Error("error reading secret from Vault", "error", err)
+				continue
+			}
+			return creds.Username, creds.Password, nil
+		}
 
-	ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
-		Logger:  h.logger.Named("auth.handler"),
-		Client:  h.client,
-		WrapTTL: config.AutoAuth.Method.WrapTTL,
-	})
+		// Failed to read secret with cached token. Reauthenticate.
+		h.client.ClearToken()
 
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+		sinks, err := h.buildSinks(config.AutoAuth.Sinks)
+		if err != nil {
+			h.logger.Error("error building sinks", "error", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
 
-	newTokenCh := make(chan string)
+		method, err := h.buildMethod(config.AutoAuth.Method)
+		if err != nil {
+			h.logger.Error("error building method", "error", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
 
-	go ah.Run(ctx, method)
-	go ss.Run(ctx, newTokenCh, sinks)
+		ss := sink.NewSinkServer(&sink.SinkServerConfig{
+			Logger:        h.logger.Named("sink.server"),
+			Client:        h.client,
+			ExitAfterAuth: true,
+		})
 
-	var token string
-	select {
-	case <-ctx.Done():
-		h.logger.Error(fmt.Sprintf("failed to get credentials within timeout (%s)", defaultTimeout.String()))
+		ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
+			Logger:  h.logger.Named("auth.handler"),
+			Client:  h.client,
+			WrapTTL: config.AutoAuth.Method.WrapTTL,
+		})
+
+		ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+
+		newTokenCh := make(chan string)
+
+		go ah.Run(ctx, method)
+		go ss.Run(ctx, newTokenCh, sinks)
+
+		var token string
+		select {
+		case <-ctx.Done():
+			h.logger.Error(fmt.Sprintf("failed to get credentials within timeout (%s)", defaultTimeout.String()))
+			<-ah.DoneCh
+			<-ss.DoneCh
+			return "", "", credentials.NewErrCredentialsNotFound()
+		case token = <-ah.OutputCh:
+			// will have to unwrap token if wrapped
+			h.logger.Info("successfully authenticated")
+		}
+
+		newTokenCh <- token
+
+		select {
+		case <-ctx.Done():
+			h.logger.Error(fmt.Sprintf("failed to write token to sink(s) within the timeout (%s)", defaultTimeout.String()))
+			<-ah.DoneCh
+			<-ss.DoneCh
+			return "", "", credentials.NewErrCredentialsNotFound()
+		case <-ss.DoneCh:
+			h.logger.Info("successfully wrote token to sink(s)")
+		}
+
+		cancel()
 		<-ah.DoneCh
-		<-ss.DoneCh
-		return "", "", credentials.NewErrCredentialsNotFound()
-	case token = <-ah.OutputCh:
-		// will have to unwrap token if wrapped
-		h.logger.Info("successfully authenticated")
+
+		h.client.SetToken(token)
 	}
-
-	newTokenCh <- token
-
-	select {
-	case <-ctx.Done():
-		h.logger.Error(fmt.Sprintf("failed to write token to sink(s) within the timeout (%s)", defaultTimeout.String()))
-		<-ah.DoneCh
-		<-ss.DoneCh
-		return "", "", credentials.NewErrCredentialsNotFound()
-	case <-ss.DoneCh:
-		h.logger.Info("successfully wrote token to sink(s)")
-	}
-
-	cancel()
-	<-ah.DoneCh
-
-	h.client.SetToken(token)
 
 	// Get credentials
 	creds, err := vault.GetCredentials(secret, h.client)

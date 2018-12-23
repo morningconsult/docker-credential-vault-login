@@ -2,10 +2,14 @@ package helper
 
 import (
 	// "bytes"
+	"path/filepath"
+	"fmt"
+	"io/ioutil"
 	"os"
-	// "strings"
+	"strings"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
@@ -19,13 +23,112 @@ func TestNewHelper(t *testing.T) {
 	t.SkipNow()
 }
 
-func TestHelperGet_Logger(t *testing.T) {
-	t.SkipNow()
+func TestHelperGet_logger(t *testing.T) {
+	config := os.Getenv(envConfigFile)
+	defer os.Setenv(envConfigFile, config)
+	os.Setenv(envConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig with throw an error
+
+	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
+	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
+	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+
+	h := NewHelper(nil)
+
+	_, _, err := h.Get("")
+	if err == nil {
+		t.Fatal("expected an error but didn't receive one")
+	}
+	
+	logfile := filepath.Join("testdata", fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+
+	if _, err := os.Stat(logfile); os.IsNotExist(err) {
+		t.Fatalf("log file %s was not created", logfile)
+	}
+	defer os.Remove(logfile)
+
+	data, err := ioutil.ReadFile(logfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `[ERROR] helper.get: error parsing configuration file testdata/empty-file.hcl: error="error parsing 'auto_auth': one and only one "auto_auth" block is required"`
+	if !strings.Contains(string(data), expected) {
+		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, string(data))
+	}
 }
 
-func TestHelperGet_Cache(t *testing.T) {
-	t.SkipNow()
+func TestHelperGet_config(t *testing.T) {
+	config := os.Getenv(envConfigFile)
+	defer os.Setenv(envConfigFile, config)
+	os.Setenv(envConfigFile, "testdata/empty-file.hcl")
+
+	h := NewHelper(nil)
+
+	_, _, err := h.Get("")
+	if err == nil {
+		t.Fatal("expected an error but didn't receive one")
+	}
 }
+
+func TestHelperGet_newVaultClient(t *testing.T) {
+	oldLog := os.Getenv("DOCKER_CREDS_LOG_DIR")
+	defer os.Setenv("DOCKER_CREDS_LOG_DIR", oldLog)
+	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+
+	oldRL := os.Getenv(api.EnvRateLimit)
+	defer os.Setenv(api.EnvRateLimit, oldRL)
+	os.Setenv(api.EnvRateLimit, "not an int!") // Causes newVaultClient() to throw an error
+
+	h := NewHelper(nil)
+
+	_, _, err := h.Get("")
+	if err == nil {
+		t.Fatal(err)
+	}
+
+	logfile := filepath.Join("testdata", fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+
+	if _, err := os.Stat(logfile); os.IsNotExist(err) {
+		t.Fatalf("log file %s was not created", logfile)
+	}
+	defer os.Remove(logfile)
+
+	data, err := ioutil.ReadFile(logfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := `[ERROR] helper.get: error creating new Vault API client: error="error encountered setting up default configuration: VAULT_RATE_LIMIT was provided but incorrectly formatted"`
+	if !strings.Contains(string(data), expected) {
+		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, string(data))
+	}
+}
+
+// func TestHelperGet_cache(t *testing.T) {
+// 	config := os.Getenv(envConfigFile)
+// 	defer os.Setenv(envConfigFile, config)
+// 	os.Setenv(envConfigFile, "testdata/testing.hcl")
+
+// 	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
+// 	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
+// 	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+
+// 	h := NewHelper(nil)
+
+// 	_, _, err := h.Get("")
+// 	if err == nil {
+// 		t.Fatal("expected an error but didn't receive one")
+// 	}
+
+// 	defer os.Remove("testdata/cache")
+
+// 	data, err := ioutil.ReadFile(filepath.Join("testdata",fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02"))))
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+
+// 	t.Log(string(data))
+// }
 
 func TestHelperGet_GetCreds(t *testing.T) {
 	t.SkipNow()
@@ -316,6 +419,129 @@ func TestHelper_buildMethod(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+		})
+	}
+}
+
+func TestNewVaultClient(t *testing.T) {
+
+	cases := []struct {
+		name   string
+		env    map[string]string
+		config map[string]interface{}
+		err    string
+	}{
+		{
+			"env-precedence",
+			map[string]string{
+				api.EnvVaultAddress: "http://127.0.0.1:8200",
+			},
+			map[string]interface{}{
+				strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+			},
+			"",
+		},
+		{
+			"config-lowercase",
+			map[string]string{},
+			map[string]interface{}{
+				strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+			},
+			"",
+		},
+		{
+			"config-uppercase",
+			map[string]string{},
+			map[string]interface{}{
+				api.EnvVaultAddress: "http://127.0.0.1:8201",
+			},
+			"",
+		},
+		{
+			"config-error",
+			map[string]string{},
+			map[string]interface{}{
+				strings.ToLower(api.EnvVaultAddress): map[string]interface{}{
+					"not": "stringable!",
+				},
+			},
+			"field 'auto_auth.method.config.VAULT_ADDR' could not be converted to a string",
+		},
+		{
+			"new-client-error",
+			map[string]string{
+				api.EnvRateLimit: "asdf",
+			},
+			map[string]interface{}{},
+			"error encountered setting up default configuration: VAULT_RATE_LIMIT was provided but incorrectly formatted",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			for env, new := range tc.env {
+				old := os.Getenv(env)
+				defer os.Setenv(env, old)
+				os.Setenv(env, new)
+			}
+
+			client, err := newVaultClient(tc.config)
+			if tc.err != "" {
+				if err == nil {
+					t.Fatal("expected an error but didn't receive one")
+				}
+				if err.Error() != tc.err {
+					t.Fatalf("Errors differ:\n%v", cmp.Diff(tc.err, err.Error()))
+				}
+				return
+			}
+
+			if len(tc.env) > 0 {
+				for env, val := range tc.env {
+					switch env {
+					case api.EnvVaultAddress:
+						if client.Address() != val {
+							t.Fatalf("Vault client addresses differ:\n%v", cmp.Diff(client.Address, val))
+						}
+						delete(tc.config, api.EnvVaultAddress)
+						delete(tc.config, strings.ToLower(api.EnvVaultAddress))
+					case api.EnvVaultToken:
+						if client.Token() != val {
+							t.Fatalf("Vault tokens differ:\n%v", cmp.Diff(client.Token(), val))
+						}
+						delete(tc.config, api.EnvVaultToken)
+						delete(tc.config, strings.ToLower(api.EnvVaultToken))
+					default:
+						t.Fatalf("environment variable %q is not supported for this unit test", env)
+					}
+				}
+			}
+
+			if len(tc.config) > 0 {
+				for env, val := range tc.config {
+					switch env {
+					case api.EnvVaultAddress, strings.ToLower(api.EnvVaultAddress):
+						s, ok := val.(string)
+						if !ok {
+							t.Fatalf("config %s could not be cast to string", env)
+						}
+						if client.Address() != s {
+							t.Fatalf("Vault client addresses differ:\n%v", cmp.Diff(client.Address(), s))
+						}
+					case api.EnvVaultToken, strings.ToLower(api.EnvVaultToken):
+						s, ok := val.(string)
+						if !ok {
+							t.Fatalf("config %s could not be cast to string", env)
+						}
+						if client.Token() != s {
+							t.Fatalf("Vault tokens differ:\n%v", cmp.Diff(client.Token(), s))
+						}
+					default:
+						t.Fatalf("environment variable %q is not supported for this unit test", env)
+					}
+				}
+			}
+
 		})
 	}
 }
