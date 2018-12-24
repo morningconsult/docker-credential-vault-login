@@ -14,32 +14,82 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/helper/logging"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
 	"github.com/hashicorp/vault/command/agent/sink/file"
+	"github.com/hashicorp/vault/builtin/credential/approle"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/vault"
+	"github.com/aws/aws-sdk-go/awstesting"
+	"github.com/docker/docker-credential-helpers/credentials"
 )
 
 func TestNewHelper(t *testing.T) {
-	t.SkipNow()
+	h := NewHelper(&HelperOptions{
+		AuthTimeout: 1,
+	})
+
+	if h.authTimeout != time.Duration(1) * time.Second {
+		t.Fatal("Helper.authDuration != 1")
+	}
 }
 
-func TestHelperGet_logger(t *testing.T) {
+func TestHelper_Add(t *testing.T) {
+	h := NewHelper(nil)
+	err := h.Add(&credentials.Credentials{})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if err.Error() != "not implemented" {
+		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
+	}
+}
+
+func TestHelper_Delete(t *testing.T) {
+	h := NewHelper(nil)
+	err := h.Delete("")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if err.Error() != "not implemented" {
+		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
+	}
+}
+
+func TestHelper_List(t *testing.T) {
+	h := NewHelper(nil)
+	_, err := h.List()
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if err.Error() != "not implemented" {
+		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
+	}
+}
+
+func TestHelper_Get_logger(t *testing.T) {
 	config := os.Getenv(envConfigFile)
 	defer os.Setenv(envConfigFile, config)
 	os.Setenv(envConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig with throw an error
 
 	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
 	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
-	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
 
 	h := NewHelper(nil)
 
-	_, _, err := h.Get("")
+	_, _, err = h.Get("")
 	if err == nil {
 		t.Fatal("expected an error but didn't receive one")
 	}
 	
-	logfile := filepath.Join("testdata", fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
 
 	if _, err := os.Stat(logfile); os.IsNotExist(err) {
 		t.Fatalf("log file %s was not created", logfile)
@@ -57,7 +107,7 @@ func TestHelperGet_logger(t *testing.T) {
 	}
 }
 
-func TestHelperGet_config(t *testing.T) {
+func TestHelper_Get_config(t *testing.T) {
 	config := os.Getenv(envConfigFile)
 	defer os.Setenv(envConfigFile, config)
 	os.Setenv(envConfigFile, "testdata/empty-file.hcl")
@@ -70,10 +120,14 @@ func TestHelperGet_config(t *testing.T) {
 	}
 }
 
-func TestHelperGet_newVaultClient(t *testing.T) {
+func TestHelper_Get_newVaultClient(t *testing.T) {
 	oldLog := os.Getenv("DOCKER_CREDS_LOG_DIR")
 	defer os.Setenv("DOCKER_CREDS_LOG_DIR", oldLog)
-	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
 
 	oldRL := os.Getenv(api.EnvRateLimit)
 	defer os.Setenv(api.EnvRateLimit, oldRL)
@@ -81,12 +135,12 @@ func TestHelperGet_newVaultClient(t *testing.T) {
 
 	h := NewHelper(nil)
 
-	_, _, err := h.Get("")
+	_, _, err = h.Get("")
 	if err == nil {
 		t.Fatal(err)
 	}
 
-	logfile := filepath.Join("testdata", fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
 
 	if _, err := os.Stat(logfile); os.IsNotExist(err) {
 		t.Fatalf("log file %s was not created", logfile)
@@ -104,34 +158,266 @@ func TestHelperGet_newVaultClient(t *testing.T) {
 	}
 }
 
-// func TestHelperGet_cache(t *testing.T) {
-// 	config := os.Getenv(envConfigFile)
-// 	defer os.Setenv(envConfigFile, config)
-// 	os.Setenv(envConfigFile, "testdata/testing.hcl")
+func TestHelper_Get(t *testing.T) {
 
-// 	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
-// 	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
-// 	os.Setenv("DOCKER_CREDS_LOG_DIR", "testdata")
+	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
+	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
+	testdata, err := filepath.Abs("testdata")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
+	defer os.Remove(filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02"))))
 
-// 	h := NewHelper(nil)
+	coreConfig := &vault.CoreConfig{
+		Logger: logging.NewVaultLogger(hclog.Error),
+		CredentialBackends: map[string]logical.Factory{
+			"approle": approle.Factory,
+		},
+	}
+	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
 
-// 	_, _, err := h.Get("")
-// 	if err == nil {
-// 		t.Fatal("expected an error but didn't receive one")
-// 	}
+	core := cluster.Cores[0].Core
+	vault.TestWaitActive(t, core)
+	client := cluster.Cores[0].Client
+	rootToken := client.Token()
 
-// 	defer os.Remove("testdata/cache")
+	// Mount the auth backend
+	err = client.Sys().EnableAuthWithOptions("approle", &api.EnableAuthOptions{
+		Type: "approle",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	data, err := ioutil.ReadFile(filepath.Join("testdata",fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02"))))
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+	// Tune the mount
+	err = client.Sys().TuneMount("auth/approle", api.MountConfigInput{
+		DefaultLeaseTTL: "20s",
+		MaxLeaseTTL:     "20s",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// 	t.Log(string(data))
-// }
+	// Create role
+	resp, err := client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
+		"period":   "20s",
+		"policies": "dev-policy",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-func TestHelperGet_GetCreds(t *testing.T) {
-	t.SkipNow()
+	// Get role_id
+	resp, err = client.Logical().Read("auth/approle/role/role-period/role-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("expected a response for fetching the role-id")
+	}
+	roleID, ok := resp.Data["role_id"].(string)
+	if !ok {
+		t.Fatal("could not convert 'role_id' to string")
+	}
+	roleIDFile := filepath.Join(testdata, "test-approle-role-id")
+
+	if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(roleIDFile)
+
+	// Get secret_id
+	resp, err = client.Logical().Write("auth/approle/role/role-period/secret-id", map[string]interface{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("expected a response for fetching the secret-id")
+	}
+	secretID, ok := resp.Data["secret_id"].(string)
+	if !ok {
+		t.Fatal("could not convert 'secret_id' to string")
+	}
+	secretIDFile := filepath.Join(testdata, "test-approle-secret-id")
+
+	if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(secretIDFile)
+
+	// Write a secret
+	_, err = client.Logical().Write("secret/docker/creds", map[string]interface{}{
+		"username": "test@user.com",
+		"password": "secure password",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Give the approle permission to read the secret
+	policy := `path "secret/docker/creds" {
+	capabilities = ["read", "list"]
+}`
+	if err = client.Sys().PutPolicy("dev-policy", policy); err != nil {
+		t.Fatal(err)
+	}
+
+	hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = "secret/docker/creds"
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+	hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+	
+	configFile := filepath.Join(testdata, "testing.hcl")
+	if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(configFile)
+	defer os.Remove("testdata/token-sink")
+
+	oldConfig := os.Getenv(envConfigFile)
+	defer os.Setenv(envConfigFile, oldConfig)
+	os.Setenv(envConfigFile, configFile)
+
+	client.ClearToken()
+
+	h := NewHelper(&HelperOptions{
+		Client:      client,
+		AuthTimeout: 3,
+	})
+
+	// Test #1: Test that it can read authenticate, get a new token, and read the secret
+	user, pw, err := h.Get("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if user != "test@user.com" {
+		t.Fatalf("Got username %q, expected \"test@user.com\"", user)
+	}
+	if pw != "secure password" {
+		t.Fatalf("Got password %q, expected \"secure password\"", pw)
+	}
+
+	if _, err = os.Stat("testdata/token-sink"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test #2: Test that it can read the secret using the cached token
+	t.Run("can-use-cached-token", func(t *testing.T) {
+		h.client.ClearToken()
+		h.logger = nil
+
+		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		user, pw, err := h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if user != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
+		}
+		if pw != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", pw)
+		}
+	})
+
+	t.Run("can-disable-caching", func(t *testing.T) {
+		h.client.ClearToken()
+		h.logger = nil
+
+		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		os.Setenv(envDisableCaching, "true")
+		defer os.Unsetenv(envDisableCaching)
+
+		user, pw, err := h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if user != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
+		}
+		if pw != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", pw)
+		}
+
+		if _, err = os.Stat("testdata/token-sink"); os.IsExist(err) {
+			t.Fatal("helper.Get() should not have cached a token")
+		}
+	})
+
+	// Test #3: Ensure that if the client attempts to read the secret with
+	// a bad token it fails
+	t.Run("fails-when-bad-token-used", func(t *testing.T) {
+		h.client.SetToken("bad token!")
+		h.logger = nil
+
+		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, _, err = h.Get(""); err == nil {
+			t.Fatal("expected an error when client attempts to read secret with a bad token")
+		}
+	})
+
+	// Test #4: Ensure that if the role does not have permission to read
+	// the secret, it fails
+	t.Run("fails-when-no-policy", func(t *testing.T) {
+		client.SetToken(rootToken)
+
+		if err = client.Sys().DeletePolicy("dev-policy"); err != nil {
+			t.Fatal(err)
+		}
+
+		h.client.ClearToken()
+		h.logger = nil
+
+		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		if _, _, err = h.Get(""); err == nil {
+			t.Fatal("expected an error when role attempts to read secret with without permission")
+		}
+	})
+
 }
 
 func TestHelper_parseConfig(t *testing.T) {
@@ -212,7 +498,9 @@ func TestHelper_parseConfig(t *testing.T) {
 				}
 				return
 			}
-
+			if err != nil {
+				t.Fatal(err)
+			}
 			if tc.secret != secret {
 				t.Fatalf("Results differ:\n%v", cmp.Diff(tc.secret, secret))
 			}
@@ -221,7 +509,7 @@ func TestHelper_parseConfig(t *testing.T) {
 	}
 }
 
-func TestHelperGet_buildSinks(t *testing.T) {
+func TestHelper_buildSinks(t *testing.T) {
 	logger := hclog.NewNullLogger()
 	client, err := api.NewClient(nil)
 	if err != nil {
@@ -424,6 +712,8 @@ func TestHelper_buildMethod(t *testing.T) {
 }
 
 func TestNewVaultClient(t *testing.T) {
+	oldEnv := awstesting.StashEnv()
+	defer awstesting.PopEnv(oldEnv)
 
 	cases := []struct {
 		name   string
