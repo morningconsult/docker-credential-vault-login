@@ -1,7 +1,7 @@
 package helper
 
 import (
-	// "bytes"
+	"bytes"
 	"path/filepath"
 	"fmt"
 	"io/ioutil"
@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/vault/vault"
 	"github.com/aws/aws-sdk-go/awstesting"
 	"github.com/docker/docker-credential-helpers/credentials"
+	"github.com/hashicorp/go-uuid"
 )
 
 func TestNewHelper(t *testing.T) {
@@ -121,6 +122,10 @@ func TestHelper_Get_config(t *testing.T) {
 }
 
 func TestHelper_Get_newVaultClient(t *testing.T) {
+	oldConfig := os.Getenv(envConfigFile)
+	defer os.Setenv(envConfigFile, oldConfig)
+	os.Setenv(envConfigFile, "testdata/valid.hcl")
+
 	oldLog := os.Getenv("DOCKER_CREDS_LOG_DIR")
 	defer os.Setenv("DOCKER_CREDS_LOG_DIR", oldLog)
 	testdata, err := filepath.Abs("testdata")
@@ -225,10 +230,6 @@ func TestHelper_Get(t *testing.T) {
 		t.Fatal("could not convert 'role_id' to string")
 	}
 	roleIDFile := filepath.Join(testdata, "test-approle-role-id")
-
-	if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-		t.Fatal(err)
-	}
 	defer os.Remove(roleIDFile)
 
 	// Get secret_id
@@ -244,11 +245,18 @@ func TestHelper_Get(t *testing.T) {
 		t.Fatal("could not convert 'secret_id' to string")
 	}
 	secretIDFile := filepath.Join(testdata, "test-approle-secret-id")
-
-	if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-		t.Fatal(err)
-	}
 	defer os.Remove(secretIDFile)
+
+	makeApproleFiles := func() {
+		if err := ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
+		}
+		if err := ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	makeApproleFiles()
 
 	// Write a secret
 	_, err = client.Logical().Write("secret/docker/creds", map[string]interface{}{
@@ -325,12 +333,7 @@ func TestHelper_Get(t *testing.T) {
 		h.client.ClearToken()
 		h.logger = nil
 
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-			t.Fatal(err)
-		}
+		makeApproleFiles()
 
 		user, pw, err := h.Get("")
 		if err != nil {
@@ -349,12 +352,7 @@ func TestHelper_Get(t *testing.T) {
 		h.client.ClearToken()
 		h.logger = nil
 
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-			t.Fatal(err)
-		}
+		makeApproleFiles()
 
 		os.Setenv(envDisableCaching, "true")
 		defer os.Unsetenv(envDisableCaching)
@@ -382,12 +380,7 @@ func TestHelper_Get(t *testing.T) {
 		h.client.SetToken("bad token!")
 		h.logger = nil
 
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-			t.Fatal(err)
-		}
+		makeApproleFiles()
 
 		if _, _, err = h.Get(""); err == nil {
 			t.Fatal("expected an error when client attempts to read secret with a bad token")
@@ -406,18 +399,133 @@ func TestHelper_Get(t *testing.T) {
 		h.client.ClearToken()
 		h.logger = nil
 
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-			t.Fatal(err)
-		}
+		makeApproleFiles()
 
 		if _, _, err = h.Get(""); err == nil {
 			t.Fatal("expected an error when role attempts to read secret with without permission")
 		}
 	})
 
+	t.Run("build-sinks-error", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = "secret/docker/creds"
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+
+	sink "kitchen" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+		hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		os.Remove("testdata/token-sink")
+
+		h.client.ClearToken()
+
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `[ERROR] error building sinks: error="unknown sink type "kitchen""`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
+
+	t.Run("build-method-error", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "retina" {
+		mount_path = "auth/approle"
+		config     = {
+			secret = "secret/docker/creds"
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		os.Remove("testdata/token-sink")
+
+		h.client.ClearToken()
+
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `[ERROR] error building method: error="unknown auth method "retina""`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
+}
+
+func TestHelper_Get_FastTimeout(t *testing.T) {
+	addr := os.Getenv(api.EnvVaultAddress)
+	defer os.Setenv(api.EnvVaultAddress, addr)
+	os.Setenv(api.EnvVaultAddress, "http://" + randomUUID(t) + ".example.com")
+
+	config := os.Getenv(envConfigFile)
+	defer os.Setenv(envConfigFile, config)
+	os.Setenv(envConfigFile, "testdata/valid.hcl")
+
+	buf := new(bytes.Buffer)
+	logger := hclog.New(&hclog.LoggerOptions{
+		Level:  hclog.Error,
+		Output: buf,
+	})
+	client, err := api.NewClient(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client.SetMaxRetries(1)
+	client.SetClientTimeout(1 * time.Second)
+	client.ClearToken()
+
+	h := NewHelper(&HelperOptions{
+		Logger:      logger,
+		AuthTimeout: 1,
+		Client:      client,
+	})
+	_, _, err = h.Get("")
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+
+	expected := `[ERROR] auth.handler: error authenticating: error="context deadline exceeded"`
+	if !strings.Contains(buf.String(), expected) {
+		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+	}
+	
 }
 
 func TestHelper_parseConfig(t *testing.T) {
@@ -834,4 +942,12 @@ func TestNewVaultClient(t *testing.T) {
 
 		})
 	}
+}
+
+func randomUUID(t *testing.T) string {
+	id, err := uuid.GenerateUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
 }

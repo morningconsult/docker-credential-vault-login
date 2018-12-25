@@ -1,15 +1,21 @@
 package cache
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/dhutil"
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/command/agent/config"
 )
+
+type PrivateKeyInfo struct {
+	Curve25519PrivateKey string `json:"curve25519_private_key"`
+}
 
 func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error) {
 	var tokens []string
@@ -50,9 +56,23 @@ func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error)
 				return nil, fmt.Errorf("'dh_priv' of file sink %s cannot be converted to string", path)
 			}
 
-			dhPrivKey, err := ioutil.ReadFile(dhPrivKeyFile)
+			file, err := os.Open(dhPrivKeyFile)
 			if err != nil {
-				return nil, fmt.Errorf("error reading 'dh_priv' file: %v", err)
+				return nil, fmt.Errorf("error opening 'dh_priv' file %s: %v", dhPrivKeyFile, err)
+			}
+
+			pkInfo := new(PrivateKeyInfo)
+			if err = jsonutil.DecodeJSONFromReader(file, pkInfo); err != nil {
+				return nil, fmt.Errorf("error JSON-decoding file %s: %v", dhPrivKeyFile, err)
+			}
+
+			if pkInfo.Curve25519PrivateKey == "" {
+				return nil, fmt.Errorf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile)
+			}
+
+			dhPrivKey, err := base64.StdEncoding.DecodeString(pkInfo.Curve25519PrivateKey)
+			if err != nil {
+				return nil, fmt.Errorf("error JSON-decoding 'curve25519_private_key' of file %s: %v", dhPrivKeyFile, err)
 			}
 
 			aesKey, err := dhutil.GenerateSharedKey(dhPrivKey, resp.Curve25519PublicKey)
