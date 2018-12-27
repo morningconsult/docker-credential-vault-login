@@ -2,11 +2,11 @@ package cache
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/helper/dhutil"
 	"github.com/hashicorp/vault/helper/jsonutil"
@@ -17,23 +17,26 @@ type PrivateKeyInfo struct {
 	Curve25519PrivateKey string `json:"curve25519_private_key"`
 }
 
-func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error) {
+func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Client) []string {
 	var tokens []string
 
-	for _, sink := range sinks {
+	for i, sink := range sinks {
 		pathRaw, ok := sink.Config["path"]
 		if !ok {
-			return nil, errors.New("'path' not specified for file sink")
+			logger.Error(fmt.Sprintf("'path' not specified for sink %d", i))
+			continue
 		}
 
 		path, ok := pathRaw.(string)
 		if !ok {
-			return nil, errors.New("file sink path could not be converted to string")
+			logger.Error(fmt.Sprintf("value of 'path' of sink %d could not be converted to string", i))
+			continue
 		}
 
 		fileData, err := ioutil.ReadFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("error opening file sink %s: %v", path, err)
+			logger.Error(fmt.Sprintf("error opening file sink %s", path), "error", err)
+			continue
 		}
 
 		token := string(fileData)
@@ -42,51 +45,61 @@ func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error)
 		if sink.DHType != "" {
 			resp := new(dhutil.Envelope)
 			if err := jsonutil.DecodeJSON([]byte(token), resp); err != nil {
-				return nil, fmt.Errorf("error JSON-decoding file sink %s: %v", path, err)
+				logger.Error(fmt.Sprintf("error JSON-decoding file sink %s", path), "error", err)
+				continue
 			}
 
 			dhPrivKeyFileRaw, ok := sink.Config["dh_priv"]
 			if !ok {
-				return nil, fmt.Errorf("path to Diffie-Hellman private key (field 'dh_priv') not " +
-					"specified in 'config' stanza of file sink %s", path)
+				logger.Error(fmt.Sprintf("path to Diffie-Hellman private key (field 'dh_priv') not " +
+					"specified in 'config' stanza of file sink %s", path))
+				continue
 			}
 
 			dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
 			if !ok {
-				return nil, fmt.Errorf("'dh_priv' of file sink %s cannot be converted to string", path)
+				logger.Error(fmt.Sprintf("'dh_priv' of file sink %s cannot be converted to string", path))
+				continue
 			}
 
 			file, err := os.Open(dhPrivKeyFile)
 			if err != nil {
-				return nil, fmt.Errorf("error opening 'dh_priv' file %s: %v", dhPrivKeyFile, err)
+				logger.Error(fmt.Sprintf("error opening 'dh_priv' file %s", dhPrivKeyFile), "error", err)
+				continue
 			}
 
 			pkInfo := new(PrivateKeyInfo)
 			if err = jsonutil.DecodeJSONFromReader(file, pkInfo); err != nil {
-				return nil, fmt.Errorf("error JSON-decoding file %s: %v", dhPrivKeyFile, err)
+				logger.Error(fmt.Sprintf("error JSON-decoding file %s", dhPrivKeyFile), "error", err)
+				continue
 			}
 
 			if pkInfo.Curve25519PrivateKey == "" {
-				return nil, fmt.Errorf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile)
+				logger.Error(fmt.Sprintf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile))
+				continue
 			}
 
 			dhPrivKey, err := base64.StdEncoding.DecodeString(pkInfo.Curve25519PrivateKey)
 			if err != nil {
-				return nil, fmt.Errorf("error JSON-decoding 'curve25519_private_key' of file %s: %v", dhPrivKeyFile, err)
+				logger.Error(fmt.Sprintf("error JSON-decoding 'curve25519_private_key' of file %s", dhPrivKeyFile), "error", err)
+				continue
 			}
 
 			aesKey, err := dhutil.GenerateSharedKey(dhPrivKey, resp.Curve25519PublicKey)
 			if err != nil {
-				return nil, fmt.Errorf("error creating AES-GCM key: %v", err)
+				logger.Error("error creating AES-GCM key", "error", err)
+				continue
 			}
 
 			if len(aesKey) == 0 {
-				return nil, errors.New("got empty AES key")
+				logger.Error("got empty AES key")
+				continue
 			}
 
 			data, err := dhutil.DecryptAES(aesKey, resp.EncryptedPayload, resp.Nonce, []byte(sink.AAD))
 			if err != nil {
-				return nil, fmt.Errorf("error decrypting token: %v", err)
+				logger.Error("error decrypting token", "error", err)
+				continue
 			}
 
 			token = string(data)
@@ -96,18 +109,21 @@ func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error)
 		if sink.WrapTTL != 0 {
 			wrapInfo := new(api.SecretWrapInfo)
 			if err := jsonutil.DecodeJSON([]byte(token), wrapInfo); err != nil {
-				return nil, fmt.Errorf("error JSON-decoding TTL-wrapped secret: %v", err)
+				logger.Error("error JSON-decoding TTL-wrapped secret", "error", err)
+				continue
 			}
 
 			client.SetToken(wrapInfo.Token)
 			secret, err := client.Logical().Unwrap("")
 			if err != nil {
-				return nil, fmt.Errorf("error unwrapping token: %v", err)
+				logger.Error("error unwrapping token", "error", err)
+				continue
 			}
 
 			token, err = secret.TokenID()
 			if err != nil {
-				return nil, fmt.Errorf("no token found: %v", err)
+				logger.Error("error reading token from Vault response", "error", err)
+				continue
 			}
 
 			if token == "" {
@@ -123,6 +139,6 @@ func GetCachedTokens(sinks []*config.Sink, client *api.Client) ([]string, error)
 			tokens = append(tokens, token)
 		}
 	}
-	return tokens, nil
+	return tokens
 }
 

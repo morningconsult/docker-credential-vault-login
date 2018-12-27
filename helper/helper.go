@@ -136,9 +136,9 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			}
 
 			// Get any cached tokens
-			cachedTokens, err := cache.GetCachedTokens(config.AutoAuth.Sinks, cloned)
-			if err != nil {
-				h.logger.Error("error getting cached token(s). Re-authenticating.", "error", err)
+			cachedTokens := cache.GetCachedTokens(h.logger.Named("cache"), config.AutoAuth.Sinks, cloned)
+			if len(cachedTokens) < 1 {
+				h.logger.Info("No cached token(s) were read. Re-authenticating.")
 			}
 
 			// Renew the cached tokens
