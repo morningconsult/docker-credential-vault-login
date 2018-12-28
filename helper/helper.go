@@ -28,8 +28,9 @@ import (
 )
 
 const (
-	envConfigFile = "DOCKER_CREDS_CONFIG_FILE"
-	envDisableCaching = "DOCKER_CREDS_DISABLE_CACHE"
+	EnvConfigFile = "DCVL_CONFIG_FILE"
+	EnvDisableCaching = "DCVL_DISABLE_CACHE"
+	EnvSecretPath = "DCVL_SECRET"
 	defaultConfigFile = "/etc/docker-credential-vault-login/config.hcl"
 )
 
@@ -100,23 +101,44 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	cachingEnabled := true
-	if v := os.Getenv(envDisableCaching); v != "" {
+	if v := os.Getenv(EnvDisableCaching); v != "" {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cachingEnabled = !b
 		} else {
-			h.logger.Error("Value of " + envDisableCaching + " could not be converted to boolean. Defaulting to false.", "error", err)
+			h.logger.Error("Value of " + EnvDisableCaching + " could not be converted to boolean. Defaulting to false.", "error", err)
 		}
 	}
 
 	configFile := defaultConfigFile
-	if f := os.Getenv(envConfigFile); f != "" {
+	if f := os.Getenv(EnvConfigFile); f != "" {
 		configFile = f
 	}
 
-	config, secret, err := h.parseConfig(configFile)
+	config, err := h.parseConfig(configFile)
 	if err != nil {
 		h.logger.Error(fmt.Sprintf("error parsing configuration file %s", configFile), "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+
+	var secret string
+	if v := os.Getenv(EnvSecretPath); v != "" {
+		secret = v
+	}
+
+	if secret == "" {
+		secretRaw, ok := config.AutoAuth.Method.Config["secret"]
+		if !ok {
+			h.logger.Error(fmt.Sprintf("The path to the secret in which your Docker credentials are " +
+				"stored must be specified via either (1) the %s environment variable or (2) the " +
+				"field 'auto_auth.config.secret' of the config file.", EnvSecretPath))
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+
+		secret, ok = secretRaw.(string)
+		if !ok {
+			h.logger.Error("field 'auto_auth.method.config.secret' could not be converted to string")
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
 	}
 
 	if h.client == nil {
@@ -235,32 +257,22 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	return creds.Username, creds.Password, nil
 }
 
-func (h *Helper) parseConfig(configFile string) (*config.Config, string, error) {
+func (h *Helper) parseConfig(configFile string) (*config.Config, error) {
 	config, err := config.LoadConfig(configFile, h.logger)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
 	if config == nil {
-		return nil, "", errors.New("no configuration read. Please provide the configuration file with the " +
-			envConfigFile + " environment variable.")
+		return nil, errors.New("no configuration read. Please provide the configuration file with the " +
+			EnvConfigFile + " environment variable.")
 	}
 
 	if config.AutoAuth == nil {
-		return nil, "", errors.New("no 'auto_auth' block found")
+		return nil, errors.New("no 'auto_auth' block found")
 	}
 
-	secretRaw, ok := config.AutoAuth.Method.Config["secret"]
-	if !ok {
-		return nil, "", errors.New("field 'auto_auth.method.config.secret' not found")
-	}
-
-	secret, ok := secretRaw.(string)
-	if !ok {
-		return nil, "", errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
-	}
-
-	return config, secret, nil
+	return config, nil
 }
 
 func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {

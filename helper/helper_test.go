@@ -71,17 +71,17 @@ func TestHelper_List(t *testing.T) {
 }
 
 func TestHelper_Get_logger(t *testing.T) {
-	config := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, config)
-	os.Setenv(envConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig with throw an error
+	config := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, config)
+	os.Setenv(EnvConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig returns an error
 
-	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
-	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
+	logdir := os.Getenv("DCVL_LOG_DIR")
+	defer os.Setenv("DCVL_LOG_DIR", logdir)
 	testdata, err := filepath.Abs("testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
+	os.Setenv("DCVL_LOG_DIR", testdata)
 
 	h := NewHelper(nil)
 
@@ -109,9 +109,9 @@ func TestHelper_Get_logger(t *testing.T) {
 }
 
 func TestHelper_Get_config(t *testing.T) {
-	config := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, config)
-	os.Setenv(envConfigFile, "testdata/empty-file.hcl")
+	config := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, config)
+	os.Setenv(EnvConfigFile, "testdata/empty-file.hcl")
 
 	h := NewHelper(nil)
 
@@ -122,21 +122,21 @@ func TestHelper_Get_config(t *testing.T) {
 }
 
 func TestHelper_Get_newVaultClient(t *testing.T) {
-	oldConfig := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, oldConfig)
-	os.Setenv(envConfigFile, "testdata/valid.hcl")
+	oldConfig := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, oldConfig)
+	os.Setenv(EnvConfigFile, "testdata/valid.hcl")
 
-	oldLog := os.Getenv("DOCKER_CREDS_LOG_DIR")
-	defer os.Setenv("DOCKER_CREDS_LOG_DIR", oldLog)
+	oldLog := os.Getenv("DCVL_LOG_DIR")
+	defer os.Setenv("DCVL_LOG_DIR", oldLog)
 	testdata, err := filepath.Abs("testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
+	os.Setenv("DCVL_LOG_DIR", testdata)
 
 	oldRL := os.Getenv(api.EnvRateLimit)
 	defer os.Setenv(api.EnvRateLimit, oldRL)
-	os.Setenv(api.EnvRateLimit, "not an int!") // Causes newVaultClient() to throw an error
+	os.Setenv(api.EnvRateLimit, "not an int!") // Causes newVaultClient() to return an error
 
 	h := NewHelper(nil)
 
@@ -165,13 +165,13 @@ func TestHelper_Get_newVaultClient(t *testing.T) {
 
 func TestHelper_Get(t *testing.T) {
 
-	logdir := os.Getenv("DOCKER_CREDS_LOG_DIR")
-	defer os.Setenv("DOCKER_CREDS_LOG_DIR", logdir)
+	logdir := os.Getenv("DCVL_LOG_DIR")
+	defer os.Setenv("DCVL_LOG_DIR", logdir)
 	testdata, err := filepath.Abs("testdata")
 	if err != nil {
 		t.Fatal(err)
 	}
-	os.Setenv("DOCKER_CREDS_LOG_DIR", testdata)
+	os.Setenv("DCVL_LOG_DIR", testdata)
 	defer os.Remove(filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02"))))
 
 	coreConfig := &vault.CoreConfig{
@@ -300,9 +300,9 @@ func TestHelper_Get(t *testing.T) {
 	defer os.Remove(configFile)
 	defer os.Remove("testdata/token-sink")
 
-	oldConfig := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, oldConfig)
-	os.Setenv(envConfigFile, configFile)
+	oldConfig := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, oldConfig)
+	os.Setenv(EnvConfigFile, configFile)
 
 	client.ClearToken()
 
@@ -311,7 +311,7 @@ func TestHelper_Get(t *testing.T) {
 		AuthTimeout: 3,
 	})
 
-	// Test #1: Test that it can read authenticate, get a new token, and read the secret
+	// Test that it can read authenticate, get a new token, and read the secret
 	user, pw, err := h.Get("")
 	if err != nil {
 		t.Fatal(err)
@@ -328,7 +328,7 @@ func TestHelper_Get(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Test #2: Test that it can read the secret using the cached token
+	// Test that it can read the secret using the cached token
 	t.Run("can-use-cached-token", func(t *testing.T) {
 		h.client.ClearToken()
 		h.logger = nil
@@ -348,14 +348,16 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
+	// Test that caching can be disabled by setting the environment
+	// variable
 	t.Run("can-disable-caching", func(t *testing.T) {
 		h.client.ClearToken()
 		h.logger = nil
 
 		makeApproleFiles()
 
-		os.Setenv(envDisableCaching, "true")
-		defer os.Unsetenv(envDisableCaching)
+		os.Setenv(EnvDisableCaching, "true")
+		defer os.Unsetenv(EnvDisableCaching)
 
 		user, pw, err := h.Get("")
 		if err != nil {
@@ -374,7 +376,38 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
-	// Test #3: Ensure that if the client attempts to read the secret with
+	// Test that if the environment variable used to disable caching
+	// will cause strconv.ParseBool() to return an error when the value
+	// is not a bool
+	t.Run("can-disable-caching", func(t *testing.T) {
+		buf := new(bytes.Buffer)
+		h.client.ClearToken()
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		makeApproleFiles()
+
+		os.Setenv(EnvDisableCaching, "Not a boolean :(")
+		defer os.Unsetenv(EnvDisableCaching)
+
+		oldConfig := os.Getenv(EnvConfigFile)
+		defer os.Setenv(EnvConfigFile, oldConfig)
+		os.Setenv(EnvConfigFile, "testdata/does-not-exist.hcl")
+
+		_, _, err := h.Get("")
+		if err == nil {
+			t.Fatal("Expected an error")
+		}
+
+		expected := `[ERROR] Value of DCVL_DISABLE_CACHE could not be converted to boolean. Defaulting to false.`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
+				expected, buf.String())
+		}
+	})
+
+	// Ensure that if the client attempts to read the secret with
 	// a bad token it fails
 	t.Run("fails-when-bad-token-used", func(t *testing.T) {
 		h.client.SetToken("bad token!")
@@ -387,7 +420,7 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
-	// Test #4: Ensure that if the role does not have permission to read
+	// Ensure that if the role does not have permission to read
 	// the secret, it fails
 	t.Run("fails-when-no-policy", func(t *testing.T) {
 		client.SetToken(rootToken)
@@ -406,6 +439,8 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
+	// Tests that buildSinks() returns an error when a sink specified in
+	// the config file is not a supported type
 	t.Run("build-sinks-error", func(t *testing.T) {
 		hcl := `auto_auth {
 	method "approle" {
@@ -448,6 +483,8 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
+	// Tests that buildMethod() returns an error when the method specified
+	// in the config file is not supported
 	t.Run("build-method-error", func(t *testing.T) {
 		hcl := `auto_auth {
 	method "retina" {
@@ -487,6 +524,90 @@ func TestHelper_Get(t *testing.T) {
 			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 		}
 	})
+
+	// Tests that parseConfig() returns an error when there is no secret
+	// in the config file
+	t.Run("no-secret", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+		hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+		os.Remove("testdata/token-sink")
+
+		h.client.ClearToken()
+
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `[ERROR] The path to the secret in which your Docker credentials are stored must be specified via either (1) the DCVL_SECRET environment variable or (2) the field 'auto_auth.config.secret' of the config file.`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
+
+	// Tests that parseConfig() returns an error when the secret is not a string
+	t.Run("secret-not-string", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = 1234
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+		hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+		os.Remove("testdata/token-sink")
+
+		h.client.ClearToken()
+
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `[ERROR] field 'auto_auth.method.config.secret' could not be converted to string`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
 }
 
 func TestHelper_Get_FastTimeout(t *testing.T) {
@@ -494,9 +615,9 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	defer os.Setenv(api.EnvVaultAddress, addr)
 	os.Setenv(api.EnvVaultAddress, "http://" + randomUUID(t) + ".example.com")
 
-	config := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, config)
-	os.Setenv(envConfigFile, "testdata/valid.hcl")
+	config := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, config)
+	os.Setenv(EnvConfigFile, "testdata/valid.hcl")
 
 	buf := new(bytes.Buffer)
 	logger := hclog.New(&hclog.LoggerOptions{
@@ -529,8 +650,8 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 }
 
 func TestHelper_parseConfig(t *testing.T) {
-	configFile := os.Getenv(envConfigFile)
-	defer os.Setenv(envConfigFile, configFile)
+	configFile := os.Getenv(EnvConfigFile)
+	defer os.Setenv(EnvConfigFile, configFile)
 
 	h := NewHelper(&HelperOptions{
 		Logger: hclog.NewNullLogger(),
@@ -540,63 +661,44 @@ func TestHelper_parseConfig(t *testing.T) {
 		name   string
 		file   string
 		err    string
-		secret string
 	}{
 		{
 			"file-doesnt-exist",
 			"testdata/nonexistent.hcl",
 			"stat testdata/nonexistent.hcl: no such file or directory",
-			"",
 		},
 		{
 			"provided-directory",
 			"testdata",
 			"location is a directory, not a file",
-			"",
 		},
 		{
 			"empty-file",
 			"testdata/empty-file.hcl",
 			"error parsing 'auto_auth': one and only one \"auto_auth\" block is required",
-			"",
 		},
 		{
 			"no-method",
 			"testdata/no-method.hcl",
 			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
-			"",
-		},
-		{
-			"no-secret",
-			"testdata/no-secret.hcl",
-			"field 'auto_auth.method.config.secret' not found",
-			"",
-		},
-		{
-			"secret-not-string",
-			"testdata/secret-not-string.hcl",
-			"field 'auto_auth.method.config.secret' could not be converted to string",
-			"",
 		},
 		{
 			"no-mount-path",
 			"testdata/no-mount-path.hcl",
 			"",
-			"secret/docker/creds",
 		},
 		{
 			"valid",
 			"testdata/valid.hcl",
 			"",
-			"secret/docker/creds",
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv(envConfigFile, tc.file)
+			os.Setenv(EnvConfigFile, tc.file)
 
-			_, secret, err := h.parseConfig(tc.file)
+			_, err := h.parseConfig(tc.file)
 			if tc.err != "" {
 				if err == nil {
 					t.Fatal("expected an error but didn't receive one")
@@ -609,10 +711,10 @@ func TestHelper_parseConfig(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if tc.secret != secret {
-				t.Fatalf("Results differ:\n%v", cmp.Diff(tc.secret, secret))
-			}
-			return
+			// if tc.secret != secret {
+			// 	t.Fatalf("Results differ:\n%v", cmp.Diff(tc.secret, secret))
+			// }
+			// return
 		})
 	}
 }

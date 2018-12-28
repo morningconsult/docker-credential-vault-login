@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	envLogDir = "DOCKER_CREDS_LOG_DIR"
+	EnvLogDir = "DCVL_LOG_DIR"
 	defaultLogDir = "~/.docker-credential-vault-login"
 )
 
@@ -28,7 +28,7 @@ func LogWriter(opts *LoggingOptions) (io.WriteCloser, error) {
 		opts.LogDir = defaultLogDir
 	}
 
-	if v := os.Getenv(envLogDir); v != "" {
+	if v := os.Getenv(EnvLogDir); v != "" {
 		opts.LogDir = v
 	}
 
