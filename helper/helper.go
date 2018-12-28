@@ -120,10 +120,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
-	var secret string
-	if v := os.Getenv(EnvSecretPath); v != "" {
-		secret = v
-	}
+	secret := os.Getenv(EnvSecretPath)
 
 	if secret == "" {
 		secretRaw, ok := config.AutoAuth.Method.Config["secret"]

@@ -52,7 +52,6 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			}
 
 			var privateKey []byte
-
 			if v := os.Getenv(EnvDiffieHellmanPrivateKey); v != "" {
 				privateKey, err = base64.StdEncoding.DecodeString(v)
 				if err != nil {
