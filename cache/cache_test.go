@@ -532,3 +532,100 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCachedTokens_EnvVar(t *testing.T) {
+	base64Decode := func(s string) []byte {
+		data, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			t.Fatalf("error base64-decoding string: %v", err)
+		}
+		return data
+	}
+
+	privateKeyData, err := ioutil.ReadFile("testdata/dh-private-key.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	privateKeyInfo := new(PrivateKeyInfo)
+	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
+		t.Fatal(err)
+	}
+	privateKey := privateKeyInfo.Curve25519PrivateKey
+
+	resp := &dhutil.Envelope{
+		Curve25519PublicKey: base64Decode("jHJcqNbAydq9NkvNud86vh2AOv0fPRdrLtCoEoxwTVc="),
+		Nonce:               base64Decode("qzpQihDHElzW0mf1"),
+		EncryptedPayload:    base64Decode("GVH1YTtDw7pWpMPs1GQKRrl2CRuw5M54mtPuYWJuLMY3tYNHwmN8vnwZ4QcmcKg2KcuaWw=="),
+	}
+
+	aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(aesKey) == 0 {
+		t.Fatal("derived AES key is empty")
+	}
+
+	data, err := dhutil.DecryptAES(aesKey, resp.EncryptedPayload, resp.Nonce, []byte("foobar"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := string(data)
+
+	privKeyOld := os.Getenv(EnvDiffieHellmanPrivateKey)
+	defer os.Setenv(EnvDiffieHellmanPrivateKey, privKeyOld)
+
+	data, err = jsonutil.EncodeJSON(resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = ioutil.WriteFile("testdata/token-encrypted.json", data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove("testdata/token-encrypted.json")
+
+	sinks := []*config.Sink{
+		&config.Sink{
+			DHType: "curve25519",
+			AAD:    "foobar",
+			Config: map[string]interface{}{
+				"path": "testdata/token-encrypted.json",
+			},
+		},
+	}
+
+	cases := []struct {
+		name   string
+		env    string
+		tokens int
+	}{
+		{
+			"valid-base64",
+			base64.StdEncoding.EncodeToString(privateKey),
+			1,
+		},
+		{
+			"invalid-base64",
+			"not valid base64!",
+			0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			os.Setenv(EnvDiffieHellmanPrivateKey, tc.env)
+
+			tokens := GetCachedTokens(hclog.NewNullLogger(), sinks, nil)
+			if len(tokens) != tc.tokens {
+				t.Fatalf("Expected %d token(s), got %d tokens", tc.tokens, len(tokens))
+			}
+			if tc.tokens < 1 {
+				return
+			}
+			if tokens[0] != expected {
+				t.Fatalf("Tokens differ:\n%v", cmp.Diff(tokens[0], expected))
+			}
+		})
+	}
+}

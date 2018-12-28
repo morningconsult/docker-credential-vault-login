@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -11,6 +12,8 @@ import (
 	"github.com/hashicorp/vault/helper/jsonutil"
 	"github.com/hashicorp/vault/command/agent/config"
 )
+
+const EnvDiffieHellmanPrivateKey = "DOCKER_CREDS_DH_PRIV_KEY"
 
 type PrivateKeyInfo struct {
 	Curve25519PrivateKey []byte `json:"curve25519_private_key"`
@@ -48,37 +51,58 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 				continue
 			}
 
-			dhPrivKeyFileRaw, ok := sink.Config["dh_priv"]
-			if !ok {
-				logger.Error(fmt.Sprintf("path to Diffie-Hellman private key (field 'dh_priv') not " +
-					"specified in 'config' stanza of file sink %s", path))
+			var privateKey []byte
+
+			if v := os.Getenv(EnvDiffieHellmanPrivateKey); v != "" {
+				privateKey, err = base64.StdEncoding.DecodeString(v)
+				if err != nil {
+					logger.Error("error base64-decoding value of %s", "error", err)
+				}
+			}
+
+			if len(privateKey) < 1 {
+				dhPrivKeyFileRaw, ok := sink.Config["dh_priv"]
+				if !ok {
+					logger.Error(fmt.Sprintf("If the cached token is encrypted, the Diffie-Hellman private " +
+						"key should be specified with the environment variable %s as a base64-encoded " +
+						"string or in the 'file.config.dh_priv' field of the config file %s as a path " +
+						"to a JSON-encoded PrivateKeyInfo structure", path, EnvDiffieHellmanPrivateKey))
+					continue
+				}
+
+				dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
+				if !ok {
+					logger.Error(fmt.Sprintf("'dh_priv' field of file sink %d of config file %s cannot be  " +
+						"converted to string", i, path))
+					continue
+				}
+
+				file, err := os.Open(dhPrivKeyFile)
+				if err != nil {
+					logger.Error(fmt.Sprintf("error opening 'dh_priv' file %s", dhPrivKeyFile), "error", err)
+					continue
+				}
+
+				pkInfo := new(PrivateKeyInfo)
+				if err = jsonutil.DecodeJSONFromReader(file, pkInfo); err != nil {
+					logger.Error(fmt.Sprintf("error JSON-decoding file %s", dhPrivKeyFile), "error", err)
+					continue
+				}
+
+				if len(pkInfo.Curve25519PrivateKey) < 1 {
+					logger.Error(fmt.Sprintf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile))
+					continue
+				}
+
+				privateKey = pkInfo.Curve25519PrivateKey
+			}
+
+			if len(privateKey) < 1 {
+				logger.Error("no valid Diffie-Hellman private key found")
 				continue
 			}
 
-			dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
-			if !ok {
-				logger.Error(fmt.Sprintf("'dh_priv' of file sink %s cannot be converted to string", path))
-				continue
-			}
-
-			file, err := os.Open(dhPrivKeyFile)
-			if err != nil {
-				logger.Error(fmt.Sprintf("error opening 'dh_priv' file %s", dhPrivKeyFile), "error", err)
-				continue
-			}
-
-			pkInfo := new(PrivateKeyInfo)
-			if err = jsonutil.DecodeJSONFromReader(file, pkInfo); err != nil {
-				logger.Error(fmt.Sprintf("error JSON-decoding file %s", dhPrivKeyFile), "error", err)
-				continue
-			}
-
-			if len(pkInfo.Curve25519PrivateKey) < 1 {
-				logger.Error(fmt.Sprintf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile))
-				continue
-			}
-
-			aesKey, err := dhutil.GenerateSharedKey(pkInfo.Curve25519PrivateKey, resp.Curve25519PublicKey)
+			aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
 			if err != nil {
 				logger.Error("error creating AES-GCM key", "error", err)
 				continue
