@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-uuid"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
@@ -109,57 +110,179 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := jsonutil.EncodeJSON(secret.WrapInfo)
-	if err != nil {
-		t.Fatal(err)
+	filename := "testdata/token-wrapped.json"
+
+	randomUUID := func() string {
+		id, err := uuid.GenerateUUID()
+		if err != nil {
+			t.Fatalf("error generating UUID: %v", err)
+		}
+		return id
 	}
 
-	if err = ioutil.WriteFile("testdata/token-wrapped.json", data, 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	sinks := []*config.Sink{
-		&config.Sink{
-			WrapTTL: wrapTTL,
-			Config:  map[string]interface{}{
-				"path": "testdata/token-wrapped.json",
+	cases := []struct {
+		name   string
+		data   interface{}
+		sinks  []*config.Sink
+		tokens int
+	}{
+		{
+			"wrapped-token",
+			secret.WrapInfo,
+			[]*config.Sink{
+				&config.Sink{
+					WrapTTL: wrapTTL,
+					Config: map[string]interface{}{
+						"path": filename,
+					},
+				},
 			},
+			1,
+		},
+		{
+			"unexpected-json-format",
+			`{"not": "secret"}`,
+			[]*config.Sink{
+				&config.Sink{
+					WrapTTL: wrapTTL,
+					Config: map[string]interface{}{
+						"path": filename,
+					},
+				},
+			},
+			0,
+		},
+		{
+			"invalid-token",
+			&api.SecretWrapInfo{
+				Token: randomUUID(),
+			},
+			[]*config.Sink{
+				&config.Sink{
+					WrapTTL: wrapTTL,
+					Config: map[string]interface{}{
+						"path": filename,
+					},
+				},
+			},
+			0,
 		},
 	}
-	defer os.Remove("testdata/token-wrapped.json")
 
-	tokens := GetCachedTokens(logger, sinks, client)
-	if len(tokens) != 1 {
-		t.Fatalf("Expected just 1 token, got %d tokens", len(tokens))
-	}
-	
-	if tokens[0] == "" {
-		t.Fatal("Token should not be empty")
+	for _, tc := range cases {
+		t.Run(tc.name, func (t *testing.T) {
+			data, err := jsonutil.EncodeJSON(tc.data)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if err = ioutil.WriteFile(filename, data, 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			defer os.Remove(filename)
+
+			tokens := GetCachedTokens(logger, tc.sinks, client)
+			if len(tokens) != tc.tokens {
+				t.Fatalf("Expected %d token(s), got %d tokens", tc.tokens, len(tokens))
+			}
+			if tc.tokens < 1 {
+				return
+			}
+			client.SetToken(tokens[0])
+			lookup, err := client.Auth().Token().LookupSelf()
+			if err != nil {
+				t.Fatal(err)
+			}
+			ttl, err := lookup.TokenTTL()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ttl < 1 {
+				t.Fatal("Token is expired")
+			}
+		})
 	}
 }
 
 func TestGetCachedTokens_Plain(t *testing.T) {
-	sinks := []*config.Sink{
-		&config.Sink{
-			Config: map[string]interface{}{
-				"path": "testdata/token-plain.txt",
+	cases := []struct {
+		name   string
+		sinks  []*config.Sink
+		tokens int
+	}{
+		{
+			"plain-token",
+			[]*config.Sink{
+				&config.Sink{
+					Config: map[string]interface{}{
+						"path": "testdata/token-plain.txt",
+					},
+				},
 			},
+			1,
+		},
+		{
+			"no-path",
+			[]*config.Sink{
+				&config.Sink{
+					Config: map[string]interface{}{}, // no path
+				},
+			},
+			0,
+		},
+		{
+			"path-not-string",
+			[]*config.Sink{
+				&config.Sink{
+					Config: map[string]interface{}{
+						"path": map[string]interface{}{
+							"hello": "world",
+						},
+					},
+				},
+			},
+			0,
+		},
+		{
+			"file-doesnt-exist",
+			[]*config.Sink{
+				&config.Sink{
+					Config: map[string]interface{}{
+						"path": "testdata/file-doesnt-exist.txt",
+					},
+				},
+			},
+			0,
 		},
 	}
-	tokens := GetCachedTokens(hclog.NewNullLogger(), sinks, nil)
-	if len(tokens) != 1 {
-		t.Fatalf("Expected just 1 token, got %d tokens", len(tokens))
-	}
-	expected, err := ioutil.ReadFile("testdata/token-plain.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if tokens[0] != string(expected) {
-		t.Fatalf("Tokens differ:\n%v", cmp.Diff(tokens[0], expected))
+
+	logger := hclog.NewNullLogger()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tokens := GetCachedTokens(logger, tc.sinks, nil)
+			if len(tokens) != tc.tokens {
+				t.Fatalf("Expected %d token(s), got %d tokens", tc.tokens, len(tokens))
+			}
+			if tc.tokens < 1 {
+				return
+			}
+			if _, err := uuid.ParseUUID(tokens[0]); err != nil {
+				t.Fatalf("Token is not a valid UUID: %v", err)
+			}
+		})
 	}
 }
 
 func TestGetCachedTokens_Encrypted(t *testing.T) {
+	base64Decode := func(s string) []byte {
+		data, err := base64.StdEncoding.DecodeString(s)
+		if err != nil {
+			t.Fatalf("error base64-decoding string: %v", err)
+		}
+		return data
+	}
+
 	privateKeyData, err := ioutil.ReadFile("testdata/dh-private-key.json")
 	if err != nil {
 		t.Fatal(err)
@@ -168,19 +291,12 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
 		t.Fatal(err)
 	}
-	privateKey, err := base64.StdEncoding.DecodeString(privateKeyInfo.Curve25519PrivateKey)
-	if err != nil {
-		t.Fatal(err)
-	}
+	privateKey := privateKeyInfo.Curve25519PrivateKey
 
-	data, err := ioutil.ReadFile("testdata/token-encrypted.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	resp := new(dhutil.Envelope)
-	if err = jsonutil.DecodeJSON(data, resp); err != nil {
-		t.Fatal(err)
+	resp := &dhutil.Envelope{
+		Curve25519PublicKey: base64Decode("jHJcqNbAydq9NkvNud86vh2AOv0fPRdrLtCoEoxwTVc="),
+		Nonce:               base64Decode("qzpQihDHElzW0mf1"),
+		EncryptedPayload:    base64Decode("GVH1YTtDw7pWpMPs1GQKRrl2CRuw5M54mtPuYWJuLMY3tYNHwmN8vnwZ4QcmcKg2KcuaWw=="),
 	}
 
 	aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
@@ -191,28 +307,228 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 		t.Fatal("derived AES key is empty")
 	}
 
-	token, err := dhutil.DecryptAES(aesKey, resp.EncryptedPayload, resp.Nonce, []byte("foobar"))
+	data, err := dhutil.DecryptAES(aesKey, resp.EncryptedPayload, resp.Nonce, []byte("foobar"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sinks := []*config.Sink {
-		&config.Sink{
-			DHType: "curve25519",
-			AAD:    "foobar",
-			Config: map[string]interface{}{
-				"path":    "testdata/token-encrypted.json",
-				"dh_priv": "testdata/dh-private-key.json",
+	expected := string(data)
+
+	cases := []struct {
+		name      string
+		tokenFile string
+		tokenData interface{}
+		pkFile    string
+		pkData    interface{}
+		sinks     []*config.Sink
+		tokens    int
+	}{
+		{
+			"encrypted-token",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
 			},
+			1,
+		},
+		{
+			"invalid-token-json",
+			"testdata/token-encrypted.json",
+			`{"not": "valid"}`,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"no-private-key",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path": "testdata/token-encrypted.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"private-key-file-not-string",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": map[string]interface{}{
+							"hello": "world",
+						},
+					},
+				},
+			},
+			0,
+		},
+		{
+			"cannot-open-private-key",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/does-not-exist.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"private-key-malformed-json",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			`asdf`,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"private-key-empty",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			&PrivateKeyInfo{
+				Curve25519PrivateKey: []byte(""),
+			},
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"wrong-aad",
+			"testdata/token-encrypted.json",
+			resp,
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "barfoo",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"malformed-token",
+			"testdata/token-encrypted.json",
+			&dhutil.Envelope{
+				Curve25519PublicKey: []byte("not a token!"),
+				Nonce:               resp.Nonce,
+				EncryptedPayload:    resp.EncryptedPayload,
+
+			},
+			"testdata/temp-priv-key.json",
+			privateKeyInfo,
+			[]*config.Sink{
+				&config.Sink{
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":    "testdata/token-encrypted.json",
+						"dh_priv": "testdata/temp-priv-key.json",
+					},
+				},
+			},
+			0,
 		},
 	}
 
-	tokens := GetCachedTokens(hclog.NewNullLogger(), sinks, nil)
-	if len(tokens) != 1 {
-		t.Fatalf("Expected just 1 token, got %d tokens", len(tokens))
-	}
+	logger := hclog.NewNullLogger()
 
-	if tokens[0] != string(token) {
-		t.Fatalf("Tokens differ:\n%v", cmp.Diff(tokens[0], string(token)))
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Encode token and write file
+			data, err := jsonutil.EncodeJSON(tc.tokenData)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = ioutil.WriteFile(tc.tokenFile, data, 0644); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(tc.tokenFile)
+
+			// Encode private key and write file
+			data, err = jsonutil.EncodeJSON(tc.pkData)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = ioutil.WriteFile(tc.pkFile, data, 0644); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(tc.pkFile)
+
+			tokens := GetCachedTokens(logger, tc.sinks, nil)
+			if len(tokens) != tc.tokens {
+				t.Fatalf("Expected %d token(s), got %d tokens", tc.tokens, len(tokens))
+			}
+			if tc.tokens < 1 {
+				return
+			}
+			if tokens[0] != expected {
+				t.Fatalf("Tokens differ:\n%v", cmp.Diff(tokens[0], expected))
+			}
+		})
 	}
 }

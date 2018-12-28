@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -14,7 +13,7 @@ import (
 )
 
 type PrivateKeyInfo struct {
-	Curve25519PrivateKey string `json:"curve25519_private_key"`
+	Curve25519PrivateKey []byte `json:"curve25519_private_key"`
 }
 
 func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Client) []string {
@@ -74,18 +73,12 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 				continue
 			}
 
-			if pkInfo.Curve25519PrivateKey == "" {
+			if len(pkInfo.Curve25519PrivateKey) < 1 {
 				logger.Error(fmt.Sprintf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile))
 				continue
 			}
 
-			dhPrivKey, err := base64.StdEncoding.DecodeString(pkInfo.Curve25519PrivateKey)
-			if err != nil {
-				logger.Error(fmt.Sprintf("error JSON-decoding 'curve25519_private_key' of file %s", dhPrivKeyFile), "error", err)
-				continue
-			}
-
-			aesKey, err := dhutil.GenerateSharedKey(dhPrivKey, resp.Curve25519PublicKey)
+			aesKey, err := dhutil.GenerateSharedKey(pkInfo.Curve25519PrivateKey, resp.Curve25519PublicKey)
 			if err != nil {
 				logger.Error("error creating AES-GCM key", "error", err)
 				continue
