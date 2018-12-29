@@ -7,22 +7,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-uuid"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/vault"
-	"github.com/hashicorp/vault/logical"
-	"github.com/hashicorp/vault/helper/logging"
-	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/hashicorp/vault/helper/dhutil"
-	vaulthttp "github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/builtin/credential/approle"
+	"github.com/hashicorp/vault/command/agent/config"
+	"github.com/hashicorp/vault/helper/dhutil"
+	"github.com/hashicorp/vault/helper/jsonutil"
+	"github.com/hashicorp/vault/helper/logging"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/vault"
 )
+
 func TestGetCachedTokens_Wrapped(t *testing.T) {
 	logger := hclog.NewNullLogger()
-	
+
 	coreConfig := &vault.CoreConfig{
 		Logger: logging.NewVaultLogger(hclog.Error),
 		CredentialBackends: map[string]logical.Factory{
@@ -170,7 +171,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		t.Run(tc.name, func (t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			data, err := jsonutil.EncodeJSON(tc.data)
 			if err != nil {
 				t.Fatal(err)
@@ -387,7 +388,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
-						"path":    "testdata/token-encrypted.json",
+						"path": "testdata/token-encrypted.json",
 						"dh_priv": map[string]interface{}{
 							"hello": "world",
 						},
@@ -477,7 +478,6 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 				Curve25519PublicKey: []byte("not a token!"),
 				Nonce:               resp.Nonce,
 				EncryptedPayload:    resp.EncryptedPayload,
-
 			},
 			"testdata/temp-priv-key.json",
 			privateKeyInfo,

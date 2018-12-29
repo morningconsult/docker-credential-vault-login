@@ -1,4 +1,4 @@
-package helper 
+package helper
 
 import (
 	"context"
@@ -8,36 +8,36 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/go-hclog"
-	"github.com/mitchellh/go-homedir"
 	"github.com/docker/docker-credential-helpers/credentials"
-	"github.com/hashicorp/vault/command/agent/config"
+	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/command/agent/auth"
+	"github.com/hashicorp/vault/command/agent/auth/alicloud"
+	"github.com/hashicorp/vault/command/agent/auth/approle"
 	"github.com/hashicorp/vault/command/agent/auth/aws"
 	"github.com/hashicorp/vault/command/agent/auth/azure"
-	"github.com/hashicorp/vault/command/agent/auth/alicloud"
 	"github.com/hashicorp/vault/command/agent/auth/gcp"
 	"github.com/hashicorp/vault/command/agent/auth/jwt"
 	"github.com/hashicorp/vault/command/agent/auth/kubernetes"
-	"github.com/hashicorp/vault/command/agent/auth/approle"
+	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
 	"github.com/hashicorp/vault/command/agent/sink/file"
+	"github.com/mitchellh/go-homedir"
 	"github.com/morningconsult/docker-credential-vault-login/cache"
-	"github.com/morningconsult/docker-credential-vault-login/vault"
 	"github.com/morningconsult/docker-credential-vault-login/logging"
+	"github.com/morningconsult/docker-credential-vault-login/vault"
 )
 
 const (
-	EnvConfigFile = "DCVL_CONFIG_FILE"
+	EnvConfigFile     = "DCVL_CONFIG_FILE"
 	EnvDisableCaching = "DCVL_DISABLE_CACHE"
-	EnvSecretPath = "DCVL_SECRET"
+	EnvSecretPath     = "DCVL_SECRET"
 	defaultConfigFile = "/etc/docker-credential-vault-login/config.hcl"
 )
 
 var (
 	notImplementedError = fmt.Errorf("not implemented")
-	defaultAuthTimeout = 10 * time.Second
+	defaultAuthTimeout  = 10 * time.Second
 )
 
 type HelperOptions struct {
@@ -106,7 +106,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		if b, err := strconv.ParseBool(v); err == nil {
 			cachingEnabled = !b
 		} else {
-			h.logger.Error("Value of " + EnvDisableCaching + " could not be converted to boolean. Defaulting to false.", "error", err)
+			h.logger.Error("Value of "+EnvDisableCaching+" could not be converted to boolean. Defaulting to false.", "error", err)
 		}
 	}
 
@@ -131,8 +131,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	if secret == "" {
 		secretRaw, ok := config.AutoAuth.Method.Config["secret"]
 		if !ok {
-			h.logger.Error(fmt.Sprintf("The path to the secret where your Docker credentials are " +
-				"stored must be specified via either (1) the %s environment variable or (2) the " +
+			h.logger.Error(fmt.Sprintf("The path to the secret where your Docker credentials are "+
+				"stored must be specified via either (1) the %s environment variable or (2) the "+
 				"field 'auto_auth.config.secret' of the config file.", EnvSecretPath))
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
@@ -309,7 +309,7 @@ func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {
 func (h *Helper) buildMethod(config *config.Method) (auth.AuthMethod, error) {
 	var (
 		method auth.AuthMethod
-		err error
+		err    error
 	)
 
 	authConfig := &auth.AuthConfig{

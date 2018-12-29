@@ -2,29 +2,29 @@ package helper
 
 import (
 	"bytes"
-	"path/filepath"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aws/aws-sdk-go/awstesting"
+	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/helper/logging"
+	"github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
 	"github.com/hashicorp/vault/command/agent/sink/file"
-	"github.com/hashicorp/vault/builtin/credential/approle"
+	"github.com/hashicorp/vault/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/vault"
-	"github.com/aws/aws-sdk-go/awstesting"
-	"github.com/docker/docker-credential-helpers/credentials"
-	"github.com/hashicorp/go-uuid"
 )
 
 func TestNewHelper(t *testing.T) {
@@ -32,7 +32,7 @@ func TestNewHelper(t *testing.T) {
 		AuthTimeout: 1,
 	})
 
-	if h.authTimeout != time.Duration(1) * time.Second {
+	if h.authTimeout != time.Duration(1)*time.Second {
 		t.Fatal("Helper.authDuration != 1")
 	}
 }
@@ -89,7 +89,7 @@ func TestHelper_Get_logger(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error but didn't receive one")
 	}
-	
+
 	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
 
 	if _, err := os.Stat(logfile); os.IsNotExist(err) {
@@ -292,7 +292,7 @@ func TestHelper_Get(t *testing.T) {
 	}
 }`
 	hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
-	
+
 	configFile := filepath.Join(testdata, "testing.hcl")
 	if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
 		t.Fatal(err)
@@ -613,7 +613,7 @@ func TestHelper_Get(t *testing.T) {
 func TestHelper_Get_FastTimeout(t *testing.T) {
 	addr := os.Getenv(api.EnvVaultAddress)
 	defer os.Setenv(api.EnvVaultAddress, addr)
-	os.Setenv(api.EnvVaultAddress, "http://" + randomUUID(t) + ".example.com")
+	os.Setenv(api.EnvVaultAddress, "http://"+randomUUID(t)+".example.com")
 
 	config := os.Getenv(EnvConfigFile)
 	defer os.Setenv(EnvConfigFile, config)
@@ -646,7 +646,7 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	if !strings.Contains(buf.String(), expected) {
 		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 	}
-	
+
 }
 
 func TestHelper_parseConfig(t *testing.T) {
@@ -658,9 +658,9 @@ func TestHelper_parseConfig(t *testing.T) {
 	})
 
 	cases := []struct {
-		name   string
-		file   string
-		err    string
+		name string
+		file string
+		err  string
 	}{
 		{
 			"file-doesnt-exist",
@@ -763,7 +763,7 @@ func TestHelper_buildSinks(t *testing.T) {
 			"new-file-sink-error",
 			[]*config.Sink{
 				&config.Sink{
-					Type:   "file",
+					Type: "file",
 					Config: map[string]interface{}{
 						"no": "path!",
 					},
@@ -776,7 +776,7 @@ func TestHelper_buildSinks(t *testing.T) {
 			"success",
 			[]*config.Sink{
 				&config.Sink{
-					Type:   "file",
+					Type: "file",
 					Config: map[string]interface{}{
 						"path": "testdata/test-sink",
 					},
@@ -785,7 +785,6 @@ func TestHelper_buildSinks(t *testing.T) {
 			"",
 			[]*sink.SinkConfig{validConfig},
 		},
-
 	}
 
 	for _, tc := range cases {
@@ -822,7 +821,7 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"aws",
 			&config.Method{
-				Type:   "aws",
+				Type: "aws",
 				Config: map[string]interface{}{
 					"type": "iam",
 					"role": "dev-role",
@@ -833,7 +832,7 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"azure",
 			&config.Method{
-				Type:   "azure",
+				Type: "azure",
 				Config: map[string]interface{}{
 					"role":     "dev-test",
 					"resource": "important-stuff",
@@ -844,7 +843,7 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"gcp",
 			&config.Method{
-				Type:   "gcp",
+				Type: "gcp",
 				Config: map[string]interface{}{
 					"type": "gce",
 					"role": "dev-test",
@@ -855,7 +854,7 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"jwt",
 			&config.Method{
-				Type:   "jwt",
+				Type: "jwt",
 				Config: map[string]interface{}{
 					"path": "jwt/token",
 					"role": "dev-test",
@@ -866,7 +865,7 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"kubernetes",
 			&config.Method{
-				Type:   "kubernetes",
+				Type: "kubernetes",
 				Config: map[string]interface{}{
 					"role": "dev-test",
 				},
@@ -876,9 +875,9 @@ func TestHelper_buildMethod(t *testing.T) {
 		{
 			"approle",
 			&config.Method{
-				Type:   "approle",
+				Type: "approle",
 				Config: map[string]interface{}{
-					"role_id_file_path": "path/to/role/id",
+					"role_id_file_path":   "path/to/role/id",
 					"secret_id_file_path": "path/to/secret/id",
 				},
 			},

@@ -8,9 +8,9 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/helper/dhutil"
 	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/hashicorp/vault/command/agent/config"
 )
 
 const EnvDiffieHellmanPrivateKey = "DOCKER_CREDS_DH_PRIV_KEY"
@@ -62,16 +62,16 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			if len(privateKey) < 1 {
 				dhPrivKeyFileRaw, ok := sink.Config["dh_priv"]
 				if !ok {
-					logger.Error(fmt.Sprintf("If the cached token is encrypted, the Diffie-Hellman private " +
-						"key should be specified with the environment variable %s as a base64-encoded " +
-						"string or in the 'file.config.dh_priv' field of the config file %s as a path " +
+					logger.Error(fmt.Sprintf("If the cached token is encrypted, the Diffie-Hellman private "+
+						"key should be specified with the environment variable %s as a base64-encoded "+
+						"string or in the 'file.config.dh_priv' field of the config file %s as a path "+
 						"to a JSON-encoded PrivateKeyInfo structure", path, EnvDiffieHellmanPrivateKey))
 					continue
 				}
 
 				dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
 				if !ok {
-					logger.Error(fmt.Sprintf("'dh_priv' field of file sink %d of config file %s cannot be  " +
+					logger.Error(fmt.Sprintf("'dh_priv' field of file sink %d of config file %s cannot be  "+
 						"converted to string", i, path))
 					continue
 				}
@@ -157,4 +157,3 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 	}
 	return tokens
 }
-

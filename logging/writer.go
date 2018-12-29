@@ -1,17 +1,17 @@
 package logging
 
 import (
-	"path/filepath"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
 )
 
 const (
-	EnvLogDir = "DCVL_LOG_DIR"
+	EnvLogDir     = "DCVL_LOG_DIR"
 	defaultLogDir = "~/.docker-credential-vault-login"
 )
 
