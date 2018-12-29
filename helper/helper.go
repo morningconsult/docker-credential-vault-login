@@ -125,7 +125,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	if secret == "" {
 		secretRaw, ok := config.AutoAuth.Method.Config["secret"]
 		if !ok {
-			h.logger.Error(fmt.Sprintf("The path to the secret in which your Docker credentials are " +
+			h.logger.Error(fmt.Sprintf("The path to the secret where your Docker credentials are " +
 				"stored must be specified via either (1) the %s environment variable or (2) the " +
 				"field 'auto_auth.config.secret' of the config file.", EnvSecretPath))
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -241,6 +241,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		cancel()
 		<-ah.DoneCh
+		<-ss.DoneCh
 
 		h.client.SetToken(token)
 	}

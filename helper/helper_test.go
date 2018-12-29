@@ -561,7 +561,7 @@ func TestHelper_Get(t *testing.T) {
 			t.Fatal("expected an error")
 		}
 
-		expected := `[ERROR] The path to the secret in which your Docker credentials are stored must be specified via either (1) the DCVL_SECRET environment variable or (2) the field 'auto_auth.config.secret' of the config file.`
+		expected := `[ERROR] The path to the secret where your Docker credentials are stored must be specified via either (1) the DCVL_SECRET environment variable or (2) the field 'auto_auth.config.secret' of the config file.`
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 		}
