@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/go-hclog"
+	"github.com/mitchellh/go-homedir"
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/auth"
@@ -111,7 +112,12 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 	configFile := defaultConfigFile
 	if f := os.Getenv(EnvConfigFile); f != "" {
-		configFile = f
+		expanded, err := homedir.Expand(f)
+		if err != nil {
+			h.logger.Error(fmt.Sprintf("error expanding directory %q", f), "error", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+		configFile = expanded
 	}
 
 	config, err := h.parseConfig(configFile)
