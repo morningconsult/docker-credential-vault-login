@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/go-hclog"
-	server "github.com/hashicorp/vault/vault"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
+	server "github.com/hashicorp/vault/vault"
 )
 
 func TestGetCredentials(t *testing.T) {
@@ -64,7 +64,7 @@ func TestGetCredentials(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer client.Logical().Delete(secret)
-		
+
 		_, err = GetCredentials(secret, client)
 		if err == nil {
 			t.Fatal("expected an error")
@@ -85,7 +85,7 @@ func TestGetCredentials(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer client.Logical().Delete(secret)
-		
+
 		_, err = GetCredentials(secret, client)
 		if err == nil {
 			t.Fatal("expected an error")
@@ -107,7 +107,7 @@ func TestGetCredentials(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer client.Logical().Delete(secret)
-		
+
 		creds, err := GetCredentials(secret, client)
 		if err != nil {
 			t.Fatal(err)

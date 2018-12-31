@@ -609,7 +609,7 @@ func TestHelper_Get(t *testing.T) {
 		}
 	})
 
-	// Test that if the value of DCVL_CONFIG_FILE cannot be expanded by 
+	// Test that if the value of DCVL_CONFIG_FILE cannot be expanded by
 	// github.com/mitchellh/go-homedir.Expand(), then the appropriate
 	// error is logged
 	t.Run("fails-to-expand-bad-config-path", func(t *testing.T) {
