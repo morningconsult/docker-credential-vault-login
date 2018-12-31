@@ -26,4 +26,3 @@ ENV GOARCH $TARGET_GOARCH
 RUN make
 
 ENTRYPOINT "/bin/bash"
-

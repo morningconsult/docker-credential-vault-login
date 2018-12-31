@@ -16,12 +16,12 @@ set -e
 
 TOOL="docker-credential-vault-login"
 REPO="github.com/morningconsult/${TOOL}"
-BIN_DIR="bin/local"
+BIN_DIR="bin"
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 
 cd "${ROOT}"
 
-mkdir -p "${ROOT}/bin/local"
+mkdir -p "${BIN_DIR}"
 
 echo "==> Building Docker image..."
 
@@ -41,4 +41,3 @@ docker cp "${CONTAINER_ID}:/go/src/${REPO}/${BIN_DIR}/${TOOL}" "${ROOT}/${BIN_DI
 docker kill "${CONTAINER_ID}" > /dev/null
 
 echo "==> Done. The binary can be found in:  ${ROOT}/${BIN_DIR}/${TOOL}"
-

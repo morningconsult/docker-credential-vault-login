@@ -25,9 +25,9 @@ EXTERNAL_TOOLS=\
 
 all: build
 
-update_deps:
-	@sh -c "$(CURDIR)/scripts/update-deps.sh"
-.PHONY: update_deps
+# update_deps:
+# 	@sh -c "$(CURDIR)/scripts/update-deps.sh"
+# .PHONY: update_deps
 
 git_chglog_check:
 	if [ -z "$(shell which git-chglog)" ]; then \
@@ -47,13 +47,13 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	@go test -v -cover $(shell go list ./vault-login/... | grep -v testing)
+	go test -v -cover $(shell go list $(REPO)/... | grep -v vendor)
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse HEAD)' '$(shell date +"%b %d, %Y")' '$(REPO)'"
-	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
+	@sh -c "'./scripts/build-binary.sh' './bin' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse --short HEAD)' '$(REPO)'"
+	@echo "==> Done. Binary can be found at ./bin/docker-credential-vault-login"
 
 mocktools:
 	@echo $(GOPATH)
