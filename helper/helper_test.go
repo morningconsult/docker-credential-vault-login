@@ -608,6 +608,32 @@ func TestHelper_Get(t *testing.T) {
 			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 		}
 	})
+
+	// Test that if the value of DCVL_CONFIG_FILE cannot be expanded by 
+	// github.com/mitchellh/go-homedir.Expand(), then the appropriate
+	// error is logged
+	t.Run("fails-to-expand-bad-config-path", func(t *testing.T) {
+		h.client.ClearToken()
+
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
+
+		oldConfig := os.Getenv(EnvConfigFile)
+		defer os.Setenv(EnvConfigFile, oldConfig)
+		os.Setenv(EnvConfigFile, "~testdata/test.hcl")
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `[ERROR] error expanding directory "~testdata/test.hcl"`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
 }
 
 func TestHelper_Get_FastTimeout(t *testing.T) {
