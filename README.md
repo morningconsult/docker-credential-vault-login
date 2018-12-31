@@ -8,7 +8,7 @@ This program is a [Docker credential helper](https://github.com/docker/docker-cr
 
 ## Prerequisites
 
-You must have Docker (version 1.11 or newer) and Go (version **1.10** or newer) installed on your system.
+You must have Docker (version 1.11 or newer) and Go (version **1.11.3** or newer) installed on your system.
 
 You must also have an operational instance of Vault (version 0.10 or newer).
 
@@ -31,7 +31,7 @@ You can download your preferred variant of the binary from the [releases page](h
 
 You can install this via `go get` with:
 ```bash
-$ go get -u github.com/morningconsult/docker-credential-vault-login/vault-login/cli/docker-credential-vault-login
+$ go get -u github.com/morningconsult/docker-credential-vault-login
 ```
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
@@ -46,7 +46,7 @@ You can cross-compile the binary using the `TARGET_GOOS` and `TARGET_GOARCH` env
 $ TARGET_GOOS="windows" TARGET_GOARCH="amd64" make docker
 ```
 
-The binary will be output to `bin/local` of the local directory.
+The binary will be output to `bin` of the local directory.
 
 ## Setup
 
