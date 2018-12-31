@@ -27,7 +27,7 @@ if [ -z $( echo "${GOPATH}" ) ]; then
 	exit 1
 fi
 
-BIN_DIR="${1}"
+BIN_DIR="${ROOT}/${1}"
 TAG="${2}"
 HASH="${3}"
 REPO="${4}"
@@ -48,18 +48,18 @@ dep ensure
 version_ldflags="-X \"${REPO}/version.Date=$( date +"%b %d, %Y" )\""
 
 if [[ -n "${TAG}" ]]; then
-    version_ldflags="${version_ldflags} -X \"${REPO}/version.Version=${TAG}\""
+	version_ldflags="${version_ldflags} -X \"${REPO}/version.Version=${TAG}\""
 fi
 
 if [[ -n "${HASH}" ]]; then
-    version_ldflags="${version_ldflags} -X \"${REPO}/version.Commit=${HASH}\""
+	version_ldflags="${version_ldflags} -X \"${REPO}/version.Commit=${HASH}\""
 fi
 
 mkdir -p "${BIN_DIR}"
 
 CGO_ENABLED=0 go build \
-    -installsuffix cgo \
-    -a \
-    -ldflags "-s ${version_ldflags}" \
-    -o "${BIN_DIR}/docker-credential-vault-login" \
-    .
+	-installsuffix cgo \
+	-a \
+	-ldflags "-s -w ${version_ldflags}" \
+	-o "${BIN_DIR}/docker-credential-vault-login" \
+	.

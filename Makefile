@@ -25,10 +25,6 @@ EXTERNAL_TOOLS=\
 
 all: build
 
-# update_deps:
-# 	@sh -c "$(CURDIR)/scripts/update-deps.sh"
-# .PHONY: update_deps
-
 git_chglog_check:
 	if [ -z "$(shell which git-chglog)" ]; then \
 		go get -u -v github.com/git-chglog/git-chglog/cmd/git-chglog && git-chglog --version; \

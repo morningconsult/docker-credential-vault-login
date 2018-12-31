@@ -20,4 +20,4 @@ cd "${ROOT}"
 
 export PATH=$PATH:$ROOT/scripts/generate
 
-go generate -x $(go list ./vault-login/... | grep -v testing)
+go generate -x $(go list ./... | grep -v testing)

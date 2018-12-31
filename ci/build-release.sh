@@ -2,7 +2,7 @@
 set -eu
 
 readonly PROJECT="github.com/morningconsult/docker-credential-vault-login"
-readonly GORELEASER_VERSION=v0.88.0
+readonly GORELEASER_VERSION=v0.95.2
 
 echo "==> Installing APK dependencies"
 
