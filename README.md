@@ -94,16 +94,20 @@ The `auto_auth.method.config` field of the configuration file must contain the k
 
 ### Diffie-Hellman Private Key
 
-If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the application will decrypt the token. This file should be a JSON file structured like the one shown below:
+If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `auto_auth.sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the application will decrypt the token. This file should be a JSON file structured like the one shown below:
+
 ```json
 {
   "curve25519_private_key": "NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
   }
 ```
+
 The private key can also be specified with the `DCVL_DH_PRIV_KEY` environment variable. Using the JSON above as an example, you can set the private key with the environment variable by running the following command:
+
 ```shell
 $ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
 ```
+
  The environment variable takes precedence.
 
 **Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
@@ -151,37 +155,34 @@ Using this configuration file, the application will perform the following when y
 4. **Use the new token to read the secret.** If authentication was successful, the process will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
 5. **Cache the new token.** If authentication was successful, the process will also cache the token as plaintext in a file called `/tmp/file-foo` and encrypt and cache the token in another file called `/tmp/file-bar.json`.
 
-### Configuration File Parameters
+## Vault Client Configuration
 
-* `auth` ([Auth](#auth-parameters): `nil`) - Specifies parameters related to the method of authorization. See the [Auth](#auth-parameters) section for more details. This section is required.
-* `cache` ([Cache](#cache-parameters): `nil`) - Specifies caching behavior, including where logs/tokens should be stored and whether Vault tokens should be cached. See the [Cache](#cache-parameters) section for more details. This section is optional.
-* `client` ([Client](#client-parameters): `nil`) - Configures the Vault client that will be used to communicate with your Vault server. These can be overridden using the standard [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). See the [Client](#client-parameters) section for more details. This section is optional.
-* `secret_path` (string: `""`) - Path to the secret where your Docker credentials are stored in your Vault instance (e.g. `secret/credentials/docker/myregistry`). This field is always required.
+The behavior of the Vault client can be specified using the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). They can also be specified in the `auto_auth.method.config` field like in the HCL shown below:
 
-### `auth` Parameters
+```hcl
+auto_auth {
+	method "aws" {
+		mount_path = "auth/aws"
+		config = {
+			type              = "iam"
+			role              = "foobar"
+			secret            = "secret/application/docker"
+			vault_addr        = "http://vault.service.consul"
+			vault_cacert      = "/tmp/ca-cert.pem"
+			vault_client_cert = "/tmp/client-cert.pem"
+			vault_client_key  = "/tmp/client-key.pem"
+		}
+	}
 
-* `method` (string: `""`) - The method by which this application should authenticate against Vault. The only values that are accepted are `iam`, `ec2`, or `token`. If `token` is used as the authentication method, the application will use the Vault token specified by the `VAULT_TOKEN` environment variable to authenticate or the value of the `vault_token` field of the client stanza of the `config.json` file. If the `iam` method is used, it will retrieve your AWS credentials and use them to log into Vault in order to obtain a Vault token (see the [IAM authentication section](#iam-authentication-method)). If `ec2` is used, it will retrieve the PKCS7 signature from the EC2 instance's metadata and log into Vault with it in order to obtain a token (see the [EC2 authentication section](#ec2-authentication-method)). If either the `iam` or `ec2` method is chosen, be sure to [configure AWS authentication in Vault](https://www.vaultproject.io/docs/auth/aws.html#authentication). This field is always required.
-* `role` (string: `""`) - Name of the Vault role against which the login is being attempted. Be sure you have [configured the policies](https://www.vaultproject.io/docs/auth/aws.html#configure-the-policies-on-the-role-) on this role accordingly. This field is only required when using the `iam` and `ec2` authentication methods.
-* `iam_server_id_header` (string: `""`) - The value of the `X-Vault-AWS-IAM-Server-ID` header to be included in the AWS `sts:GetCAllerIdentity` login request (to prevent certain types of replay attacks). See the [documentation](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) for more information on this header. This field is optional and will only be used when using the `iam` authentication method.
-* `aws_mount_path` (string: `"aws"`) - The mount path of your Vault server's AWS secrets engine. This field is optional. If omitted, it will default to `"aws"`. This field is optional and will only be used when using the `iam` and `ec2` authentication methods.
+	sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
 
-### `cache` Parameters
-
-* `dir` (string: `"~/.docker-credential-vault-login"`) - The directory where logs and tokens will be stored. The value of this field can be overridden by setting the `DOCKER_CREDS_CACHE_DIR` environment variable.
-* `disable_token_caching` (bool: `false`) - Whether tokens issued by your Vault server after successful authentication should be written to disk ("cached") for future use. **IT IS NOT RECOMMENDED THAT YOU DISABLE CACHING**. By disabling caching, the process will re-authenticate with each execution. The value of this field can be overridden by setting the `DOCKER_CREDS_DISABLE_CACHE` environment variable.
-
-### `client` Parameters
-
-Note: All of these parameters will be overridden by setting their corresponding [Vault environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables).
-* `vault_addr` (string: `"https://127.0.0.1:8200/"`) - Address of the Vault server expressed as a URL and port.
-* `vault_token` (string: `""`) - Vault authentication token. This token will only be used when the `token` authentication method is chosen.
-* `vault_cacert` (string: `""`) - Path to a PEM-encoded CA certificate file on the local disk. This file is used to verify the Vault server's SSL certificate.
-* `vault_client_cert` (string: `""`) - Path to a PEM-encoded client certificate on the local disk. This file is used for TLS communication with the Vault server.
-* `vault_client_key` (string: `""`) - Path to an unencrypted, PEM-encoded private key on disk which corresponds to the matching client certificate.
-* `vault_tls_server_name` (string: `""`) - Name to use as the SNI host when connecting via TLS.
-* `vault_client_timeout` (string: `"60s"`) - Timeout variable. This can be in seconds (e.g. "60s"), minutes (e.g. "10m"), or hours (e.g. "1h").
-* `vault_skip_verify` (bool: `false`) - Do not verify Vault's presented certificate before communicating with it. Setting this variable is not recommended.
-* `vault_max_retries` (int: `2`) - Maximum number of retries when a 5xx error code is encountered. Set this to 0 to or less to disable retrying.
+The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence.
 
 ## Usage
 
