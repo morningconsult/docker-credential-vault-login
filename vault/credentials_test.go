@@ -49,11 +49,6 @@ func TestGetCredentials(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-
-		expected := `error reading secret: invalid character '<' looking for beginning of value`
-		if err.Error() != expected {
-			t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), expected))
-		}
 	})
 
 	t.Run("secret-doesnt-exist", func(t *testing.T) {
