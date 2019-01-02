@@ -26,7 +26,7 @@ import (
 	"github.com/hashicorp/vault/helper/jsonutil"
 )
 
-const EnvDiffieHellmanPrivateKey = "DOCKER_CREDS_DH_PRIV_KEY"
+const EnvDiffieHellmanPrivateKey = "DCVL_DH_PRIV_KEY"
 
 type PrivateKeyInfo struct {
 	Curve25519PrivateKey []byte `json:"curve25519_private_key"`

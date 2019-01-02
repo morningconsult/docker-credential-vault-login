@@ -83,28 +83,22 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 ## Configuration File
 
-This application requires a configuration file `config.json` in order to determine which authentication method to use. At runtime, the process will first search for this file at the path specified by `DOCKER_CREDS_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.json`. If the configuration file is found in neither location, the process will fail.
+This application requires a configuration file in order to determine which authentication method to use and where, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
+This configuration file must conform to the same specifications as described in the [Vault Agent documentation](https://www.vaultproject.io/docs/agent/index.html). However, this application slightly extends the configuration file in the following ways:
+
+1. The `auto_auth.method.config` field must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+2.  If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `sink.config` field must contain the key `dh_priv` whose value is the path to your Diffie-Hellman private key with which the application will decrypt the token. This key should be a JSON file structured like the one shown below:
 ```json
 {
-  "auth": {
-    "method": "iam",
-    "role": "dev-role-iam",
-    "iam_server_id_header": "vault.service.consul"
-  },
-  "cache": {
-    "dir": "/tmp/.docker-credential-vault-login"
-  },
-  "client": {
-    "vault_addr": "https://vault.service.consul",
-    "vault_cacert": "/tmp/cacert.pem",
-    "vault_client_cert": "/tmp/client.pem",
-    "vault_client_key": "/tmp/client-key.pem",
-    "vault_tls_server_name": "my.server.name"
-  },
-  "secret_path": "secret/docker/creds"
-}
+  "curve25519_private_key": "NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+  }
 ```
+You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository. This can also be specified with the `DCVL_DH_PRIV_KEY` environment variable. Using the JSON above as an example, you can set the private key with the environment variable by running the following command:
+```shell
+$ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+```
+ The environment variable takes precedence.
 
 ### Configuration File Parameters
 

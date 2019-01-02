@@ -64,7 +64,7 @@ build_mocks: mocktools
 .PHONY: build_mocks
 
 install_dep:
-	@curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+	@curl --silent https://raw.githubusercontent.com/golang/dep/master/install.sh | sh > /dev/null
 .PHONY: install_dep
 
 #=============================================================================
