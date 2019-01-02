@@ -1,6 +1,6 @@
 project_name: docker-credential-vault-login
 builds:
-  - main: .
+  -
     ldflags:
       - -s -w
       - -X "github.com/morningconsult/docker-credential-vault-login/version.Version={{ .Version }}" -X "github.com/morningconsult/docker-credential-vault-login/version.Commit={{ .ShortCommit }}" -X "github.com/morningconsult/docker-credential-vault-login/version.Date={{ time "Jan 02, 2006" }}"
