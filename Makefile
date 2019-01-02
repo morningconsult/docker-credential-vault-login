@@ -43,7 +43,7 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	go test -v -cover $(shell go list $(REPO)/... | grep -v vendor)
+	@go test -v -cover $(shell go list $(REPO)/... | grep -v vendor)
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
@@ -64,7 +64,7 @@ build_mocks: mocktools
 .PHONY: build_mocks
 
 install_dep:
-	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+	@curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 .PHONY: install_dep
 
 #=============================================================================
