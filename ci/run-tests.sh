@@ -18,7 +18,7 @@ REPO="github.com/morningconsult/docker-credential-vault-login"
 
 echo "==> Installing APK dependencies"
 
-apk add -qU --no-progress make curl
+apk add -qU --no-progress make curl git
 
 echo "==> Installing dep"
 
