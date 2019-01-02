@@ -26,10 +26,10 @@ mkdir -p "${BIN_DIR}"
 echo "==> Building Docker image..."
 
 IMAGE=$( docker build \
-    --quiet \
-    --build-arg TARGET_GOARCH=${TARGET_GOARCH} \
-    --build-arg TARGET_GOOS=${TARGET_GOOS} \
-    . \
+	--quiet \
+	--build-arg TARGET_GOARCH=${TARGET_GOARCH} \
+	--build-arg TARGET_GOOS=${TARGET_GOOS} \
+	. \
 )
 
 echo "==> Building the binary..."

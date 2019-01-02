@@ -63,6 +63,10 @@ build_mocks: mocktools
 	scripts/build-mocks.sh
 .PHONY: build_mocks
 
+install_dep:
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+.PHONY: install_dep
+
 #=============================================================================
 # Release and Deployment tasks
 

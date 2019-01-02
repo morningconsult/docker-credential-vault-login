@@ -18,7 +18,11 @@ REPO="github.com/morningconsult/docker-credential-vault-login"
 
 echo "==> Installing APK dependencies"
 
-apk add -qU --no-progress make
+apk add -qU --no-progress make curl
+
+echo "==> Installing dep"
+
+make install_dep
 
 export CGO_ENABLED=0
 
@@ -26,8 +30,13 @@ mkdir -p "${GOPATH}/src/${REPO}"
 cp -r . "${GOPATH}/src/${REPO}"
 cd "${GOPATH}/src/${REPO}" 
 
+echo "==> Fetching dependencies"
+
+dep ensure
+
 echo "==> Running unit tests"
 
+## Run unit tests
 make test
 
 echo "==> Done"

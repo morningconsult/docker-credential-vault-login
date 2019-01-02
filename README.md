@@ -6,6 +6,16 @@
 
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. It automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) and uses them to log in to your Docker registry when you call `docker pull`.
 
+It supports all of the authentication methods currently supported by the [Vault agent](https://www.vaultproject.io/docs/agent/), including:
+
+* Alibaba Cloud (AliCloud)
+* Vault AppRole
+* Amazon Web Services (AWS)
+* Microsoft Azure
+* Google Cloud Platform (GCP)
+* JSON Web Tokens (JWT)
+* Kubernetes
+
 ## Prerequisites
 
 You must have Docker (version 1.11 or newer) and Go (version **1.11.3** or newer) installed on your system.
@@ -52,7 +62,7 @@ The binary will be output to `bin` of the local directory.
 
 ### Docker configuration
 
-Once you have the `docker-credential-vault-login` binary, place it on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
+Once you have the `docker-credential-vault-login` binary, place it in a location on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
 ```json
 {
