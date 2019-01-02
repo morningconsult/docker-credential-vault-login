@@ -85,10 +85,16 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 This application requires a configuration file in order to determine which authentication method to use and where, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
-This configuration file must conform to the same specifications as described in the [Vault Agent documentation](https://www.vaultproject.io/docs/agent/index.html). However, this application slightly extends the configuration file in the following ways:
+This configuration file must conform to the same specifications as described in the [Vault Agent documentation](https://www.vaultproject.io/docs/agent/index.html). However, this application slightly extends the configuration file.
 
-1. The `auto_auth.method.config` field must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
-2.  If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `sink.config` field must contain the key `dh_priv` whose value is the path to your Diffie-Hellman private key with which the application will decrypt the token. This key should be a JSON file structured like the one shown below:
+
+### Secret Path
+
+The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+
+### Diffie-Hellman Private Key
+
+If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `sink.config` field must contain the key `dh_priv` whose value is the path to your Diffie-Hellman private key with which the application will decrypt the token. This key should be a JSON file structured like the one shown below:
 ```json
 {
   "curve25519_private_key": "NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
@@ -99,6 +105,8 @@ You can generate a Diffie-Hellman public-private key pair with the [script](http
 $ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
 ```
  The environment variable takes precedence.
+
+### Example
 
 ### Configuration File Parameters
 
