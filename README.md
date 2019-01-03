@@ -200,15 +200,15 @@ If you choose to bypass authentication and simply provide a token for the Vault 
 
 ```hcl
 auto_auth {
-  method "token" {
-    mount_path = "auth/token"
-    config     = {
-      secret = "secret/application/docker"
-      token  = "8efc06ef-ced9-170f-9f66-c94740a61c93"
-    }
-  }
+	method "token" {
+		mount_path = "auth/token"
+		config     = {
+			secret = "secret/application/docker"
+			token  = "8efc06ef-ced9-170f-9f66-c94740a61c93"
+		}
+	}
 
-  sink "file" {
+	sink "file" {
 		config = {
 			path = "/tmp/file-foo"
 		}
@@ -228,14 +228,14 @@ If you've set your token in the environment, you do not need to provide it in th
 
 ```hcl
 auto_auth {
-  method "token" {
-    mount_path = "auth/token"
-    config     = {
-      secret = "secret/application/docker"
-    }
-  }
+	method "token" {
+		mount_path = "auth/token"
+		config     = {
+			secret = "secret/application/docker"
+		}
+	}
 
-  sink "file" {
+	sink "file" {
 		config = {
 			path = "/tmp/file-foo"
 		}
