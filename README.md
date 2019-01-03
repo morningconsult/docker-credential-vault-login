@@ -91,8 +91,7 @@ This configuration file must conform to the same specifications as the [Vault ag
 - **`auto_auth` stanza only**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, and `auto_auth`), only the [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) field is required. 
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the (Token Authentication)[#token-authentication] section for more information
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prequisites](#prerequisites) section) must be specified either in the configuration file or by an environment variable (see the [Secret Path](#secret-path) section).
-- **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section)
-
+- **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
 ### Secret Path
 
@@ -191,9 +190,58 @@ auto_auth {
 
 The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence.
 
-### Manually Providing A Token
+### Token Authentication
 
-You may also manually provide a Vault client token in the configuration file 
+You may also manually provide a Vault client token to avoid the need to authenticate. To do so, you must use `token` authentication method in your configuration file. You can provide the token in the `auto_auth.method.config.token` field of the configuration file or by setting the token with the `VAULT_TOKEN` environment variable. See the examples below.
+
+#### Example 1: Token set in configuration file
+
+If you choose to bypass authentication and simply provide a token for the Vault client to use, you can set the token in the `auto_auth.method.config.token` field.
+
+```hcl
+auto_auth {
+  method "token" {
+    mount_path = "auth/token"
+    config     = {
+      secret = "secret/application/docker"
+      token  = "8efc06ef-ced9-170f-9f66-c94740a61c93"
+    }
+  }
+
+  sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
+
+#### Example 2: Token set in environment
+
+You can also set the token in `VAULT_TOKEN` environment variable.
+
+```shell
+$ export VAULT_TOKEN="8efc06ef-ced9-170f-9f66-c94740a61c93"
+```
+
+If you've set your token in the environment, you do not need to provide it in the configuration file.
+
+```hcl
+auto_auth {
+  method "token" {
+    mount_path = "auth/token"
+    config     = {
+      secret = "secret/application/docker"
+    }
+  }
+
+  sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
 
 ## Usage
 

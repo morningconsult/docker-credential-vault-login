@@ -84,6 +84,7 @@ func newVaultClient(method *config.Method) (*api.Client, error) {
 		}
 		client.SetToken(token)
 	default:
+		client.ClearToken()
 	}
 
 	return client, nil
