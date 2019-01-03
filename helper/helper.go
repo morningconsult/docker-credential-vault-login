@@ -123,6 +123,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		}
 	}
 
+	// Get path to config file
 	configFile := defaultConfigFile
 	if f := os.Getenv(EnvConfigFile); f != "" {
 		expanded, err := homedir.Expand(f)
@@ -133,14 +134,16 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		configFile = expanded
 	}
 
+	// Parse config file
 	config, err := h.parseConfig(configFile)
 	if err != nil {
 		h.logger.Error(fmt.Sprintf("error parsing configuration file %s", configFile), "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
+	// Get the path to the secret where the Docker
+	// credentials are kept
 	secret := os.Getenv(EnvSecretPath)
-
 	if secret == "" {
 		secretRaw, ok := config.AutoAuth.Method.Config["secret"]
 		if !ok {
@@ -158,7 +161,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	if h.client == nil {
-		h.client, err = newVaultClient(config.AutoAuth.Method.Config)
+		h.client, err = newVaultClient(config.AutoAuth.Method)
 		if err != nil {
 			h.logger.Error("error creating new Vault API client", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()

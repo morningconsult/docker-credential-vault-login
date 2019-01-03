@@ -392,7 +392,7 @@ func TestHelper_Get(t *testing.T) {
 	// Test that if the environment variable used to disable caching
 	// will cause strconv.ParseBool() to return an error when the value
 	// is not a bool
-	t.Run("can-disable-caching", func(t *testing.T) {
+	t.Run("disable-caching-error", func(t *testing.T) {
 		buf := new(bytes.Buffer)
 		h.client.ClearToken()
 		h.logger = hclog.New(&hclog.LoggerOptions{
@@ -966,7 +966,7 @@ func TestNewVaultClient(t *testing.T) {
 	cases := []struct {
 		name   string
 		env    map[string]string
-		config map[string]interface{}
+		method *config.Method
 		err    string
 	}{
 		{
@@ -974,33 +974,41 @@ func TestNewVaultClient(t *testing.T) {
 			map[string]string{
 				api.EnvVaultAddress: "http://127.0.0.1:8200",
 			},
-			map[string]interface{}{
-				strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+			&config.Method{
+				Config: map[string]interface{}{
+					strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+				},
 			},
 			"",
 		},
 		{
 			"config-lowercase",
 			map[string]string{},
-			map[string]interface{}{
-				strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+			&config.Method{
+				Config: map[string]interface{}{
+					strings.ToLower(api.EnvVaultAddress): "http://127.0.0.1:8201",
+				},
 			},
 			"",
 		},
 		{
 			"config-uppercase",
 			map[string]string{},
-			map[string]interface{}{
-				api.EnvVaultAddress: "http://127.0.0.1:8201",
+			&config.Method{
+				Config: map[string]interface{}{
+					api.EnvVaultAddress: "http://127.0.0.1:8201",
+				},
 			},
 			"",
 		},
 		{
 			"config-error",
 			map[string]string{},
-			map[string]interface{}{
-				strings.ToLower(api.EnvVaultAddress): map[string]interface{}{
-					"not": "stringable!",
+			&config.Method{
+				Config: map[string]interface{}{
+					strings.ToLower(api.EnvVaultAddress): map[string]interface{}{
+						"not": "stringable!",
+					},
 				},
 			},
 			"field 'auto_auth.method.config.VAULT_ADDR' could not be converted to a string",
@@ -1010,7 +1018,9 @@ func TestNewVaultClient(t *testing.T) {
 			map[string]string{
 				api.EnvRateLimit: "asdf",
 			},
-			map[string]interface{}{},
+			&config.Method{
+				Config: map[string]interface{}{},
+			},
 			"error encountered setting up default configuration: VAULT_RATE_LIMIT was provided but incorrectly formatted",
 		},
 	}
@@ -1023,7 +1033,7 @@ func TestNewVaultClient(t *testing.T) {
 				os.Setenv(env, new)
 			}
 
-			client, err := newVaultClient(tc.config)
+			client, err := newVaultClient(tc.method)
 			if tc.err != "" {
 				if err == nil {
 					t.Fatal("expected an error but didn't receive one")
@@ -1041,22 +1051,22 @@ func TestNewVaultClient(t *testing.T) {
 						if client.Address() != val {
 							t.Fatalf("Vault client addresses differ:\n%v", cmp.Diff(client.Address, val))
 						}
-						delete(tc.config, api.EnvVaultAddress)
-						delete(tc.config, strings.ToLower(api.EnvVaultAddress))
+						delete(tc.method.Config, api.EnvVaultAddress)
+						delete(tc.method.Config, strings.ToLower(api.EnvVaultAddress))
 					case api.EnvVaultToken:
 						if client.Token() != val {
 							t.Fatalf("Vault tokens differ:\n%v", cmp.Diff(client.Token(), val))
 						}
-						delete(tc.config, api.EnvVaultToken)
-						delete(tc.config, strings.ToLower(api.EnvVaultToken))
+						delete(tc.method.Config, api.EnvVaultToken)
+						delete(tc.method.Config, strings.ToLower(api.EnvVaultToken))
 					default:
 						t.Fatalf("environment variable %q is not supported for this unit test", env)
 					}
 				}
 			}
 
-			if len(tc.config) > 0 {
-				for env, val := range tc.config {
+			if len(tc.method.Config) > 0 {
+				for env, val := range tc.method.Config {
 					switch env {
 					case api.EnvVaultAddress, strings.ToLower(api.EnvVaultAddress):
 						s, ok := val.(string)
@@ -1080,6 +1090,104 @@ func TestNewVaultClient(t *testing.T) {
 				}
 			}
 
+		})
+	}
+}
+
+func TestNewVaultClient_Token(t *testing.T) {
+
+	t.Run("config", func(t *testing.T) {
+		oldToken := os.Getenv(api.EnvVaultToken)
+		defer os.Setenv(api.EnvVaultToken, oldToken)
+		os.Unsetenv(api.EnvVaultToken)
+
+		token := randomUUID(t)
+
+		method := &config.Method{
+			Type:   "token",
+			Config: map[string]interface{}{
+				"token": token,
+			},
+		}
+
+		client, err := newVaultClient(method)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if client.Token() != token {
+			t.Fatalf("Client token differs from expected token:\n%v", cmp.Diff(client.Token(), token))
+		}
+	})
+
+	t.Run("env", func(t *testing.T) {
+		token := randomUUID(t)
+
+		oldToken := os.Getenv(api.EnvVaultToken)
+		defer os.Setenv(api.EnvVaultToken, oldToken)
+		os.Setenv(api.EnvVaultToken, token)
+
+		method := &config.Method{
+			Type: "token",
+		}
+
+		client, err := newVaultClient(method)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if client.Token() != token {
+			t.Fatalf("Client token differs from expected token:\n%v", cmp.Diff(client.Token(), token))
+		}
+	})
+
+	oldToken := os.Getenv(api.EnvVaultToken)
+	defer os.Setenv(api.EnvVaultToken, oldToken)
+	os.Unsetenv(api.EnvVaultToken)
+
+	cases := []struct {
+		name   string
+		method *config.Method
+		err    string
+	}{
+		{
+			"no-token-in-config",
+			&config.Method{
+				Type: "token",
+			},
+			"missing 'auto_auth.method.config.token' value",
+		},
+		{
+			"token-not-string",
+			&config.Method{
+				Type:   "token",
+				Config: map[string]interface{}{
+					"token": 26,
+				},
+			},
+			"could not convert 'auto_auth.method.config.token' config value to string",
+		},
+		{
+			"empty-token",
+			&config.Method{
+				Type:  "token",
+				Config: map[string]interface{}{
+					"token": "",
+				},
+			},
+			`No token provided. If the "token" auto_auth method is to be used, either the VAULT_TOKEN environment variable must be set or the 'auto_auth.method.config.token' field of the configuration file must be set.`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := newVaultClient(tc.method)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			if err.Error() != tc.err {
+				t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), tc.err))
+			}
 		})
 	}
 }

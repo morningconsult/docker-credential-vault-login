@@ -14,14 +14,16 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/command/agent/config"
 )
 
-func newVaultClient(config map[string]interface{}) (*api.Client, error) {
+func newVaultClient(method *config.Method) (*api.Client, error) {
 	vaultEnvVars := []string{
 		api.EnvVaultAddress,
 		api.EnvVaultCACert,
@@ -31,7 +33,6 @@ func newVaultClient(config map[string]interface{}) (*api.Client, error) {
 		api.EnvVaultInsecure,
 		api.EnvVaultTLSServerName,
 		api.EnvVaultMaxRetries,
-		api.EnvVaultToken,
 	}
 
 	for _, env := range vaultEnvVars {
@@ -39,9 +40,9 @@ func newVaultClient(config map[string]interface{}) (*api.Client, error) {
 			continue
 		}
 
-		raw, ok := config[env]
+		raw, ok := method.Config[env]
 		if !ok {
-			raw, ok = config[strings.ToLower(env)]
+			raw, ok = method.Config[strings.ToLower(env)]
 			if !ok {
 				continue
 			}
@@ -61,6 +62,28 @@ func newVaultClient(config map[string]interface{}) (*api.Client, error) {
 	client, err := api.NewClient(nil)
 	if err != nil {
 		return nil, err
+	}
+
+	switch method.Type {
+	case "token":
+		token := os.Getenv(api.EnvVaultToken)
+		if token == "" {
+			tokenRaw, ok := method.Config["token"]
+			if !ok {
+				return nil, errors.New("missing 'auto_auth.method.config.token' value")
+			}
+			token, ok = tokenRaw.(string)
+			if !ok {
+				return nil, errors.New("could not convert 'auto_auth.method.config.token' config value to string")
+			}
+		}
+		if token == "" {
+			return nil, fmt.Errorf("No token provided. If the \"token\" auto_auth method is to be used, "+
+				"either the %s environment variable must be set or the 'auto_auth.method.config.token' "+
+				"field of the configuration file must be set.", api.EnvVaultToken)
+		}
+		client.SetToken(token)
+	default:
 	}
 
 	return client, nil

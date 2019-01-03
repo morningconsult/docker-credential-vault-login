@@ -4,9 +4,9 @@
 
 [![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/build-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
 
-This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. It automatically retrieves Docker credentials stored in [Vault](https://www.vaultproject.io/) and uses them to log in to your Docker registry when you call `docker pull`.
+This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. When you run `docker pull` it automatically authenticates against your [Vault](https://www.vaultproject.io/) server, fetches your Docker credentials, and uses those credentials to log in to your Docker registry before pulling the Docker image.
 
-It supports all of the authentication methods currently supported by the [Vault agent](https://www.vaultproject.io/docs/agent/), including:
+This program leverages much of the [Vault agent](https://www.vaultproject.io/docs/agent/) code for authentication. As such, it requires the same [configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html) as the Vault agent (see the [configuration file](#configuration-file) section for more information). Furthermore, it supports all of the authentication methods currently supported by the Vault agent, including:
 
 * Alibaba Cloud (AliCloud)
 * Vault AppRole
@@ -25,8 +25,8 @@ You must also have an operational instance of Vault (version 0.10 or newer).
 Within Vault, you should store your Docker credentials in the following format:
 ```json
 {
-  "username": "docker@registry.user",
-  "password": "my-secure-password"
+    "username": "docker@registry.user",
+    "password": "my-secure-password"
 }
 ```
 Note that the Vault path where you store these credentials will be used as the value of the `auto_auth.method.config.secret` field of your `config.hcl` file (see the [Configuration File](#configuration-file) section).
@@ -66,27 +66,29 @@ Once you have the `docker-credential-vault-login` binary, place it in a location
 
 ```json
 {
-  "credsStore": "vault-login"
+    "credsStore": "vault-login"
 }
 ```
 
 This configures the Docker daemon to use the credential helper for all registries.
 
 With Docker 1.13.0 or greater, you can configure Docker to use different credential helpers for different registries. To use this credential helper for a specific registry, create a credHelpers section with the URI of your registry:
+
 ```json
 {
-  "credHelpers": {
-    "my.docker.registry.com": "vault-login"
-  }
+    "credHelpers": {
+        "my.docker.registry.com": "vault-login"
+    }
 }
 ```
 
 ## Configuration File
 
-This application requires a configuration file in order to determine which authentication method to use and where, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
+This application requires a configuration file in order to determine which authentication method to use and how, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
-This configuration file must conform to the same specifications as described in the [Vault Agent documentation](https://www.vaultproject.io/docs/agent/index.html). However, this application slightly extends the configuration file.
+Although thoroughly documented in the Vault agent documentation, it is worth mentioning here the salient elements of the configuration file. First, of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, and `auto_auth`), only the [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) field is required.
 
+This configuration file must conform to the same specifications as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html) in addition to some application-specific parameters.
 
 ### Secret Path
 
@@ -184,6 +186,10 @@ auto_auth {
 ```
 
 The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence.
+
+### Manually Providing A Token
+
+You may also manually provide a Vault client token in the configuration file 
 
 ## Usage
 
