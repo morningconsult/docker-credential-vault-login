@@ -192,11 +192,11 @@ The keys in the `auto_auth.method.config` section used to configure the Vault cl
 
 ### Token Authentication
 
-You may also manually provide a Vault client token to avoid the need to authenticate. To do so, you must use `token` authentication method in your configuration file. You can provide the token in the `auto_auth.method.config.token` field of the configuration file or by setting the token with the `VAULT_TOKEN` environment variable. See the examples below.
+You may also manually provide a Vault client token to bypass authentication altogether. To do so, you must use `token` authentication method in your configuration file. You can provide the token in the `auto_auth.method.config.token` field of the configuration file or by setting the token with the `VAULT_TOKEN` environment variable. See the examples below.
 
 #### Example 1: Token set in configuration file
 
-If you choose to bypass authentication and simply provide a token for the Vault client to use, you can set the token in the `auto_auth.method.config.token` field.
+You can set the token in the `auto_auth.method.config.token` field.
 
 ```hcl
 auto_auth {
