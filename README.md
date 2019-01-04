@@ -16,7 +16,7 @@ This program leverages much of the [Vault agent](https://www.vaultproject.io/doc
 * JSON Web Tokens (JWT)
 * Kubernetes
 
-## Prerequisites
+# Prerequisites
 
 You must have Docker (version 1.11 or newer) and Go (version **1.11.3** or newer) installed on your system.
 
@@ -31,13 +31,13 @@ Within Vault, you should store your Docker credentials in the following format:
 ```
 Note that the Vault path where you store these credentials will be used as the value of the `auto_auth.method.config.secret` field of your `config.hcl` file (see the [Configuration File](#configuration-file) section).
 
-## Installation
+# Installation
 
-### Manually
+## Manually
 
 You can download your preferred variant of the binary from the [releases page](https://github.com/morningconsult/docker-credential-vault-login/releases).
 
-### Using `go get`
+## Using `go get`
 
 You can install this via `go get` with:
 ```bash
@@ -46,7 +46,7 @@ $ go get -u github.com/morningconsult/docker-credential-vault-login
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
 
-### Using Docker
+## Using Docker
 
 If you do not have Go installed locally, you can still build the binary if you have Docker installed. Simply clone this repository and run `make docker` to build the binary within the Docker container and output it to the local directory.
 
@@ -58,9 +58,9 @@ $ TARGET_GOOS="windows" TARGET_GOARCH="amd64" make docker
 
 The binary will be output to `bin` of the local directory.
 
-## Setup
+# Setup
 
-### Docker configuration
+## Docker configuration
 
 Once you have the `docker-credential-vault-login` binary, place it in a location on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
@@ -89,8 +89,8 @@ This application requires a configuration file in order to determine which authe
 This configuration file must conform to the same specifications as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html) in addition to some application-specific parameters:
 
 - **`auto_auth` stanza only**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, and `auto_auth`), only the [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) field is required. 
-- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the (Token Authentication)[#token-authentication] section for more information
-- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prequisites](#prerequisites) section) must be specified either in the configuration file or by an environment variable (see the [Secret Path](#secret-path) section).
+- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
+- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
 ### Secret Path
@@ -243,13 +243,7 @@ auto_auth {
 }
 ```
 
-## Frequently-Asked Questions
-
-#### Must I always have at least one sink in my configuration file (even if I am using the token authentication method)?
-
-Yes, you must always have at least one sink in your configuration file. This is simply due to the design of the Vault agent code. However, if you disable caching by setting the `DCVL_DISABLE_CACHE` environment variable to `true` then the process will not actually cache any tokens, regardless of the sinks specified in your configuration file.
-
-## Usage
+# Usage
 
 ### EC2 Authentication Method
 
@@ -271,4 +265,10 @@ There are also a few optional application-specific environment variables which c
 
 ## Error Logs
 
-All error logs will be output to `~/.docker-credential-vault-login/log/vault-login.log` by default. If you wish to store logs in a different directory, you can specify the desired directory with the `DOCKER_CREDS_CACHE_DIR` environmental variable.
+All error logs will be output to the `~/.docker-credential-vault-login` directory by default. If you wish to store logs in a different directory, you can specify the desired directory with the `DCVL_LOG_DIR` environmental variable.
+
+# Frequently-Asked Questions
+
+#### Must I always have at least one sink in my configuration file (even if I am using the token authentication method)?
+
+Yes, you must always have at least one sink in your configuration file. This is simply due to the design of the Vault agent code. However, if you disable caching by setting the `DCVL_DISABLE_CACHE` environment variable to `true` then the process will not actually cache any tokens, regardless of the sinks specified in your configuration file.
