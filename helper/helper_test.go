@@ -341,6 +341,12 @@ func TestHelper_Get(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	data, err := ioutil.ReadFile("testdata/token-sink")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientToken := string(data)
+
 	// Test that it can read the secret using the cached token
 	t.Run("can-use-cached-token", func(t *testing.T) {
 		h.client.ClearToken()
@@ -372,6 +378,7 @@ func TestHelper_Get(t *testing.T) {
 		os.Setenv(EnvDisableCaching, "true")
 		defer os.Unsetenv(EnvDisableCaching)
 
+		os.Remove("testdata/token-sink")
 		user, pw, err := h.Get("")
 		if err != nil {
 			t.Fatal(err)
@@ -383,8 +390,7 @@ func TestHelper_Get(t *testing.T) {
 		if pw != "secure password" {
 			t.Fatalf("Got password %q, expected \"secure password\"", pw)
 		}
-
-		if _, err = os.Stat("testdata/token-sink"); os.IsExist(err) {
+		if _, err = os.Stat("testdata/token-sink"); !os.IsNotExist(err) {
 			t.Fatal("helper.Get() should not have cached a token")
 		}
 	})
@@ -424,12 +430,26 @@ func TestHelper_Get(t *testing.T) {
 	// a bad token it fails
 	t.Run("fails-when-bad-token-used", func(t *testing.T) {
 		h.client.SetToken("bad token!")
-		h.logger = nil
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+		})
 
 		makeApproleFiles()
 
-		if _, _, err = h.Get(""); err == nil {
+		_, _, err = h.Get("")
+		if err == nil {
 			t.Fatal("expected an error when client attempts to read secret with a bad token")
+		}
+		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
+
+URL: GET %s/v1/secret/docker/creds
+Code: 403. Errors:
+
+* permission denied"`, h.client.Address())
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
+				expected, buf.String())
 		}
 	})
 
@@ -437,18 +457,34 @@ func TestHelper_Get(t *testing.T) {
 	// the secret, it fails
 	t.Run("fails-when-no-policy", func(t *testing.T) {
 		client.SetToken(rootToken)
+		buf := new(bytes.Buffer)
+		h.logger = hclog.New(&hclog.LoggerOptions{
+			Output: buf,
+			Level:  hclog.Error,
+		})
 
 		if err = client.Sys().DeletePolicy("dev-policy"); err != nil {
 			t.Fatal(err)
 		}
 
-		h.client.ClearToken()
-		h.logger = nil
-
+		h.client.SetToken(clientToken)
 		makeApproleFiles()
 
-		if _, _, err = h.Get(""); err == nil {
+		_, _, err = h.Get("")
+		if err == nil {
 			t.Fatal("expected an error when role attempts to read secret with without permission")
+		}
+
+		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
+
+URL: GET %s/v1/secret/docker/creds
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied`, h.client.Address())
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
+				expected, buf.String())
 		}
 	})
 
@@ -484,6 +520,8 @@ func TestHelper_Get(t *testing.T) {
 		h.logger = hclog.New(&hclog.LoggerOptions{
 			Output: buf,
 		})
+
+		makeApproleFiles()
 
 		_, _, err = h.Get("")
 		if err == nil {

@@ -243,6 +243,12 @@ auto_auth {
 }
 ```
 
+## Frequently-Asked Questions
+
+#### Must I always have at least one sink in my configuration file (even if I am using the token authentication method)?
+
+Yes, you must always have at least one sink in your configuration file. This is simply due to the design of the Vault agent code. However, if you disable caching by setting the `DCVL_DISABLE_CACHE` environment variable to `true` then the process will not actually cache any tokens, regardless of the sinks specified in your configuration file.
+
 ## Usage
 
 ### EC2 Authentication Method
