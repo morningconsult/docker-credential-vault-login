@@ -463,7 +463,7 @@ username            testuser
 ```shell
 $ cat <<EOF > /tmp/policy.hcl
 path "secret/application/docker" {
-	capabilities = ["read", "list"]
+       capabilities = ["read", "list"]
 }
 EOF
 $ vault policy write dev-policy /tmp/policy.hcl
@@ -483,21 +483,21 @@ We now have a running Vault server and have stored our Docker credentials within
 $ sudo mkdir -p /etc/docker-credential-vault-login
 $ cat <<EOF > /tmp/config.hcl
 auto_auth {
-	method "approle" {
-		mount_path = "auth/approle"
-		config     = {
-			secret              = "secret/application/docker"
-			role_id_file_path   = "/tmp/test-vault-role-id"
-			secret_id_file_path = "/tmp/test-vault-secret-id"
-			vault_addr          = "http://127.0.0.1:8200"
-		}
-	}
+        method "approle" {
+                mount_path = "auth/approle"
+                config     = {
+                        secret              = "secret/application/docker"
+                        role_id_file_path   = "/tmp/test-vault-role-id"
+                        secret_id_file_path = "/tmp/test-vault-secret-id"
+                        vault_addr          = "http://127.0.0.1:8200"
+                }
+        }
 
-	sink "file" {
-		config = {
-			path = "/tmp/token-sink"
-		}
-	}
+        sink "file" {
+                config = {
+                        path = "/tmp/token-sink"
+                }
+        }
 }
 EOF
 $ sudo mv /tmp/config.hcl /etc/docker-credential-vault-login
