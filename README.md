@@ -16,7 +16,7 @@ This program leverages much of the [Vault agent](https://www.vaultproject.io/doc
 * JSON Web Tokens (JWT)
 * Kubernetes
 
-# Prerequisites
+## Prerequisites
 
 You must have Docker (version 1.11 or newer) and Go (version **1.11.3** or newer) installed on your system.
 
@@ -31,13 +31,13 @@ Within Vault, you should store your Docker credentials in the following format:
 ```
 Note that the Vault path where you store these credentials will be used as the value of the `auto_auth.method.config.secret` field of your `config.hcl` file (see the [Configuration File](#configuration-file) section).
 
-# Installation
+## Installation
 
-## Manually
+### Manually
 
 You can download your preferred variant of the binary from the [releases page](https://github.com/morningconsult/docker-credential-vault-login/releases).
 
-## Using `go get`
+### Using `go get`
 
 You can install this via `go get` with:
 ```bash
@@ -46,7 +46,7 @@ $ go get -u github.com/morningconsult/docker-credential-vault-login
 
 Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
 
-## Using Docker
+### Using Docker
 
 If you do not have Go installed locally, you can still build the binary if you have Docker installed. Simply clone this repository and run `make docker` to build the binary within the Docker container and output it to the local directory.
 
@@ -58,9 +58,9 @@ $ TARGET_GOOS="windows" TARGET_GOARCH="amd64" make docker
 
 The binary will be output to `bin` of the local directory.
 
-# Setup
+## Setup
 
-## Docker configuration
+### Docker configuration
 
 Once you have the `docker-credential-vault-login` binary, place it in a location on your `PATH` and set the contents of your `~/.docker/config.json` file to be:
 
@@ -82,7 +82,7 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 }
 ```
 
-## Configuration File
+### Configuration File
 
 This application requires a configuration file in order to determine which authentication method to use and how, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
@@ -93,31 +93,7 @@ This configuration file must conform to the same specifications as the [Vault ag
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
-### Secret Path
-
-The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
-
-### Diffie-Hellman Private Key
-
-If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `auto_auth.sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the application will decrypt the token. This file should be a JSON file structured like the one shown below:
-
-```json
-{
-    "curve25519_private_key": "NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
-}
-```
-
-The private key can also be specified with the `DCVL_DH_PRIV_KEY` environment variable. Using the JSON above as an example, you can set the private key with the environment variable by running the following command:
-
-```shell
-$ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
-```
-
- The environment variable takes precedence.
-
-**Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
-
-### Example
+#### Example
 
 The configuration file shown in this example is based on an [example](https://www.vaultproject.io/docs/agent/index.html#example-configuration) provided in the Vault documentation:
 
@@ -161,7 +137,31 @@ Using this configuration file, the application will perform the following when y
 4. **Use the new token to read the secret.** If authentication was successful, the process will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
 5. **Cache the new token.** If authentication was successful, the process will also cache the token as plaintext in a file called `/tmp/file-foo` and encrypt and cache the token in another file called `/tmp/file-bar.json`.
 
-## Vault Client Configuration
+#### Secret Path
+
+The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+
+#### Diffie-Hellman Private Key
+
+If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `auto_auth.sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the application will decrypt the token. This file should be a JSON file structured like the one shown below:
+
+```json
+{
+    "curve25519_private_key": "NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+}
+```
+
+The private key can also be specified with the `DCVL_DH_PRIV_KEY` environment variable. Using the JSON above as an example, you can set the private key with the environment variable by running the following command:
+
+```shell
+$ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+```
+
+ The environment variable takes precedence.
+
+**Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
+
+### Vault Client Configuration
 
 The behavior of the Vault client can be specified using the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). They can also be specified in the `auto_auth.method.config` field like in the HCL shown below:
 
@@ -243,7 +243,7 @@ auto_auth {
 }
 ```
 
-# Usage
+## Usage
 
 ### EC2 Authentication Method
 
