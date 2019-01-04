@@ -86,7 +86,7 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 This application requires a configuration file in order to determine which authentication method to use and how, if at all, your tokens should be cached. At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
-This configuration file must conform to the same specifications as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html) in addition to some application-specific parameters:
+**This configuration file must conform to the same specifications as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html)**, in addition to some application-specific parameters:
 
 - **`auto_auth` stanza only**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, and `auto_auth`), only the [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) field is required. 
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
@@ -131,15 +131,44 @@ auto_auth {
 
 Using this configuration file, the application will perform the following when you run `docker pull`:
 
-1. **Read all cached tokens.** Specifically, the process will read `/tmp/file-foo`, expecting this file to contain a plaintext token. Then, it will read `/tmp/file-bar.json`, decrypt it using the Diffie-Hellman public-private key pair (`/tmp/dh-pub-key.json` and `/tmp/dh-priv-key.json` respectively), and [unwrap](https://www.vaultproject.io/docs/concepts/response-wrapping.html) it to obtain a usable client token.
+1. **Read all cached tokens ("sinks").** Specifically, the process will read `/tmp/file-foo`, expecting this file to contain a plaintext token. Then, it will read `/tmp/file-bar.json`, decrypt it using the Diffie-Hellman public-private key pair (`/tmp/dh-pub-key.json` and `/tmp/dh-priv-key.json` respectively), and [unwrap](https://www.vaultproject.io/docs/concepts/response-wrapping.html) it to obtain a usable client token.
 2. **Use a cached token to read the secret.** If any of the cached tokens were successfully read, the process will try each one to attempt to read your Docker credentials from Vault at the path `secret/application/docker` until it successfully reads the secret.
 3. **Re-authenticate if all cached tokens failed.** If the process was unable to read the secret using any of the cached tokens, it will authenticate against your Vault instance via the [AWS IAM](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) endpoint using the `foobar` role to obtain a new Vault client token.
 4. **Use the new token to read the secret.** If authentication was successful, the process will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
 5. **Cache the new token.** If authentication was successful, the process will also cache the token as plaintext in a file called `/tmp/file-foo` and encrypt and cache the token in another file called `/tmp/file-bar.json`.
 
+If it was able to successfully read your Docker credentials from Vault, it will pass these credentials to the Docker daemon which will then use them to login to your Docker registry before pulling your image.
+
 #### Secret Path
 
 The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+
+For example, if you keep your Docker credentials at `secret/application/docker`, you can set the secret either by executing
+
+```shell
+$ export DCVL_SECRET="secret/application/docker"
+```
+
+or by setting it in the configuration file.
+
+```hcl
+auto_auth {
+	method "aws" {
+		mount_path = "auth/aws"
+		config = {
+			type   = "iam"
+			role   = "foobar"
+			secret = "secret/application/docker"
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
 
 #### Diffie-Hellman Private Key
 
@@ -163,7 +192,7 @@ $ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
 
 ### Vault Client Configuration
 
-Some information regarding how this process should communicate with your Vault server must also be specified. These include the URL of your Vault server, whether it should communicate using TLS, and, if so, which CA certificate, client key, and client certificate should be used to name a few settings. These can be specified using either the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) or the `auto_auth.method.config` field (like in the HCL shown below), or some combination of the two.
+Some configurations regarding how this process should communicate with your Vault server must also be specified. For example, these might include the URL of your Vault server, whether it should communicate using TLS, and, if so, which CA certificate, client key, and client certificate. These can be specified using either the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) or the `auto_auth.method.config` field (like in the HCL shown below), or some combination of the two. At a minimum, you will probably have to specify the address of your Vault server.
 
 ```hcl
 auto_auth {
@@ -192,7 +221,7 @@ The keys in the `auto_auth.method.config` section used to configure the Vault cl
 
 ### Token Authentication
 
-You may also manually provide a Vault client token to bypass authentication altogether. To do so, you must use `token` authentication method in your configuration file. You can provide the token in the `auto_auth.method.config.token` field of the configuration file or by setting the token with the `VAULT_TOKEN` environment variable. See the examples below.
+You may also manually provide a Vault client token to bypass authentication altogether. To do so, you must use `token` authentication method in your configuration file and provide the token in the `auto_auth.method.config.token` field of the configuration file or by setting the token with the `VAULT_TOKEN` environment variable. See the examples below.
 
 #### Example 1: Token set in configuration file
 
