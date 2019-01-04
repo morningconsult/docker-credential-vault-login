@@ -163,7 +163,7 @@ $ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
 
 ### Vault Client Configuration
 
-The behavior of the Vault client can be specified using the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables). They can also be specified in the `auto_auth.method.config` field like in the HCL shown below:
+Some information regarding how this process should communicate with your Vault server must also be specified. These include the URL of your Vault server, whether it should communicate using TLS, and, if so, which CA certificate, client key, and client certificate should be used to name a few settings. These can be specified using either the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) or the `auto_auth.method.config` field (like in the HCL shown below), or some combination of the two.
 
 ```hcl
 auto_auth {
@@ -188,7 +188,7 @@ auto_auth {
 }
 ```
 
-The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence.
+The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence. More examples are provided in following sections.
 
 ### Token Authentication
 
