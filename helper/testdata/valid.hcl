@@ -1,5 +1,5 @@
 auto_auth {
-  method "aws" {
+  method "approle" {
     mount_path = "auth/approle"
     config = {
       role_id_file_path   = "/tmp/role-id"
