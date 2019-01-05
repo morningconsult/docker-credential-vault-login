@@ -49,4 +49,4 @@ echo "==> Running unit tests"
 CGO_ENABLED=0 make test
 
 goreleaser release \
-  --rm-dist
+  --rm-dist 
