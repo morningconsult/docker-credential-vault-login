@@ -900,7 +900,7 @@ func TestHelper_buildMethod(t *testing.T) {
 			&config.Method{
 				Type: "aws",
 				Config: map[string]interface{}{
-					"type": "iam",
+					"type": "ec2",
 					"role": "dev-role",
 				},
 			},

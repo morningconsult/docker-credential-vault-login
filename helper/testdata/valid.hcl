@@ -3,7 +3,7 @@ auto_auth {
     mount_path = "auth/aws"
     config = {
       role = "dev-role-iam",
-      type = "iam"
+      type = "ec2"
       secret = "secret/docker/creds"
     }
   }
