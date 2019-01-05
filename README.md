@@ -16,6 +16,20 @@ This program leverages much of the [Vault agent](https://www.vaultproject.io/doc
 * JSON Web Tokens (JWT)
 * Kubernetes
 
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Setup](#setup)
+  - [Docker Configuration](#docker-configuration)
+  - [Configuration File](#configuration-file)
+  - [Vault Client Configuration](#vault-client-configuration)
+  - [Token Authentication](#token-authentication)
+  - [Environment Variables](#environment-variables)
+- [Error Logs](#error-logs)
+- [Demonstration](#demonstration)
+- [Frequently-Asked Questions](#frequently-asked-questions)
+
 ## Prerequisites
 
 You must have Docker (version 1.11 or newer) and Go (version **1.11.3** or newer) installed on your system.
@@ -96,6 +110,7 @@ While all the rules that apply to the Vault agent configuration file apply here,
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
+- **Vault client configuration**. While you may configure the Vault client using the designated Vault environment variables, you may also configure the client in the configuration file. See the [Vault Client Configuration](#vault-client-configuration) section for more information.
 
 #### Example
 
@@ -291,7 +306,7 @@ All error logs will be output to the `~/.docker-credential-vault-login` director
 
 ## Demonstration
 
-This demonstration will illustrate how to use this Docker credential helper to automatically pull an image from a restricted, locally-hosted Docker registry when the credentials to the registry are stored in Vault.
+This demonstration will illustrate how to use this Docker credential helper to automatically pull an image from a restricted, locally-hosted Docker registry when the credentials to the registry are stored in Vault. Vault's AppRole authentication method will be used in this demonstration.
 
 ### Setup a local Docker registry
 
