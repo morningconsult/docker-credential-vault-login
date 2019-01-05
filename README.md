@@ -291,7 +291,7 @@ auto_auth {
 }
 ```
 
-### Environmental Variables
+### Environment Variables
 
 This application uses the following environment variables:
 
