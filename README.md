@@ -298,10 +298,10 @@ This demonstration will illustrate how to use this Docker credential helper to a
 1. Create a password file with one entry for user `testuser`, with password `testpassword`.
 
 ```shell
-$ mkdir auth
+$ mkdir -p /tmp/auth
 $ docker run \
     --entrypoint htpasswd \
-    registry:2 -Bbn testuser testpassword > auth/htpasswd
+    registry:2 -Bbn testuser testpassword > /tmp/auth/htpasswd
 ```
 
 2. Start a Docker registry in a Docker container with basic authentication.
@@ -312,7 +312,7 @@ $ docker run \
     --publish 5000:5000 \
     --restart=always \
     --name registry \
-    --volume `pwd`/auth:/auth \
+    --volume /tmp/auth:/auth \
     --env "REGISTRY_AUTH=htpasswd" \
     --env "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
     --env "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
@@ -358,6 +358,12 @@ Now you have a restricted Docker registry hosted in a Docker container at `local
 
 1. Download and extract [Vault](https://www.vaultproject.io/downloads.html).
 
+```shell
+$ cd /tmp
+$ wget https://releases.hashicorp.com/vault/1.0.1/vault_1.0.1_linux_amd64.zip
+$ unzip vault_1.0.1_linux_amd64.zip
+```
+
 2. Start Vault in development mode
 
 ```shell
@@ -383,6 +389,7 @@ Root Token: s.2SEXNmeT27KURAvSS8nMioOB
 4. Set the Vault address and token environment variables.
 
 ```shell
+$ cd /tmp
 $ export VAULT_ADDR="http://127.0.0.1:8200"
 $ export VAULT_TOKEN="s.2SEXNmeT27KURAvSS8nMioOB"
 ```
@@ -396,8 +403,8 @@ $ ./vault auth enable approle
 6. Create a named role.
 
 ```shell
-$ vault write auth/approle/role/my-role \
-    secret_id_ttl=1d \
+$ ./vault write auth/approle/role/my-role \
+    secret_id_ttl=24h \
     token_num_uses=10 \
     token_ttl=20m \
     token_max_ttl=30m \
@@ -408,7 +415,7 @@ $ vault write auth/approle/role/my-role \
 7. Fetch the RoleID of the AppRole.
 
 ```shell
-$ vault read auth/approle/role/my-role/role-id
+$ ./vault read auth/approle/role/my-role/role-id
 role_id     6b2d5d6f-85d4-7b8f-6670-8e0f346f6c31
 ```
 
@@ -465,17 +472,13 @@ path "secret/application/docker" {
        capabilities = ["read", "list"]
 }
 EOF
-$ vault policy write dev-policy /tmp/policy.hcl
+$ ./vault policy write dev-policy /tmp/policy.hcl
 ```
 
 **Recap**
 You now have a running Vault server and have stored your Docker credentials within it. You have also created an AppRole and given it permission to read the secret where the credentials are being kept.
 
 ### Try to pull the image in your local repository
-
-1. Open a new terminal.
-
-2. Try to pull the image you pushed to the local repository earlier
 
 ```shell
 $ docker pull localhost:5000/my-alpine
@@ -532,6 +535,31 @@ $ docker pull localhost:5000/my-alpine
 ```
 
 You should have successfully pulled the image from your local repository.
+
+### Cleanup
+
+1. Stop the registry container.
+
+```shell
+$ docker container stop registry
+```
+
+2. Prune Docker data and cleanup images.
+
+```shell
+$ docker system prune --volumes
+$ docker image remove localhost:5000/my-alpine
+$ docker image remove registry:2
+```
+
+3. Stop the Vault server (Ctrl+C).
+
+4. Remove the saved authorization for your local registry and the credential helper from your `~/.docker/config.json` file.
+
+```shell
+$ CONFIG=$( cat ~/.docker/config.json | jq -Mr 'del(.credHelpers | ."localhost:5000") | del(.auths | ."localhost:5000")' )
+$ echo $CONFIG | jq -Mr > ~/.docker/config.json
+```
 
 ## Frequently-Asked Questions
 
