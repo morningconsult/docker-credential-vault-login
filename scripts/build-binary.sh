@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+# Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -17,30 +17,49 @@ set -e
 ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 cd "${ROOT}"
 
-# Builds the ecr-login binary from source in the specified destination paths.
-mkdir -p $1
+if [ -z $( which go ) ]; then
+	echo "Go is not installed. Please install Go before executing this script."
+	exit 1
+fi
+
+if [ -z $( echo "${GOPATH}" ) ]; then
+	echo "Your GOPATH is not set. Please set the GOPATH before executing this script."
+	exit 1
+fi
+
+BIN_DIR="${ROOT}/${1}"
+TAG="${2}"
+HASH="${3}"
+REPO="${4}"
 
 cd "${ROOT}"
 
-PACKAGE_ROOT=$5
-
-version_ldflags=""
-
-if [[ -n "${2}" ]]; then
-    version_ldflags="-X \"${PACKAGE_ROOT}/vault-login/version.Version=${2}\""
+# Install dep if it isn't already installed
+if [ -z $( which dep ) ]; then
+	export GOBIN="${GOPATH}/bin"
+	export PATH="${PATH}:${GOBIN}"
+	curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
 fi
 
-if [[ -n "${3}" ]]; then
-    version_ldflags="${version_ldflags} -X \"${PACKAGE_ROOT}/vault-login/version.Commit=${3}\""
+# Fetch dependencies
+dep ensure
+
+# Set ldflags
+version_ldflags="-X \"${REPO}/version.Date=$( date +"%b %d, %Y" )\""
+
+if [[ -n "${TAG}" ]]; then
+	version_ldflags="${version_ldflags} -X \"${REPO}/version.Version=${TAG}\""
 fi
 
-if [[ -n "${4}" ]]; then
-    version_ldflags="${version_ldflags} -X \"${PACKAGE_ROOT}/vault-login/version.Date=${4}\""
+if [[ -n "${HASH}" ]]; then
+	version_ldflags="${version_ldflags} -X \"${REPO}/version.Commit=${HASH}\""
 fi
+
+mkdir -p "${BIN_DIR}"
 
 CGO_ENABLED=0 go build \
-    -installsuffix cgo \
-    -a \
-    -ldflags "-s ${version_ldflags}" \
-    -o "${1}/docker-credential-vault-login" \
-    ./vault-login/cli/docker-credential-vault-login
+	-installsuffix cgo \
+	-a \
+	-ldflags "-s -w ${version_ldflags}" \
+	-o "${BIN_DIR}/docker-credential-vault-login" \
+	.

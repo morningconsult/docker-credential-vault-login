@@ -1,4 +1,0 @@
-{
-    "auth_method": "token",
-    "secret_path": "secret/foo/bar"
-}

@@ -1,4 +1,4 @@
-# Copyright 2018 The Morning Consult, LLC or its affiliates. All Rights Reserved.
+# Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
 # not use this file except in compliance with the License. A copy of the
@@ -25,10 +25,6 @@ EXTERNAL_TOOLS=\
 
 all: build
 
-update_deps:
-	@sh -c "$(CURDIR)/scripts/update-deps.sh"
-.PHONY: update_deps
-
 git_chglog_check:
 	if [ -z "$(shell which git-chglog)" ]; then \
 		go get -u -v github.com/git-chglog/git-chglog/cmd/git-chglog && git-chglog --version; \
@@ -47,13 +43,13 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	@go test -v -cover $(shell go list ./vault-login/... | grep -v testing)
+	@go test -v -cover $(shell go list $(REPO)/... | grep -v vendor)
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin/local' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse HEAD)' '$(shell date +"%b %d, %Y")' '$(REPO)'"
-	@echo "==> Done. Binary can be found at bin/local/docker-credential-vault-login"
+	@sh -c "'./scripts/build-binary.sh' './bin' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse --short HEAD)' '$(REPO)'"
+	@echo "==> Done. Binary can be found at ./bin/docker-credential-vault-login"
 
 mocktools:
 	@echo $(GOPATH)
@@ -66,6 +62,10 @@ mocktools:
 build_mocks: mocktools
 	scripts/build-mocks.sh
 .PHONY: build_mocks
+
+install_dep:
+	@curl --silent https://raw.githubusercontent.com/golang/dep/master/install.sh | sh > /dev/null
+.PHONY: install_dep
 
 #=============================================================================
 # Release and Deployment tasks
