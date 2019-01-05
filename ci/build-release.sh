@@ -23,7 +23,8 @@ apk add -qU --no-progress \
   make \
   bash \
   git \
-  gnupg
+  gnupg \
+  curl
 
 echo "==> Installing goreleaser $GORELEASER_VERSION"
 
@@ -39,14 +40,13 @@ echo "==> Installing dep"
 
 make install_dep
 
-echo "==> Fetching dependencies"
+echo "==> Fetching dependencies. This may take some time."
 
 dep ensure
 
 echo "==> Running unit tests"
 
-export CGO_ENABLED=0
-make test
+CGO_ENABLED=0 make test
 
 goreleaser release \
   --rm-dist
