@@ -39,6 +39,10 @@ echo "==> Installing dep"
 
 make install_dep
 
+echo "==> Fetching dependencies"
+
+dep ensure
+
 echo "==> Running unit tests"
 
 export CGO_ENABLED=0
