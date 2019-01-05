@@ -295,17 +295,7 @@ This demonstration will illustrate how to use this Docker credential helper to a
 
 ### Setup a local Docker registry
 
-1. Create TLS certificates.
-
-```shell
-$ mkdir certs
-$ openssl req -x509 -out certs/localhost.crt -keyout certs/localhost.key \
-  -newkey rsa:2048 -nodes -sha256 \
-  -subj '/CN=localhost' -extensions EXT -config <( \
-   printf "[dn]\nCN=localhost\n[req]\ndistinguished_name = dn\n[EXT]\nsubjectAltName=DNS:localhost\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth")
-```
-
-2. Create a password file with one entry for user `testuser`, with password `testpassword`.
+1. Create a password file with one entry for user `testuser`, with password `testpassword`.
 
 ```shell
 $ mkdir auth
@@ -314,7 +304,7 @@ $ docker run \
     registry:2 -Bbn testuser testpassword > auth/htpasswd
 ```
 
-3. Start a Docker registry in a Docker container with basic authentication.
+2. Start a Docker registry in a Docker container with basic authentication.
 
 ```shell
 $ docker run \
@@ -326,15 +316,12 @@ $ docker run \
     --env "REGISTRY_AUTH=htpasswd" \
     --env "REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm" \
     --env "REGISTRY_AUTH_HTPASSWD_PATH=/auth/htpasswd" \
-    --volume `pwd`/certs:/certs \
-    --env "REGISTRY_HTTP_TLS_CERTIFICATE=/certs/localhost.crt" \
-    --env "REGISTRY_HTTP_TLS_KEY=/certs/localhost.key" \
     registry:2
 ```
 
-4. Try to pull an image from the registry, or push an image to the registry. These commands should fail.
+3. Try to pull an image from the registry, or push an image to the registry. These commands should fail.
 
-5. Log in to the registry.
+4. Log in to the registry.
 
 ```shell
 $ docker login localhost:5000
@@ -360,7 +347,7 @@ $ docker image remove localhost:5000/my-alpine
 7. Remove the saved authorization from your `~/.docker/config.json` file so that the authentication can be tested later.
 
 ```shell
-$ CONFIG=$( cat ~/.docker/config.json | jq -Mr '.credHelpers."localhost" = "vault-login" | del(.auths | ."localhost:5000")' )
+$ CONFIG=$( cat ~/.docker/config.json | jq -Mr 'del(.auths | ."localhost:5000")' )
 $ echo $CONFIG | jq -Mr > ~/.docker/config.json
 ```
 
@@ -410,7 +397,7 @@ $ ./vault auth enable approle
 
 ```shell
 $ vault write auth/approle/role/my-role \
-    secret_id_ttl=10m \
+    secret_id_ttl=1d \
     token_num_uses=10 \
     token_ttl=20m \
     token_max_ttl=30m \
@@ -484,17 +471,26 @@ $ vault policy write dev-policy /tmp/policy.hcl
 **Recap**
 You now have a running Vault server and have stored your Docker credentials within it. You have also created an AppRole and given it permission to read the secret where the credentials are being kept.
 
-### Set up the credential helper
+### Try to pull the image in your local repository
 
 1. Open a new terminal.
 
-2. Install the `docker-credential-vault-login` binary (see the [Installation](#installation) section) and place it at some location on your `PATH`.
+2. Try to pull the image you pushed to the local repository earlier
+
+```shell
+$ docker pull localhost:5000/my-alpine
+```
+
+It should fail since you have not yet logged into the registry and the credentials are not stored in the `~/.docker/config.json` file. Now, we will set up the credential helper to automatically read the credentials from Vault and use them to login to your Docker registry the next time you run `docker pull localhost:5000/my-alpine`.
+
+### Set up the credential helper
+
+1. Install the `docker-credential-vault-login` binary (see the [Installation](#installation) section) and place it at some location on your `PATH`.
 
 ```shell
 $ mkdir -p /tmp/build-binary
-$ cd /tmp/build-binary
-$ GOPATH=$( pwd ) go get github.com/morningconsult/docker-credential-vault-login
-$ sudo mv /tmp/build-binary/bin/docker-credential-vault-login /usr/local/bin
+$ GOPATH="/tmp/build-binary" go get -u github.com/morningconsult/docker-credential-vault-login
+$ export PATH="${PATH}:/tmp/build-binary/bin"
 ```
 
 2. Create the configuration file.
@@ -522,8 +518,20 @@ auto_auth {
 EOF
 $ sudo mv /tmp/config.hcl /etc/docker-credential-vault-login
 ```
+3. Modify your `~/.docker/config.json` file to execute the credential helper when you run `docker pull`.
 
-### Pull your 
+```shell
+$ CONFIG=$( cat ~/.docker/config.json | jq -Mr '.credHelpers."localhost:5000" = "vault-login"' )
+$ echo $CONFIG | jq -Mr > ~/.docker/config.json
+```
+
+4. Try to pull your image again.
+
+```shell
+$ docker pull localhost:5000/my-alpine
+```
+
+You should have successfully pulled the image from your local repository.
 
 ## Frequently-Asked Questions
 
