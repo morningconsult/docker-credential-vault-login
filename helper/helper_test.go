@@ -719,7 +719,7 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 
-	expected := `[ERROR] auth.handler: error authenticating: error="context deadline exceeded"`
+	expected := `[ERROR] failed to get credentials within timeout (1s)`
 	if !strings.Contains(buf.String(), expected) {
 		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 	}
