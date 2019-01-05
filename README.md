@@ -536,6 +536,12 @@ $ docker pull localhost:5000/my-alpine
 
 You should have successfully pulled the image from your local repository.
 
+**Note:** If you want to repeat this demonstation, you will have to recreate the secret ID file since it is consumed upon execution of the credential helper.
+
+```shell
+$ echo "8ebe29c2-adbb-1529-d198-5354b69acb02" > /tmp/test-vault-secret-id
+```
+
 ### Cleanup
 
 1. Stop the registry container.
