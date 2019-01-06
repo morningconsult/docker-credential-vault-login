@@ -655,7 +655,16 @@ Code: 403. Errors:
 		if err = os.Mkdir("testdata/logs", 0444); err != nil {
 			t.Fatal(err)
 		}
-		defer os.Remove("testdata/logs")
+		defer func() {
+			files, err := filepath.Glob("testdata/logs/*")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, file := range files {
+				os.Remove(file)
+			}
+			os.Remove("testdata/logs")
+		}()
 
 		h.client.ClearToken()
 		h.logger = nil
