@@ -1,10 +1,10 @@
 auto_auth {
-  method "aws" {
-    mount_path = "auth/aws"
+  method "approle" {
+    mount_path = "auth/approle"
     config = {
-      role = "dev-role-iam",
-      type = "iam"
-      secret = "secret/docker/creds"
+      role_id_file_path   = "/tmp/role-id"
+			secret_id_file_path = "/tmp/secret-id"
+      secret              = "secret/docker/creds"
     }
   }
 
