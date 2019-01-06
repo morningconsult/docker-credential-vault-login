@@ -42,7 +42,7 @@ make install_dep
 
 echo "==> Fetching dependencies. This may take some time."
 
-dep ensure
+dep ensure -vendor-only
 
 echo "==> Running unit tests"
 
