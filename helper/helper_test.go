@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -83,43 +84,43 @@ func TestHelper_List(t *testing.T) {
 	}
 }
 
-func TestHelper_Get_logger(t *testing.T) {
-	config := os.Getenv(EnvConfigFile)
-	defer os.Setenv(EnvConfigFile, config)
-	os.Setenv(EnvConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig returns an error
+// func TestHelper_Get_logger(t *testing.T) {
+// 	config := os.Getenv(EnvConfigFile)
+// 	defer os.Setenv(EnvConfigFile, config)
+// 	os.Setenv(EnvConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig returns an error
 
-	logdir := os.Getenv("DCVL_LOG_DIR")
-	defer os.Setenv("DCVL_LOG_DIR", logdir)
-	testdata, err := filepath.Abs("testdata")
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Setenv("DCVL_LOG_DIR", testdata)
+// 	logdir := os.Getenv("DCVL_LOG_DIR")
+// 	defer os.Setenv("DCVL_LOG_DIR", logdir)
+// 	testdata, err := filepath.Abs("testdata")
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	os.Setenv("DCVL_LOG_DIR", testdata)
 
-	h := NewHelper(nil)
+// 	h := NewHelper(nil)
 
-	_, _, err = h.Get("")
-	if err == nil {
-		t.Fatal("expected an error but didn't receive one")
-	}
+// 	_, _, err = h.Get("")
+// 	if err == nil {
+// 		t.Fatal("expected an error but didn't receive one")
+// 	}
 
-	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+// 	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
 
-	if _, err := os.Stat(logfile); os.IsNotExist(err) {
-		t.Fatalf("log file %s was not created", logfile)
-	}
-	defer os.Remove(logfile)
+// 	if _, err := os.Stat(logfile); os.IsNotExist(err) {
+// 		t.Fatalf("log file %s was not created", logfile)
+// 	}
+// 	defer os.Remove(logfile)
 
-	data, err := ioutil.ReadFile(logfile)
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	data, err := ioutil.ReadFile(logfile)
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	expected := `[ERROR] helper.get: error parsing configuration file testdata/empty-file.hcl: error="error parsing 'auto_auth': one and only one "auto_auth" block is required"`
-	if !strings.Contains(string(data), expected) {
-		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, string(data))
-	}
-}
+// 	expected := `[ERROR] helper.get: error parsing configuration file testdata/empty-file.hcl: error="error parsing 'auto_auth': one and only one "auto_auth" block is required"`
+// 	if !strings.Contains(string(data), expected) {
+// 		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, string(data))
+// 	}
+// }
 
 func TestHelper_Get_config(t *testing.T) {
 	config := os.Getenv(EnvConfigFile)
@@ -412,7 +413,7 @@ func TestHelper_Get(t *testing.T) {
 
 		oldConfig := os.Getenv(EnvConfigFile)
 		defer os.Setenv(EnvConfigFile, oldConfig)
-		os.Setenv(EnvConfigFile, "testdata/does-not-exist.hcl")
+		os.Setenv(EnvConfigFile, "testdata/valid.hcl")
 
 		_, _, err := h.Get("")
 		if err == nil {
@@ -618,6 +619,46 @@ Code: 403. Errors:
 		}
 	})
 
+	t.Run("can-set-logger-in-config", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			// no secret provided so execution stops quickly after creating the logger
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+			log_dir             = "testdata"
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+		logFile := fmt.Sprintf("testdata/vault-login_%s.log", time.Now().Format("2006-01-02"))
+		os.Remove(logFile)
+		defer os.Remove(logFile)
+
+		hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		h.client.ClearToken()
+		h.logger = nil
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		if _, err = os.Stat(logFile); os.IsNotExist(err) {
+			t.Fatalf("should have created a new log file, but didn't")
+		}
+	})
+
 	// Tests that parseConfig() returns an error when the secret is not a string
 	t.Run("secret-not-string", func(t *testing.T) {
 		hcl := `auto_auth {
@@ -667,9 +708,11 @@ Code: 403. Errors:
 		h.client.ClearToken()
 
 		buf := new(bytes.Buffer)
-		h.logger = hclog.New(&hclog.LoggerOptions{
-			Output: buf,
-		})
+		log.SetOutput(buf)
+		defer log.SetOutput(os.Stdout)
+		// h.logger = hclog.New(&hclog.LoggerOptions{
+		// 	Output: buf,
+		// })
 
 		oldConfig := os.Getenv(EnvConfigFile)
 		defer os.Setenv(EnvConfigFile, oldConfig)
@@ -680,7 +723,7 @@ Code: 403. Errors:
 			t.Fatal("expected an error")
 		}
 
-		expected := `[ERROR] error expanding directory "~testdata/test.hcl"`
+		expected := `error expanding directory "~testdata/test.hcl": cannot expand user-specific home dir`
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 		}
