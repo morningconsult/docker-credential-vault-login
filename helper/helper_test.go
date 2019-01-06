@@ -1147,7 +1147,7 @@ func TestNewVaultClient_Token(t *testing.T) {
 		token := randomUUID(t)
 
 		method := &config.Method{
-			Type:   "token",
+			Type: "token",
 			Config: map[string]interface{}{
 				"token": token,
 			},
@@ -1203,7 +1203,7 @@ func TestNewVaultClient_Token(t *testing.T) {
 		{
 			"token-not-string",
 			&config.Method{
-				Type:   "token",
+				Type: "token",
 				Config: map[string]interface{}{
 					"token": 26,
 				},
@@ -1213,7 +1213,7 @@ func TestNewVaultClient_Token(t *testing.T) {
 		{
 			"empty-token",
 			&config.Method{
-				Type:  "token",
+				Type: "token",
 				Config: map[string]interface{}{
 					"token": "",
 				},
