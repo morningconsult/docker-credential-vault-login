@@ -84,44 +84,6 @@ func TestHelper_List(t *testing.T) {
 	}
 }
 
-// func TestHelper_Get_logger(t *testing.T) {
-// 	config := os.Getenv(EnvConfigFile)
-// 	defer os.Setenv(EnvConfigFile, config)
-// 	os.Setenv(EnvConfigFile, "testdata/empty-file.hcl") // Ensures that parseConfig returns an error
-
-// 	logdir := os.Getenv("DCVL_LOG_DIR")
-// 	defer os.Setenv("DCVL_LOG_DIR", logdir)
-// 	testdata, err := filepath.Abs("testdata")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	os.Setenv("DCVL_LOG_DIR", testdata)
-
-// 	h := NewHelper(nil)
-
-// 	_, _, err = h.Get("")
-// 	if err == nil {
-// 		t.Fatal("expected an error but didn't receive one")
-// 	}
-
-// 	logfile := filepath.Join(testdata, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
-
-// 	if _, err := os.Stat(logfile); os.IsNotExist(err) {
-// 		t.Fatalf("log file %s was not created", logfile)
-// 	}
-// 	defer os.Remove(logfile)
-
-// 	data, err := ioutil.ReadFile(logfile)
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-
-// 	expected := `[ERROR] helper.get: error parsing configuration file testdata/empty-file.hcl: error="error parsing 'auto_auth': one and only one "auto_auth" block is required"`
-// 	if !strings.Contains(string(data), expected) {
-// 		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, string(data))
-// 	}
-// }
-
 func TestHelper_Get_config(t *testing.T) {
 	config := os.Getenv(EnvConfigFile)
 	defer os.Setenv(EnvConfigFile, config)
