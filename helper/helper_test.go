@@ -621,6 +621,56 @@ Code: 403. Errors:
 		}
 	})
 
+	t.Run("fails-when-no-write-permissions", func(t *testing.T) {
+		hcl := `auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			// no secret provided so execution stops quickly after creating the logger
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+			log_dir             = "testdata/logs"
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "testdata/token-sink"
+		}
+	}
+}`
+		logDir := os.Getenv("DCVL_LOG_DIR")
+		defer os.Setenv("DCVL_LOG_DIR", logDir)
+		os.Unsetenv("DCVL_LOG_DIR")
+
+		buf := new(bytes.Buffer)
+		log.SetOutput(buf)
+		defer log.SetOutput(os.Stdout)
+
+		hcl = fmt.Sprintf(hcl, roleIDFile, secretIDFile)
+		if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		if err = os.Mkdir("testdata/logs", 0444); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove("testdata/logs")
+
+		h.client.ClearToken()
+		h.logger = nil
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `error opening log file (logging errors to stderr instead): error opening/creating log file testdata/logs/vault-login`
+		if !strings.Contains(buf.String(), expected) {
+			t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+		}
+	})
+
 	// Tests that parseConfig() returns an error when the secret is not a string
 	t.Run("secret-not-string", func(t *testing.T) {
 		hcl := `auto_auth {
@@ -672,9 +722,6 @@ Code: 403. Errors:
 		buf := new(bytes.Buffer)
 		log.SetOutput(buf)
 		defer log.SetOutput(os.Stdout)
-		// h.logger = hclog.New(&hclog.LoggerOptions{
-		// 	Output: buf,
-		// })
 
 		oldConfig := os.Getenv(EnvConfigFile)
 		defer os.Setenv(EnvConfigFile, oldConfig)

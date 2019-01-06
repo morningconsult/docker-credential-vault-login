@@ -133,7 +133,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			LogDir: logDir,
 		})
 		if err != nil {
-			h.logger.Error("error opening log file. Logging errors to stderr instead.", "error", err)
+			log.Printf("error opening log file (logging errors to stderr instead): %v\n", err)
 		} else {
 			opts.Output = w
 			defer w.Close()
