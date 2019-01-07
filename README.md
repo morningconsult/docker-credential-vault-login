@@ -47,20 +47,24 @@ Note that the Vault path where you store these credentials will be used as the v
 
 ## Installation
 
-### Manually
+### Download
 
 You can download your preferred variant of the binary from the [releases page](https://github.com/morningconsult/docker-credential-vault-login/releases).
 
-### Using `go get`
+### Build locally
 
-You can install this via `go get` with:
-```bash
-$ go get -u github.com/morningconsult/docker-credential-vault-login
+If you have Go installed locally, you can build the binary yourself.
+
+```shell
+$ mkdir -p /tmp/build-dcvl/bin /tmp/build-dcvl/src/github.com/morningconsult
+$ cd /tmp/build-dcvl/src/github.com/morningconsult
+$ git clone https://github.com/morningconsult/docker-credential-vault-login
+$ cd docker-credential-vault-login
+$ GOPATH=/tmp/build-dcvl make
 ```
+The binary will be output to `bin` of the local directory.
 
-Once finished, the binary `docker-credential-vault-login` will be in `$GOPATH/bin`.
-
-### Using Docker
+### Build in Docker
 
 If you do not have Go installed locally, you can still build the binary if you have Docker installed. Simply clone this repository and run `make docker` to build the binary within the Docker container and output it to the local directory.
 
@@ -507,9 +511,12 @@ It should fail since you have not yet logged into the registry and the credentia
 1. Install the `docker-credential-vault-login` binary (see the [Installation](#installation) section) and place it at some location on your `PATH`.
 
 ```shell
-$ mkdir -p /tmp/build-binary
-$ GOPATH="/tmp/build-binary" go get -u github.com/morningconsult/docker-credential-vault-login
-$ export PATH="${PATH}:/tmp/build-binary/bin"
+$ mkdir -p /tmp/build-dcvl/bin /tmp/build-dcvl/src/github.com/morningconsult
+$ cd /tmp/build-dcvl/src/github.com/morningconsult
+$ git clone https://github.com/morningconsult/docker-credential-vault-login
+$ cd docker-credential-vault-login
+$ GOPATH=/tmp/build-dcvl make
+$ sudo mv ./bin/docker-credential-vault-login /usr/local/bin
 ```
 
 2. Create the configuration file.
