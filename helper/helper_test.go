@@ -643,6 +643,10 @@ Code: 403. Errors:
 		defer os.Setenv("DCVL_LOG_DIR", logDir)
 		os.Unsetenv("DCVL_LOG_DIR")
 
+		oldConfig := os.Getenv(EnvConfigFile)
+		defer os.Setenv(EnvConfigFile, oldConfig)
+		os.Setenv(EnvConfigFile, configFile)
+
 		buf := new(bytes.Buffer)
 		log.SetOutput(buf)
 		defer log.SetOutput(os.Stdout)

@@ -44,9 +44,19 @@ echo "==> Fetching dependencies. This may take some time."
 
 dep ensure -vendor-only
 
+echo "==> Creating a new non-root user"
+
+readonly new_user="foobar"
+readonly new_group="foo"
+
+addgroup -S $new_group && adduser -S $new_user $new_group
+chown $new_user:$new_group -R "${GOPATH}/src/${REPO}"
+
 echo "==> Running unit tests"
 
-CGO_ENABLED=0 make test
+su $new_user -s /bin/sh -c 'CGO_ENABLED=0 make test'
+
+echo "==> Running unit tests"
 
 goreleaser release \
   --rm-dist 
