@@ -39,15 +39,11 @@ echo "==> Creating a new non-root user"
 readonly new_user="foobar"
 readonly new_group="foo"
 
-# adduser --system $new_user
 addgroup -S $new_group && adduser -S $new_user $new_group
-# usermod -aG $new_user $new_user
-
 chown $new_user:$new_group -R "${GOPATH}/src/${REPO}"
 
 echo "==> Running unit tests"
 
-## Run unit tests
 su $new_user -s /bin/sh -c 'CGO_ENABLED=0 make test'
 
 echo "==> Done"
