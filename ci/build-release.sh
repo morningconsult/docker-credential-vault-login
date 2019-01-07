@@ -50,7 +50,7 @@ readonly new_user="foobar"
 readonly new_group="foo"
 
 addgroup -S $new_group && adduser -S $new_user $new_group
-chown $new_user:$new_group -R "${GOPATH}/src/${REPO}"
+chown $new_user:$new_group -R "${GOPATH}/src/${PROJECT}"
 
 echo "==> Running unit tests"
 
@@ -59,4 +59,4 @@ su $new_user -s /bin/sh -c 'CGO_ENABLED=0 make test'
 echo "==> Running unit tests"
 
 goreleaser release \
-  --rm-dist 
+  --rm-dist
