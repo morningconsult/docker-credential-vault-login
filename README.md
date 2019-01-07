@@ -111,6 +111,7 @@ While all the rules that apply to the Vault agent configuration file apply here,
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 - **Vault client configuration**. While you may configure the Vault client using the designated Vault environment variables, you may also configure the client in the configuration file. See the [Vault Client Configuration](#vault-client-configuration) section for more information.
+- **Rolling error log directory**. You can specify the directory to which log files will be written with the `auto_auth.method.config.log_dir` field. This can also be specified with the `DCVL_LOG_DIR` environment variable. The environment variable takes precedence.
 
 #### Example
 

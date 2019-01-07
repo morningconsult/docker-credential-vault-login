@@ -14,7 +14,7 @@
 
 set -e
 
-REPO="github.com/morningconsult/docker-credential-vault-login"
+readonly REPO="github.com/morningconsult/docker-credential-vault-login"
 
 echo "==> Installing APK dependencies"
 
@@ -34,9 +34,16 @@ echo "==> Fetching dependencies"
 
 dep ensure
 
+echo "==> Creating a new non-root user"
+
+readonly new_user="potato"
+readonly new_group="foo"
+
+addgroup -S $new_group && adduser -S $new_user $new_group
+chown $new_user:$new_group -R "${GOPATH}/src/${REPO}"
+
 echo "==> Running unit tests"
 
-## Run unit tests
-make test
+su $new_user -s /bin/sh -c 'CGO_ENABLED=0 make test'
 
 echo "==> Done"

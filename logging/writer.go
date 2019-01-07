@@ -58,7 +58,7 @@ func LogWriter(opts *LoggingOptions) (io.WriteCloser, error) {
 
 	file, err := os.OpenFile(logfile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		return nil, fmt.Errorf("error opening/creating log file %s: %v", logfile, file)
+		return nil, fmt.Errorf("error opening/creating log file %s: %v", logfile, err)
 	}
 
 	return file, nil

@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -95,6 +96,24 @@ func (h *Helper) List() (map[string]string, error) {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
+	// Get path to config file
+	configFile := defaultConfigFile
+	if f := os.Getenv(EnvConfigFile); f != "" {
+		expanded, err := homedir.Expand(f)
+		if err != nil {
+			log.Printf("error expanding directory %q: %v\n", f, err)
+			return "", "", credentials.NewErrCredentialsNotFound()
+		}
+		configFile = expanded
+	}
+
+	// Parse config file
+	config, err := h.parseConfig(configFile)
+	if err != nil {
+		log.Printf("error parsing configuration file %s: %v\n", configFile, err)
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+
 	// Create new logger
 	if h.logger == nil {
 		opts := &hclog.LoggerOptions{
@@ -103,9 +122,18 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			Output: os.Stderr,
 		}
 
-		w, err := logging.LogWriter(nil)
+		var logDir string
+		if raw, ok := config.AutoAuth.Method.Config["log_dir"]; ok {
+			if l, ok := raw.(string); ok {
+				logDir = l
+			}
+		}
+
+		w, err := logging.LogWriter(&logging.LoggingOptions{
+			LogDir: logDir,
+		})
 		if err != nil {
-			h.logger.Error("error opening log file. Logging errors to stderr instead.", "error", err)
+			log.Printf("error opening log file (logging errors to stderr instead): %v\n", err)
 		} else {
 			opts.Output = w
 			defer w.Close()
@@ -121,24 +149,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		} else {
 			h.logger.Error("Value of "+EnvDisableCaching+" could not be converted to boolean. Defaulting to false.", "error", err)
 		}
-	}
-
-	// Get path to config file
-	configFile := defaultConfigFile
-	if f := os.Getenv(EnvConfigFile); f != "" {
-		expanded, err := homedir.Expand(f)
-		if err != nil {
-			h.logger.Error(fmt.Sprintf("error expanding directory %q", f), "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-		configFile = expanded
-	}
-
-	// Parse config file
-	config, err := h.parseConfig(configFile)
-	if err != nil {
-		h.logger.Error(fmt.Sprintf("error parsing configuration file %s", configFile), "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
 	}
 
 	// Get the path to the secret where the Docker
