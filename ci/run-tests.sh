@@ -36,7 +36,7 @@ dep ensure
 
 echo "==> Creating a new non-root user"
 
-readonly new_user="foobar"
+readonly new_user="potato"
 readonly new_group="foo"
 
 addgroup -S $new_group && adduser -S $new_user $new_group
