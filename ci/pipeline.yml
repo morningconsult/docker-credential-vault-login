@@ -13,7 +13,7 @@ resource_types:
 - name: pull-request
   type: registry-image
   source:
-    repository: jtarchie/pr
+    repository: teliaoss/github-pr-resource
 
 
 # ====================================
@@ -25,11 +25,8 @@ resources:
 - name: test-pull-request
   type: pull-request
   source:
-    private_key: ((github-private-key))
+    repository: morningconsult/go-elasticsearch-alerts
     access_token: ((github-token))
-    repo: morningconsult/docker-credential-vault-login
-    uri: ((github-repo))
-    base: master
 
 - name: new-release
   type: git
@@ -44,7 +41,7 @@ resources:
   type: registry-image
   source:
     repository: golang
-    tag: 1.11.3-alpine3.8
+    tag: 1.11.4-alpine3.8
 
 - name: slack
   type: slack-alert
@@ -82,9 +79,14 @@ jobs:
   build_logs_to_retain: 30
   serial: true
   plan:
-  - get: test-pull-request
-    trigger: true
-  - get: golang
+  - aggregate:
+    - get: test-pull-request
+      trigger: true
+    - get: golang
+  - put: test-pull-request
+    params:
+      path: test-pull-request
+      status: pending
   - task: test-pr
     image: golang
     file: test-pull-request/ci/tasks/test-pull-request.yml
