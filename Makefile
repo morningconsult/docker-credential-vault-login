@@ -14,14 +14,16 @@
 FLY := $(shell which fly)
 
 BIN_DIR := $(shell pwd)/bin
-REPO=github.com/morningconsult/docker-credential-vault-login
+REPO := github.com/morningconsult/docker-credential-vault-login
 SOURCES := $(shell find . -name '*.go')
-BINARY_NAME=docker-credential-vault-login
-LOCAL_BINARY=bin/local/$(BINARY_NAME)
-EXTERNAL_TOOLS=\
+BINARY_NAME := docker-credential-vault-login
+LOCAL_BINARY := bin/local/$(BINARY_NAME)
+
+EXTERNAL_TOOLS := \
 	github.com/golang/mock/mockgen \
 	golang.org/x/tools/cmd/goimports
 
+.DEFAULT_GOAL := all
 
 all: build
 
@@ -74,16 +76,20 @@ CONCOURSE_PIPELINE := docker-credential-vault-login
 
 
 check_fly:
-	if [ -z "$(FLY)" ]; then \
-		sudo mkdir -p /usr/local/bin; \
-		sudo wget -q -O /usr/local/bin/fly "https://ci.morningconsultintelligence.com/api/v1/cli?arch=amd64&platform=linux"; \
-		sudo chmod +x /usr/local/bin/fly; \
-		/usr/local/bin/fly --version; \
-	fi
+ifeq ($(FLY),)
+		sudo mkdir -p /usr/local/bin
+		sudo wget -q -O /usr/local/bin/fly "https://ci.morningconsultintelligence.com/api/v1/cli?arch=amd64&platform=linux"
+		sudo chmod +x /usr/local/bin/fly
+		/usr/local/bin/fly --version
+endif
 .PHONY: check_fly
 
 
 set_pipeline: check_fly
+	$(FLY) --target mci-ci-oss validate-pipeline \
+		--config ci/pipeline.yml \
+		--strict
+
 	$(FLY) --target mci-ci-oss set-pipeline \
 		--config ci/pipeline.yml \
 		--pipeline $(CONCOURSE_PIPELINE) \
