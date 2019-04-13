@@ -25,7 +25,7 @@ resources:
 - name: test-pull-request
   type: pull-request
   source:
-    repository: morningconsult/go-elasticsearch-alerts
+    repository: morningconsult/docker-credential-vault-login
     access_token: ((github-token))
 
 - name: new-release
@@ -87,6 +87,7 @@ jobs:
     params:
       path: test-pull-request
       status: pending
+      context: test-pr
   - task: test-pr
     image: golang
     file: test-pull-request/ci/tasks/test-pull-request.yml
@@ -95,14 +96,14 @@ jobs:
       params:
         path: test-pull-request
         status: success
-        context: $BUILD_JOB_NAME
+        context: test-pr
     on_failure:
       do:
       - put: test-pull-request
         params:
           path: test-pull-request
           status: failure
-          context: $BUILD_JOB_NAME
+          context: test-pr
       - put: slack
         params: {alert_type: failed}
     on_abort:
