@@ -817,7 +817,7 @@ func TestHelper_parseConfig(t *testing.T) {
 		{
 			"empty-file",
 			"testdata/empty-file.hcl",
-			"error parsing 'auto_auth': one and only one \"auto_auth\" block is required",
+			"no 'auto_auth' block found",
 		},
 		{
 			"no-method",

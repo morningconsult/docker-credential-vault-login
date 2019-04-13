@@ -6,15 +6,14 @@
 # ====================================
 resource_types:
 - name: slack-alert
-  type: docker-image
+  type: registry-image
   source:
     repository: arbourd/concourse-slack-alert-resource
-    channel: '#build'
 
 - name: pull-request
-  type: docker-image
+  type: registry-image
   source:
-    repository: jtarchie/pr
+    repository: teliaoss/github-pr-resource
 
 
 # ====================================
@@ -26,11 +25,8 @@ resources:
 - name: test-pull-request
   type: pull-request
   source:
-    private_key: ((github-private-key))
+    repository: morningconsult/docker-credential-vault-login
     access_token: ((github-token))
-    repo: morningconsult/docker-credential-vault-login
-    uri: ((github-repo))
-    base: master
 
 - name: new-release
   type: git
@@ -42,10 +38,10 @@ resources:
     tag_filter: 'v[0-9]*'
 
 - name: golang
-  type: docker-image
+  type: registry-image
   source:
     repository: golang
-    tag: 1.11.3-alpine3.8
+    tag: 1.11.4-alpine3.8
 
 - name: slack
   type: slack-alert
@@ -83,9 +79,15 @@ jobs:
   build_logs_to_retain: 30
   serial: true
   plan:
-  - get: test-pull-request
-    trigger: true
-  - get: golang
+  - aggregate:
+    - get: test-pull-request
+      trigger: true
+    - get: golang
+  - put: test-pull-request
+    params:
+      path: test-pull-request
+      status: pending
+      context: test-pr
   - task: test-pr
     image: golang
     file: test-pull-request/ci/tasks/test-pull-request.yml
@@ -94,16 +96,14 @@ jobs:
       params:
         path: test-pull-request
         status: success
-        context: $BUILD_JOB_NAME
-        comment: test-pull-request/ci/pr_test_success
+        context: test-pr
     on_failure:
       do:
       - put: test-pull-request
         params:
           path: test-pull-request
           status: failure
-          context: $BUILD_JOB_NAME
-          comment: test-pull-request/ci/pr_test_failure
+          context: test-pr
       - put: slack
         params: {alert_type: failed}
     on_abort:

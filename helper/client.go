@@ -30,7 +30,7 @@ func newVaultClient(method *config.Method) (*api.Client, error) {
 		api.EnvVaultClientCert,
 		api.EnvVaultClientKey,
 		api.EnvVaultClientTimeout,
-		api.EnvVaultInsecure,
+		api.EnvVaultSkipVerify,
 		api.EnvVaultTLSServerName,
 		api.EnvVaultMaxRetries,
 	}
