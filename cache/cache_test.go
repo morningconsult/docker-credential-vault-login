@@ -28,8 +28,8 @@ import (
 	"github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/helper/dhutil"
-	"github.com/hashicorp/vault/sdk/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/sdk/helper/logging"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
 )
@@ -145,6 +145,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 			secret.WrapInfo,
 			[]*config.Sink{
 				&config.Sink{
+					Type:    "file",
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -229,6 +230,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 			"plain-token",
 			[]*config.Sink{
 				&config.Sink{
+					Type: "file",
 					Config: map[string]interface{}{
 						"path": "testdata/token-plain.txt",
 					},
@@ -345,6 +347,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			privateKeyInfo,
 			[]*config.Sink{
 				&config.Sink{
+					Type:   "file",
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -600,6 +603,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 
 	sinks := []*config.Sink{
 		&config.Sink{
+			Type:   "file",
 			DHType: "curve25519",
 			AAD:    "foobar",
 			Config: map[string]interface{}{

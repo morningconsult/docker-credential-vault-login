@@ -17,26 +17,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
-	"os"
-	"strconv"
 	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/command/agent/auth"
-	"github.com/hashicorp/vault/command/agent/auth/alicloud"
-	"github.com/hashicorp/vault/command/agent/auth/approle"
-	"github.com/hashicorp/vault/command/agent/auth/aws"
-	"github.com/hashicorp/vault/command/agent/auth/azure"
-	"github.com/hashicorp/vault/command/agent/auth/gcp"
-	"github.com/hashicorp/vault/command/agent/auth/jwt"
-	"github.com/hashicorp/vault/command/agent/auth/kubernetes"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
-	"github.com/hashicorp/vault/command/agent/sink/file"
-	"github.com/mitchellh/go-homedir"
 	"github.com/morningconsult/docker-credential-vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault"
 )
@@ -56,29 +44,40 @@ var (
 type Options struct {
 	Logger      hclog.Logger
 	Client      *api.Client
+	Secret      string
+	EnableCache bool
 	AuthTimeout int64
+	WrapTTL     time.Duration
+	AuthMethod  auth.AuthMethod
+	Sinks       []*sink.SinkConfig
 }
 
 type Helper struct {
-	logger      hclog.Logger
-	client      *api.Client
-	authTimeout time.Duration
+	logger       hclog.Logger
+	client       *api.Client
+	secret       string
+	cacheEnabled bool
+	authTimeout  time.Duration
+	wrapTTL      time.Duration
+	authMethod   auth.AuthMethod
+	sinks        []*sink.SinkConfig
 }
 
-func New(opts *Options) *Helper {
-	if opts == nil {
-		opts = &Options{}
-	}
-
+func New(opts Options) *Helper {
 	timeout := defaultAuthTimeout
 	if opts.AuthTimeout != 0 {
 		timeout = time.Duration(opts.AuthTimeout) * time.Second
 	}
 
 	return &Helper{
-		logger:      opts.Logger,
-		client:      opts.Client,
-		authTimeout: timeout,
+		logger:       opts.Logger,
+		client:       opts.Client,
+		secret:       opts.Secret,
+		cacheEnabled: opts.EnableCache,
+		authTimeout:  timeout,
+		wrapTTL:      opts.WrapTTL,
+		authMethod:   opts.AuthMethod,
+		sinks:        opts.Sinks,
 	}
 }
 
@@ -95,45 +94,8 @@ func (h *Helper) List() (map[string]string, error) {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
-
-	cachingEnabled := true
-	if v := os.Getenv(EnvDisableCaching); v != "" {
-		if b, err := strconv.ParseBool(v); err == nil {
-			cachingEnabled = !b
-		} else {
-			h.logger.Error("Value of "+EnvDisableCaching+" could not be converted to boolean. Defaulting to false.", "error", err)
-		}
-	}
-
-	// Get the path to the secret where the Docker
-	// credentials are kept
-	secret := os.Getenv(EnvSecretPath)
-	if secret == "" {
-		secretRaw, ok := config.AutoAuth.Method.Config["secret"]
-		if !ok {
-			h.logger.Error(fmt.Sprintf("The path to the secret where your Docker credentials are "+
-				"stored must be specified via either (1) the %s environment variable or (2) the "+
-				"field 'auto_auth.config.secret' of the config file.", EnvSecretPath))
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
-		secret, ok = secretRaw.(string)
-		if !ok {
-			h.logger.Error("field 'auto_auth.method.config.secret' could not be converted to string")
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-	}
-
-	if h.client == nil {
-		h.client, err = newVaultClient(config.AutoAuth.Method)
-		if err != nil {
-			h.logger.Error("error creating new Vault API client", "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-	}
-
-	if h.client.Token() == "" {
-		if cachingEnabled {
+	if h.client.Token() == "" { // TODO: Use better way of ensuring this happens only when "token" method is used
+		if h.cacheEnabled {
 			cloned, err := h.client.Clone()
 			if err != nil {
 				h.logger.Error("error cloning Vault API client", "error", err)
@@ -158,7 +120,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 				h.client.SetToken(token)
 
 				// Get credentials
-				creds, err := vault.GetCredentials(secret, h.client)
+				creds, err := vault.GetCredentials(h.secret, h.client)
 				if err != nil {
 					h.logger.Error("error reading secret from Vault", "error", err)
 					continue
@@ -170,18 +132,6 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		// Failed to read secret with cached token. Reauthenticate.
 		h.client.ClearToken()
 
-		sinks, err := h.buildSinks(config.AutoAuth.Sinks)
-		if err != nil {
-			h.logger.Error("error building sinks", "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
-		method, err := h.buildMethod(config.AutoAuth.Method)
-		if err != nil {
-			h.logger.Error("error building method", "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
 		ss := sink.NewSinkServer(&sink.SinkServerConfig{
 			Logger:        h.logger.Named("sink.server"),
 			Client:        h.client,
@@ -191,7 +141,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
 			Logger:  h.logger.Named("auth.handler"),
 			Client:  h.client,
-			WrapTTL: config.AutoAuth.Method.WrapTTL,
+			WrapTTL: h.wrapTTL,
 		})
 
 		ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
@@ -199,8 +149,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 
 		newTokenCh := make(chan string)
 
-		go ah.Run(ctx, method)
-		go ss.Run(ctx, newTokenCh, sinks)
+		go ah.Run(ctx, h.authMethod)
+		go ss.Run(ctx, newTokenCh, h.sinks)
 
 		var token string
 		select {
@@ -214,7 +164,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			h.logger.Info("successfully authenticated")
 		}
 
-		if cachingEnabled {
+		if h.cacheEnabled {
 			newTokenCh <- token
 			select {
 			case <-ctx.Done():
@@ -234,7 +184,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	// Get credentials
-	creds, err := vault.GetCredentials(secret, h.client)
+	creds, err := vault.GetCredentials(h.secret, h.client)
 	if err != nil {
 		h.logger.Error("error reading secret from Vault", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
@@ -258,66 +208,4 @@ func (h *Helper) parseConfig(configFile string) (*config.Config, error) {
 	}
 
 	return config, nil
-}
-
-func (h *Helper) buildSinks(ss []*config.Sink) ([]*sink.SinkConfig, error) {
-	var sinks []*sink.SinkConfig
-	for _, sc := range ss {
-		switch sc.Type {
-		case "file":
-			config := &sink.SinkConfig{
-				Logger:  h.logger.Named("sink.file"),
-				Config:  sc.Config,
-				Client:  h.client,
-				WrapTTL: sc.WrapTTL,
-				DHType:  sc.DHType,
-				DHPath:  sc.DHPath,
-				AAD:     sc.AAD,
-			}
-			s, err := file.NewFileSink(config)
-			if err != nil {
-				return nil, fmt.Errorf("error creating file sink: %v", err)
-			}
-			config.Sink = s
-			sinks = append(sinks, config)
-		default:
-			return nil, fmt.Errorf("unknown sink type %q", sc.Type)
-		}
-	}
-	return sinks, nil
-}
-
-func (h *Helper) buildMethod(config *config.Method) (auth.AuthMethod, error) {
-	var (
-		method auth.AuthMethod
-		err    error
-	)
-
-	authConfig := &auth.AuthConfig{
-		Logger:    h.logger.Named(fmt.Sprintf("auth.%s", config.Type)),
-		MountPath: config.MountPath,
-		Config:    config.Config,
-	}
-	switch config.Type {
-	case "alicloud":
-		method, err = alicloud.NewAliCloudAuthMethod(authConfig)
-	case "aws":
-		method, err = aws.NewAWSAuthMethod(authConfig)
-	case "azure":
-		method, err = azure.NewAzureAuthMethod(authConfig)
-	case "gcp":
-		method, err = gcp.NewGCPAuthMethod(authConfig)
-	case "jwt":
-		method, err = jwt.NewJWTAuthMethod(authConfig)
-	case "kubernetes":
-		method, err = kubernetes.NewKubernetesAuthMethod(authConfig)
-	case "approle":
-		method, err = approle.NewApproleAuthMethod(authConfig)
-	default:
-		return nil, fmt.Errorf("unknown auth method %q", config.Type)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error creating %s auth method: %v", config.Type, err)
-	}
-	return method, nil
 }
