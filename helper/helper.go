@@ -38,7 +38,6 @@ import (
 	"github.com/hashicorp/vault/command/agent/sink/file"
 	"github.com/mitchellh/go-homedir"
 	"github.com/morningconsult/docker-credential-vault-login/cache"
-	"github.com/morningconsult/docker-credential-vault-login/logging"
 	"github.com/morningconsult/docker-credential-vault-login/vault"
 )
 
@@ -54,7 +53,7 @@ var (
 	defaultAuthTimeout  = 10 * time.Second
 )
 
-type HelperOptions struct {
+type Options struct {
 	Logger      hclog.Logger
 	Client      *api.Client
 	AuthTimeout int64
@@ -66,9 +65,9 @@ type Helper struct {
 	authTimeout time.Duration
 }
 
-func NewHelper(opts *HelperOptions) *Helper {
+func New(opts *Options) *Helper {
 	if opts == nil {
-		opts = &HelperOptions{}
+		opts = &Options{}
 	}
 
 	timeout := defaultAuthTimeout
@@ -96,51 +95,6 @@ func (h *Helper) List() (map[string]string, error) {
 }
 
 func (h *Helper) Get(serverURL string) (string, string, error) {
-	// Get path to config file
-	configFile := defaultConfigFile
-	if f := os.Getenv(EnvConfigFile); f != "" {
-		expanded, err := homedir.Expand(f)
-		if err != nil {
-			log.Printf("error expanding directory %q: %v\n", f, err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-		configFile = expanded
-	}
-
-	// Parse config file
-	config, err := h.parseConfig(configFile)
-	if err != nil {
-		log.Printf("error parsing configuration file %s: %v\n", configFile, err)
-		return "", "", credentials.NewErrCredentialsNotFound()
-	}
-
-	// Create new logger
-	if h.logger == nil {
-		opts := &hclog.LoggerOptions{
-			Name:   "helper.get",
-			Level:  hclog.Error,
-			Output: os.Stderr,
-		}
-
-		var logDir string
-		if raw, ok := config.AutoAuth.Method.Config["log_dir"]; ok {
-			if l, ok := raw.(string); ok {
-				logDir = l
-			}
-		}
-
-		w, err := logging.LogWriter(&logging.LoggingOptions{
-			LogDir: logDir,
-		})
-		if err != nil {
-			log.Printf("error opening log file (logging errors to stderr instead): %v\n", err)
-		} else {
-			opts.Output = w
-			defer w.Close()
-		}
-
-		h.logger = hclog.New(opts)
-	}
 
 	cachingEnabled := true
 	if v := os.Getenv(EnvDisableCaching); v != "" {
@@ -241,6 +195,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		})
 
 		ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
+		defer cancel()
 
 		newTokenCh := make(chan string)
 

@@ -20,7 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
-	"github.com/hashicorp/vault/helper/logging"
+	"github.com/hashicorp/vault/sdk/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
 	server "github.com/hashicorp/vault/vault"
 )

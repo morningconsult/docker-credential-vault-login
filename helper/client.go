@@ -23,43 +23,37 @@ import (
 	"github.com/hashicorp/vault/command/agent/config"
 )
 
-func newVaultClient(method *config.Method) (*api.Client, error) {
-	vaultEnvVars := []string{
-		api.EnvVaultAddress,
-		api.EnvVaultCACert,
-		api.EnvVaultClientCert,
-		api.EnvVaultClientKey,
-		api.EnvVaultClientTimeout,
-		api.EnvVaultSkipVerify,
-		api.EnvVaultTLSServerName,
-		api.EnvVaultMaxRetries,
+func newVaultClient(vaultConfig *config.Vault) (*api.Client, error) {
+	if os.Getenv(api.EnvVaultAddress) == "" && vaultConfig.Address != "" {
+		os.Setenv(api.EnvVaultAddress, vaultConfig.Address)
+		defer os.Unsetenv(api.EnvVaultAddress)
+	}
+	if os.Getenv(api.EnvVaultCACert) == "" && vaultConfig.CACert != "" {
+		os.Setenv(api.EnvVaultCACert, vaultConfig.CACert)
+		defer os.Unsetenv(api.EnvVaultCACert)
+	}
+	if os.Getenv(api.EnvVaultCAPath) == "" && vaultConfig.CAPath != "" {
+		os.Setenv(api.EnvVaultCAPath, vaultConfig.CAPath)
+		defer os.Unsetenv(api.EnvVaultCAPath)
+	}
+	if os.Getenv(api.EnvVaultSkipVerify) == "" && vaultConfig.TLSSkipVerifyRaw != nil {
+		os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify))
+		defer os.Unsetenv(api.EnvVaultSkipVerify)
+	}
+	if os.Getenv(api.EnvVaultClientCert) == "" && vaultConfig.ClientCert != "" {
+		os.Setenv(api.EnvVaultClientCert, vaultConfig.ClientCert)
+		defer os.Unsetenv(api.EnvVaultClientCert)
+	}
+	if os.Getenv(api.EnvVaultClientKey) == "" && vaultConfig.ClientKey != "" {
+		os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientCert)
+		defer os.Unsetenv(api.EnvVaultClientKey)
+	}
+	clientConfig := api.DefaultConfig()
+	if clientConfig.Error != nil {
+		return nil, clientConfig.Error
 	}
 
-	for _, env := range vaultEnvVars {
-		if os.Getenv(strings.ToUpper(env)) != "" {
-			continue
-		}
-
-		raw, ok := method.Config[env]
-		if !ok {
-			raw, ok = method.Config[strings.ToLower(env)]
-			if !ok {
-				continue
-			}
-		}
-
-		v, ok := raw.(string)
-		if !ok {
-			return nil, fmt.Errorf("field 'auto_auth.method.config.%s' could not be converted to a string", env)
-		}
-
-		if v != "" {
-			os.Setenv(strings.ToUpper(env), v)
-			defer os.Unsetenv(env)
-		}
-	}
-
-	client, err := api.NewClient(nil)
+	client, err := api.NewClient(clientConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -15,6 +15,7 @@ package cache
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -27,10 +28,9 @@ import (
 	"github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/helper/dhutil"
-	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/hashicorp/vault/helper/logging"
+	"github.com/hashicorp/vault/sdk/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
 )
 
@@ -185,7 +185,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			data, err := jsonutil.EncodeJSON(tc.data)
+			data, err := json.Marshal(tc.data)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -302,7 +302,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 		t.Fatal(err)
 	}
 	privateKeyInfo := new(PrivateKeyInfo)
-	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
+	if err = json.Unmarshal(privateKeyData, privateKeyInfo); err != nil {
 		t.Fatal(err)
 	}
 	privateKey := privateKeyInfo.Curve25519PrivateKey
@@ -513,7 +513,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Encode token and write file
-			data, err := jsonutil.EncodeJSON(tc.tokenData)
+			data, err := json.Marshal(tc.tokenData)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -523,7 +523,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			defer os.Remove(tc.tokenFile)
 
 			// Encode private key and write file
-			data, err = jsonutil.EncodeJSON(tc.pkData)
+			data, err = json.Marshal(tc.pkData)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -560,7 +560,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 		t.Fatal(err)
 	}
 	privateKeyInfo := new(PrivateKeyInfo)
-	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
+	if err = json.Unmarshal(privateKeyData, privateKeyInfo); err != nil {
 		t.Fatal(err)
 	}
 	privateKey := privateKeyInfo.Curve25519PrivateKey
@@ -589,7 +589,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	privKeyOld := os.Getenv(EnvDiffieHellmanPrivateKey)
 	defer os.Setenv(EnvDiffieHellmanPrivateKey, privKeyOld)
 
-	data, err = jsonutil.EncodeJSON(resp)
+	data, err = json.Marshal(resp)
 	if err != nil {
 		t.Fatal(err)
 	}

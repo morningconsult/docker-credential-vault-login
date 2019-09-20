@@ -15,6 +15,7 @@ package cache
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -23,7 +24,6 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/helper/dhutil"
-	"github.com/hashicorp/vault/helper/jsonutil"
 )
 
 const EnvDiffieHellmanPrivateKey = "DCVL_DH_PRIV_KEY"
@@ -59,7 +59,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 		// Token is encrypted
 		if sink.DHType != "" {
 			resp := new(dhutil.Envelope)
-			if err := jsonutil.DecodeJSON([]byte(token), resp); err != nil {
+			if err := json.Unmarshal([]byte(token), resp); err != nil {
 				logger.Error(fmt.Sprintf("error JSON-decoding file sink %s", path), "error", err)
 				continue
 			}
@@ -96,7 +96,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 				}
 
 				pkInfo := new(PrivateKeyInfo)
-				if err = jsonutil.DecodeJSONFromReader(file, pkInfo); err != nil {
+				if err = json.NewDecoder(file).Decode(pkInfo); err != nil {
 					logger.Error(fmt.Sprintf("error JSON-decoding file %s", dhPrivKeyFile), "error", err)
 					continue
 				}
@@ -137,7 +137,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 		// Secret is TTL-wrapped
 		if sink.WrapTTL != 0 {
 			wrapInfo := new(api.SecretWrapInfo)
-			if err := jsonutil.DecodeJSON([]byte(token), wrapInfo); err != nil {
+			if err := json.Unmarshal([]byte(token), wrapInfo); err != nil {
 				logger.Error("error JSON-decoding TTL-wrapped secret", "error", err)
 				continue
 			}
