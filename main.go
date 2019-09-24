@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// Create new Vault client
-	client, err := vault.NewClient(config.Vault)
+	client, err := vault.NewClient(config.AutoAuth.Method, config.Vault)
 	if err != nil {
 		log.Fatalf("error creating new Vault client: %v", err)
 	}
@@ -96,27 +96,13 @@ func main() {
 		Output: logWriter,
 	})
 
-	authMethod, err := vault.BuildAuthMethod(config.AutoAuth.Method, logger)
-	if err != nil {
-		logWriter.Close()
-		log.Fatalf("error creating auth method: %v", err)
-	}
-
-	sinks, err := vault.BuildSinks(config.AutoAuth.Sinks, logger, client)
-	if err != nil {
-		logWriter.Close()
-		log.Fatalf("error creating sink(s): %v", err)
-	}
-
 	// Create a new credential helper
 	helper := helper.New(helper.Options{
 		Logger:      logger,
 		Client:      client,
 		Secret:      secretPath,
 		EnableCache: enableCache,
-		WrapTTL:     config.AutoAuth.Method.WrapTTL,
-		AuthMethod:  authMethod,
-		Sinks:       sinks,
+		AuthConfig:  config.AutoAuth,
 	})
 	credentials.Serve(helper)
 }
@@ -160,7 +146,10 @@ func getSecretPath(config map[string]interface{}) (string, error) {
 		}
 		secret, ok = secretRaw.(string)
 		if !ok {
-			return "", xerrors.Errorf("field 'auto_auth.method.config.secret' could not be converted to string")
+			return "", xerrors.New("field 'auto_auth.method.config.secret' could not be converted to string")
+		}
+		if secret == "" {
+			return "", xerrors.New("field 'auto_auth.method.config.secret' is empty")
 		}
 	}
 	return secret, nil
@@ -173,18 +162,18 @@ func newLogWriter(config map[string]interface{}) (*os.File, error) {
 	} else {
 		l, ok := config["log_dir"].(string)
 		if ok && l != "" {
-			logDir = v
+			logDir = l
 		}
 	}
 	logDir, err := homedir.Expand(logDir)
 	if err != nil {
 		return nil, xerrors.Errorf("error expanding logging directory %s: %w", logDir, err)
 	}
-	if err = os.MkdirAll(logDir, 0755); err != nil {
+	if err = os.MkdirAll(logDir, 0750); err != nil {
 		return nil, xerrors.Errorf("error creating directory %s: %w", logDir, err)
 	}
 	logFile := filepath.Join(logDir, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
-	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 }
 
 func cacheEnabled(disableCache bool) (bool, error) {

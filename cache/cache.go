@@ -27,9 +27,11 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// EnvDiffieHellmanPrivateKey is the path to Diffie Hellman private key
+// used to decrypt an encrypted Vault token
 const EnvDiffieHellmanPrivateKey = "DCVL_DH_PRIV_KEY"
 
-type PrivateKeyInfo struct {
+type privateKeyInfo struct {
 	Curve25519PrivateKey []byte `json:"curve25519_private_key"`
 }
 
@@ -40,54 +42,57 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 	for i, sink := range sinks {
 		switch sink.Type {
 		case "file":
+			token, path, err := readFileSink(sink.Config)
+			if err != nil {
+				logger.Error(fmt.Sprintf("error reading file sink %d", i), "error", err)
+				continue
+			}
+
+			// Token is encrypted
+			if sink.DHType != "" {
+				var err error
+				token, err = decryptToken(path, token, sink.AAD, sink.Config)
+				if err != nil {
+					logger.Error(fmt.Sprintf("error decrypting file sink %s", path), "error", err)
+					continue
+				}
+			}
+
+			// Secret is TTL-wrapped
+			if sink.WrapTTL != 0 {
+				var err error
+				token, err = unwrapToken(token, client)
+				if err != nil {
+					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %s", path), "error", err)
+					continue
+				}
+			}
+			if token != "" {
+				tokens = append(tokens, token)
+			}
 		default:
-			continue
-		}
-
-		pathRaw, ok := sink.Config["path"]
-		if !ok {
-			logger.Error(fmt.Sprintf("'path' not specified for sink %d", i))
-			continue
-		}
-
-		path, ok := pathRaw.(string)
-		if !ok {
-			logger.Error(fmt.Sprintf("value of 'path' of sink %d could not be converted to string", i))
-			continue
-		}
-
-		fileData, err := ioutil.ReadFile(path)
-		if err != nil {
-			logger.Error(fmt.Sprintf("error opening file sink %s", path), "error", err)
-			continue
-		}
-
-		token := string(fileData)
-
-		// Token is encrypted
-		if sink.DHType != "" {
-			var err error
-			token, err = decryptToken(path, token, sink.AAD, sink.Config)
-			if err != nil {
-				logger.Error(fmt.Sprintf("error decrypting file sink %s", path), "error", err)
-				continue
-			}
-		}
-
-		// Secret is TTL-wrapped
-		if sink.WrapTTL != 0 {
-			var err error
-			token, err = unwrapToken(token, client)
-			if err != nil {
-				logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %s", path), "error", err)
-				continue
-			}
-		}
-		if token != "" {
-			tokens = append(tokens, token)
+			logger.Info(fmt.Sprintf("unsupported sink type: %s", sink.Type))
 		}
 	}
 	return tokens
+}
+
+func readFileSink(config map[string]interface{}) (string, string, error) {
+	pathRaw, ok := config["path"]
+	if !ok {
+		return "", "", xerrors.New("'path' not specified for sink")
+	}
+
+	path, ok := pathRaw.(string)
+	if !ok {
+		return "", "", xerrors.New("value of 'path' of sink could not be converted to string")
+	}
+
+	fileData, err := ioutil.ReadFile(path) // nolint: gosec
+	if err != nil {
+		return "", "", xerrors.Errorf("error opening file sink %s: %w", path, err)
+	}
+	return string(fileData), path, nil
 }
 
 func decryptToken(path, token string, aad string, config map[string]interface{}) (string, error) {
@@ -106,42 +111,11 @@ func decryptToken(path, token string, aad string, config map[string]interface{})
 	}
 
 	if len(privateKey) == 0 {
-		dhPrivKeyFileRaw, ok := config["dh_priv"]
-		if !ok {
-			return "", xerrors.Errorf(
-				"If the cached token is encrypted, the Diffie-Hellman private "+
-					"key should be specified with the environment variable %s as a base64-encoded "+
-					"string or in the 'file.config.dh_priv' field of the config file %s as a path "+
-					"to a JSON-encoded PrivateKeyInfo structure",
-				path,
-				EnvDiffieHellmanPrivateKey,
-			)
-		}
-
-		dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
-		if !ok {
-			return "", xerrors.Errorf(
-				"'dh_priv' field of file sink at %s cannot be converted to string",
-				path,
-			)
-		}
-
-		file, err := os.Open(dhPrivKeyFile)
+		var err error
+		privateKey, err = readDHPrivateKey(config)
 		if err != nil {
-			return "", xerrors.Errorf("error opening 'dh_priv' file %s: %w", dhPrivKeyFile, err)
+			return "", xerrors.Errorf("error ")
 		}
-		defer file.Close()
-
-		var pkInfo PrivateKeyInfo
-		if err = json.NewDecoder(file).Decode(&pkInfo); err != nil {
-			return "", xerrors.Errorf("error JSON-decoding file %s: %w", dhPrivKeyFile, err)
-		}
-
-		if len(pkInfo.Curve25519PrivateKey) == 0 {
-			return "", xerrors.Errorf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile)
-		}
-
-		privateKey = pkInfo.Curve25519PrivateKey
 	}
 
 	if len(privateKey) == 0 {
@@ -162,6 +136,40 @@ func decryptToken(path, token string, aad string, config map[string]interface{})
 		return "", xerrors.Errorf("error decrypting token: %w", err)
 	}
 	return string(data), nil
+}
+
+func readDHPrivateKey(config map[string]interface{}) ([]byte, error) {
+	dhPrivKeyFileRaw, ok := config["dh_priv"]
+	if !ok {
+		return nil, xerrors.Errorf(
+			"If the cached token is encrypted, the Diffie-Hellman private "+
+				"key should be specified with the environment variable %s as a base64-encoded "+
+				"string or in the 'file.config.dh_priv' field of the config file as a path "+
+				"to a JSON-encoded PrivateKeyInfo structure",
+			EnvDiffieHellmanPrivateKey,
+		)
+	}
+
+	dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
+	if !ok {
+		return nil, xerrors.Errorf("'dh_priv' field of file sink cannot be converted to string")
+	}
+
+	file, err := os.Open(dhPrivKeyFile) // nolint: gosec
+	if err != nil {
+		return nil, xerrors.Errorf("error opening 'dh_priv' file %s: %w", dhPrivKeyFile, err)
+	}
+	defer file.Close()
+
+	var pkInfo privateKeyInfo
+	if err = json.NewDecoder(file).Decode(&pkInfo); err != nil {
+		return nil, xerrors.Errorf("error JSON-decoding file %s: %w", dhPrivKeyFile, err)
+	}
+
+	if len(pkInfo.Curve25519PrivateKey) == 0 {
+		return nil, xerrors.Errorf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile)
+	}
+	return pkInfo.Curve25519PrivateKey, nil
 }
 
 func unwrapToken(token string, client *api.Client) (string, error) {

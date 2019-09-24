@@ -16,7 +16,6 @@ package helper
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
@@ -25,22 +24,18 @@ import (
 	"github.com/hashicorp/vault/command/agent/auth"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
+	"golang.org/x/xerrors"
+
 	"github.com/morningconsult/docker-credential-vault-login/cache"
 	"github.com/morningconsult/docker-credential-vault-login/vault"
 )
 
-const (
-	EnvConfigFile     = "DCVL_CONFIG_FILE"
-	EnvDisableCaching = "DCVL_DISABLE_CACHE"
-	EnvSecretPath     = "DCVL_SECRET"
-	defaultConfigFile = "/etc/docker-credential-vault-login/config.hcl"
-)
-
 var (
-	notImplementedError = fmt.Errorf("not implemented")
-	defaultAuthTimeout  = 10 * time.Second
+	errNotImplemented  = errors.New("not implemented")
+	defaultAuthTimeout = 10 * time.Second
 )
 
+// Options is used to configure a new Helper instance
 type Options struct {
 	Logger      hclog.Logger
 	Client      *api.Client
@@ -48,21 +43,23 @@ type Options struct {
 	EnableCache bool
 	AuthTimeout int64
 	WrapTTL     time.Duration
-	AuthMethod  auth.AuthMethod
-	Sinks       []*sink.SinkConfig
+	AuthConfig  *config.AutoAuth
 }
 
+// Helper implements a Docker credential helper which will
+// fetch Docker credentials from Vault and pass them to
+// the Docker daemon in order to authenticate to a private
+// Docker registry
 type Helper struct {
 	logger       hclog.Logger
 	client       *api.Client
 	secret       string
 	cacheEnabled bool
 	authTimeout  time.Duration
-	wrapTTL      time.Duration
-	authMethod   auth.AuthMethod
-	sinks        []*sink.SinkConfig
+	authConfig   *config.AutoAuth
 }
 
+// New creates a new Helper instance
 func New(opts Options) *Helper {
 	timeout := defaultAuthTimeout
 	if opts.AuthTimeout != 0 {
@@ -75,113 +72,80 @@ func New(opts Options) *Helper {
 		secret:       opts.Secret,
 		cacheEnabled: opts.EnableCache,
 		authTimeout:  timeout,
-		wrapTTL:      opts.WrapTTL,
-		authMethod:   opts.AuthMethod,
-		sinks:        opts.Sinks,
+		authConfig:   opts.AuthConfig,
 	}
 }
 
+// Add is not implemented
 func (h *Helper) Add(creds *credentials.Credentials) error {
-	return notImplementedError
+	return errNotImplemented
 }
 
+// Delete is not implemented
 func (h *Helper) Delete(serverURL string) error {
-	return notImplementedError
+	return errNotImplemented
 }
 
+// List is not implemented
 func (h *Helper) List() (map[string]string, error) {
-	return nil, notImplementedError
+	return nil, errNotImplemented
 }
 
-func (h *Helper) Get(serverURL string) (string, string, error) {
-	if h.client.Token() == "" { // TODO: Use better way of ensuring this happens only when "token" method is used
-		if h.cacheEnabled {
-			cloned, err := h.client.Clone()
-			if err != nil {
-				h.logger.Error("error cloning Vault API client", "error", err)
-				return "", "", credentials.NewErrCredentialsNotFound()
-			}
-
-			// Get any cached tokens
-			cachedTokens := cache.GetCachedTokens(h.logger.Named("cache"), config.AutoAuth.Sinks, cloned)
-			if len(cachedTokens) < 1 {
-				h.logger.Info("No cached token(s) were read. Re-authenticating.")
-			}
-
-			// Renew the cached tokens
-			for _, token := range cachedTokens {
-				if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
-					h.logger.Error("error renewing token", "error", err)
-				}
-			}
-
-			// Use any token to get credentials
-			for _, token := range cachedTokens {
-				h.client.SetToken(token)
-
-				// Get credentials
-				creds, err := vault.GetCredentials(h.secret, h.client)
-				if err != nil {
-					h.logger.Error("error reading secret from Vault", "error", err)
-					continue
-				}
-				return creds.Username, creds.Password, nil
-			}
-		}
-
-		// Failed to read secret with cached token. Reauthenticate.
-		h.client.ClearToken()
-
-		ss := sink.NewSinkServer(&sink.SinkServerConfig{
-			Logger:        h.logger.Named("sink.server"),
-			Client:        h.client,
-			ExitAfterAuth: true,
-		})
-
-		ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
-			Logger:  h.logger.Named("auth.handler"),
-			Client:  h.client,
-			WrapTTL: h.wrapTTL,
-		})
-
-		ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
-		defer cancel()
-
-		newTokenCh := make(chan string)
-
-		go ah.Run(ctx, h.authMethod)
-		go ss.Run(ctx, newTokenCh, h.sinks)
-
-		var token string
-		select {
-		case <-ctx.Done():
-			h.logger.Error(fmt.Sprintf("failed to get credentials within timeout (%s)", h.authTimeout.String()))
-			<-ah.DoneCh
-			<-ss.DoneCh
+// Get will lookup Docker credentials in Vault and pass them
+// to the Docker daemon.
+func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
+	if h.client.Token() != "" {
+		// Get credentials with provided token
+		creds, err := vault.GetCredentials(h.secret, h.client)
+		if err != nil {
+			h.logger.Error("error reading secret from Vault", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
-		case token = <-ah.OutputCh:
-			// will have to unwrap token if wrapped
-			h.logger.Info("successfully authenticated")
+		}
+		return creds.Username, creds.Password, nil
+	}
+
+	if h.cacheEnabled {
+		clone, err := h.client.Clone()
+		if err != nil {
+			h.logger.Error("error cloning Vault API client", "error", err)
+			return "", "", credentials.NewErrCredentialsNotFound()
 		}
 
-		if h.cacheEnabled {
-			newTokenCh <- token
-			select {
-			case <-ctx.Done():
-				h.logger.Error(fmt.Sprintf("failed to write token to sink(s) within the timeout (%s)", h.authTimeout.String()))
-				<-ah.DoneCh
-				<-ss.DoneCh
-				return "", "", credentials.NewErrCredentialsNotFound()
-			case <-ss.DoneCh:
+		// Get any cached tokens
+		cachedTokens := cache.GetCachedTokens(h.logger.Named("cache"), h.authConfig.Sinks, clone)
+		if len(cachedTokens) < 1 {
+			h.logger.Info("no cached token(s) were read. Re-authenticating.")
+		}
+
+		// Renew the cached tokens
+		for _, token := range cachedTokens {
+			if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
+				h.logger.Error("error renewing token", "error", err)
 			}
 		}
 
-		cancel()
-		<-ah.DoneCh
-		<-ss.DoneCh
+		// Use any token to get credentials
+		for _, token := range cachedTokens {
+			h.client.SetToken(token)
 
-		h.client.SetToken(token)
+			// Get credentials
+			creds, err := vault.GetCredentials(h.secret, h.client)
+			if err != nil {
+				h.logger.Error("error reading secret from Vault", "error", err)
+				continue
+			}
+			return creds.Username, creds.Password, nil
+		}
 	}
+
+	// Failed to read secret with cached token. Reauthenticate.
+	h.client.ClearToken()
+	token, err := h.authenticate()
+	if err != nil {
+		h.logger.Error("error authenticating", "error", err)
+		return "", "", credentials.NewErrCredentialsNotFound()
+	}
+	h.client.SetToken(token)
 
 	// Get credentials
 	creds, err := vault.GetCredentials(h.secret, h.client)
@@ -192,20 +156,61 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	return creds.Username, creds.Password, nil
 }
 
-func (h *Helper) parseConfig(configFile string) (*config.Config, error) {
-	config, err := config.LoadConfig(configFile, h.logger)
+func (h *Helper) authenticate() (string, error) {
+	sinks, err := vault.BuildSinks(h.authConfig.Sinks, h.logger, h.client)
 	if err != nil {
-		return nil, err
+		return "", xerrors.Errorf("error building sinks: %w", err)
 	}
 
-	if config == nil {
-		return nil, errors.New("no configuration read. Please provide the configuration file with the " +
-			EnvConfigFile + " environment variable.")
+	method, err := vault.BuildAuthMethod(h.authConfig.Method, h.logger)
+	if err != nil {
+		return "", xerrors.Errorf("error creating auth method: %w", err)
 	}
 
-	if config.AutoAuth == nil {
-		return nil, errors.New("no 'auto_auth' block found")
+	ss := sink.NewSinkServer(&sink.SinkServerConfig{
+		Logger:        h.logger.Named("sink.server"),
+		Client:        h.client,
+		ExitAfterAuth: true,
+	})
+
+	ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
+		Logger:  h.logger.Named("auth.handler"),
+		Client:  h.client,
+		WrapTTL: h.authConfig.Method.WrapTTL,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
+	defer cancel()
+
+	newTokenCh := make(chan string)
+
+	go ah.Run(ctx, method)
+	go ss.Run(ctx, newTokenCh, sinks)
+
+	var token string
+	select {
+	case <-ctx.Done():
+		<-ah.DoneCh
+		<-ss.DoneCh
+		return "", xerrors.Errorf("failed to get credentials within timeout (%s)", h.authTimeout)
+	case token = <-ah.OutputCh:
+		// will have to unwrap token if wrapped
+		h.logger.Info("successfully authenticated")
 	}
 
-	return config, nil
+	if h.cacheEnabled {
+		newTokenCh <- token
+		select {
+		case <-ctx.Done():
+			<-ah.DoneCh
+			<-ss.DoneCh
+			return "", xerrors.Errorf("failed to write token to sink(s) within the timeout (%s)", h.authTimeout)
+		case <-ss.DoneCh:
+		}
+	}
+	cancel()
+	<-ah.DoneCh
+	<-ss.DoneCh
+	close(newTokenCh)
+	return token, nil
 }

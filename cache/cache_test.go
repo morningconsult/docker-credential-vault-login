@@ -72,7 +72,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 	}
 
 	// Create role
-	resp, err := client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
+	_, err = client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
 		"period":   "20s",
 		"policies": "dev-policy",
 	})
@@ -81,7 +81,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 	}
 
 	// Get role_id
-	resp, err = client.Logical().Read("auth/approle/role/role-period/role-id")
+	resp, err := client.Logical().Read("auth/approle/role/role-period/role-id")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 			"wrapped-token",
 			secret.WrapInfo,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Type:    "file",
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
@@ -158,7 +158,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 			"unexpected-json-format",
 			`{"not": "secret"}`,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -173,7 +173,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 				Token: randomUUID(),
 			},
 			[]*config.Sink{
-				&config.Sink{
+				{
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -229,7 +229,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"plain-token",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Type: "file",
 					Config: map[string]interface{}{
 						"path": "testdata/token-plain.txt",
@@ -241,7 +241,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"no-path",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{}, // no path
 				},
 			},
@@ -250,7 +250,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"path-not-string",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{
 						"path": map[string]interface{}{
 							"hello": "world",
@@ -263,7 +263,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"file-doesnt-exist",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{
 						"path": "testdata/file-doesnt-exist.txt",
 					},
@@ -303,11 +303,11 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateKeyInfo := new(PrivateKeyInfo)
-	if err = json.Unmarshal(privateKeyData, privateKeyInfo); err != nil {
+	pk := new(privateKeyInfo)
+	if err = json.Unmarshal(privateKeyData, pk); err != nil {
 		t.Fatal(err)
 	}
-	privateKey := privateKeyInfo.Curve25519PrivateKey
+	privateKey := pk.Curve25519PrivateKey
 
 	resp := &dhutil.Envelope{
 		Curve25519PublicKey: base64Decode("jHJcqNbAydq9NkvNud86vh2AOv0fPRdrLtCoEoxwTVc="),
@@ -344,9 +344,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Type:   "file",
 					DHType: "curve25519",
 					AAD:    "foobar",
@@ -363,9 +363,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			`{"not": "valid"}`,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -381,9 +381,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -398,9 +398,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -418,9 +418,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -438,7 +438,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/temp-priv-key.json",
 			`asdf`,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -454,11 +454,11 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			&PrivateKeyInfo{
+			&privateKeyInfo{
 				Curve25519PrivateKey: []byte(""),
 			},
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -474,9 +474,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "barfoo",
 					Config: map[string]interface{}{
@@ -496,9 +496,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 				EncryptedPayload:    resp.EncryptedPayload,
 			},
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -562,7 +562,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateKeyInfo := new(PrivateKeyInfo)
+	privateKeyInfo := new(privateKeyInfo)
 	if err = json.Unmarshal(privateKeyData, privateKeyInfo); err != nil {
 		t.Fatal(err)
 	}
@@ -602,7 +602,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	defer os.Remove("testdata/token-encrypted.json")
 
 	sinks := []*config.Sink{
-		&config.Sink{
+		{
 			Type:   "file",
 			DHType: "curve25519",
 			AAD:    "foobar",

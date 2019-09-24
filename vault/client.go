@@ -36,7 +36,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
-func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Client, error) {
+// NewClient creates a new Vault client. Note that Vault environment
+// variables take precedence over the vaultConfig.
+func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Client, error) { // nolint: gocyclo
 	if vaultConfig != nil {
 		if os.Getenv(api.EnvVaultAddress) == "" && vaultConfig.Address != "" {
 			os.Setenv(api.EnvVaultAddress, vaultConfig.Address)
@@ -71,6 +73,10 @@ func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Cli
 	if err != nil {
 		return nil, err
 	}
+	return configureToken(client, methodConfig)
+}
+
+func configureToken(client *api.Client, methodConfig *config.Method) (*api.Client, error) {
 	switch methodConfig.Type {
 	case "token":
 		if client.Token() == "" {
@@ -93,19 +99,20 @@ func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Cli
 	return client, nil
 }
 
-func BuildSinks(ss []*config.Sink, logger hclog.Logger, client *api.Client) ([]*sink.SinkConfig, error) {
+// BuildSinks creates a set of sinks from the sink configurations.
+func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*sink.SinkConfig, error) {
 	var sinks []*sink.SinkConfig
-	for _, sc := range ss {
-		switch sc.Type {
+	for _, ss := range sc {
+		switch ss.Type {
 		case "file":
 			config := &sink.SinkConfig{
 				Logger:  logger.Named("sink.file"),
-				Config:  sc.Config,
+				Config:  ss.Config,
 				Client:  client,
-				WrapTTL: sc.WrapTTL,
-				DHType:  sc.DHType,
-				DHPath:  sc.DHPath,
-				AAD:     sc.AAD,
+				WrapTTL: ss.WrapTTL,
+				DHType:  ss.DHType,
+				DHPath:  ss.DHPath,
+				AAD:     ss.AAD,
 			}
 			s, err := file.NewFileSink(config)
 			if err != nil {
@@ -114,13 +121,14 @@ func BuildSinks(ss []*config.Sink, logger hclog.Logger, client *api.Client) ([]*
 			config.Sink = s
 			sinks = append(sinks, config)
 		default:
-			return nil, xerrors.Errorf("unknown sink type %q", sc.Type)
+			return nil, xerrors.Errorf("unknown sink type %q", ss.Type)
 		}
 	}
 	return sinks, nil
 }
 
-func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMethod, error) {
+// BuildAuthMethod creates a new authentication method from config.
+func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMethod, error) { // nolint: gocyclo
 	// Check if a default namespace has been set
 	mountPath := config.MountPath
 	if config.Namespace != "" {
@@ -153,7 +161,6 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 		method, err = kubernetes.NewKubernetesAuthMethod(authConfig)
 	case "approle":
 		method, err = approle.NewApproleAuthMethod(authConfig)
-	case "token":
 	default:
 		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
 	}

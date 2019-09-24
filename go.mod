@@ -5,7 +5,7 @@ go 1.12
 replace git.apache.org/thrift.git => github.com/apache/thrift v0.12.0
 
 require (
-	github.com/aws/aws-sdk-go v1.24.0
+	github.com/aws/aws-sdk-go v1.24.0 // indirect
 	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/google/go-cmp v0.3.1
 	github.com/hashicorp/go-hclog v0.9.2
