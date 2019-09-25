@@ -14,17 +14,21 @@
 package vault
 
 import (
-	"fmt"
-	"github.com/hashicorp/vault/api"
 	"strings"
+
+	"github.com/hashicorp/vault/api"
+	"golang.org/x/xerrors"
 )
 
+// Credentials represent Docker credentials
 type Credentials struct {
 	Username string
 	Password string
 }
 
-func GetCredentials(path string, client *api.Client) (*Credentials, error) {
+// GetCredentials uses the Vault client to read the secret at
+// path
+func GetCredentials(path string, client *api.Client) (Credentials, error) {
 	var (
 		username, password string
 		ok                 bool
@@ -33,11 +37,11 @@ func GetCredentials(path string, client *api.Client) (*Credentials, error) {
 
 	secret, err := client.Logical().Read(path)
 	if err != nil {
-		return nil, fmt.Errorf("error reading secret: %v", err)
+		return Credentials{}, xerrors.Errorf("error reading secret: %v", err)
 	}
 
 	if secret == nil {
-		return nil, fmt.Errorf("No secret found in Vault at path %q", path)
+		return Credentials{}, xerrors.Errorf("No secret found in Vault at path %q", path)
 	}
 
 	creds := secret.Data
@@ -50,10 +54,10 @@ func GetCredentials(path string, client *api.Client) (*Credentials, error) {
 	}
 
 	if len(missingSecrets) > 0 {
-		return nil, fmt.Errorf("No %s found in Vault at path %q", strings.Join(missingSecrets, " or "), path)
+		return Credentials{}, xerrors.Errorf("No %s found in Vault at path %q", strings.Join(missingSecrets, " or "), path)
 	}
 
-	return &Credentials{
+	return Credentials{
 		Username: username,
 		Password: password,
 	}, nil

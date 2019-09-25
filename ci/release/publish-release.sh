@@ -14,36 +14,23 @@
 
 set -e
 
-readonly REPO="github.com/morningconsult/docker-credential-vault-login"
+readonly PROJECT="github.com/morningconsult/docker-credential-vault-login"
+readonly GORELEASER_VERSION="v0.108.0"
 
 echo "==> Installing APK dependencies"
 
-apk add -qU --no-progress make curl git
+apk add -qU --no-cache --no-progress \
+  git \
+  gnupg
 
-echo "==> Installing dep"
+echo "==> Installing goreleaser $GORELEASER_VERSION"
 
-make install_dep
-
-export CGO_ENABLED=0
-
-mkdir -p "${GOPATH}/src/${REPO}"
-cp -r . "${GOPATH}/src/${REPO}"
-cd "${GOPATH}/src/${REPO}" 
-
-echo "==> Fetching dependencies"
-
-dep ensure
-
-echo "==> Creating a new non-root user"
-
-readonly new_user="potato"
-readonly new_group="foo"
-
-addgroup -S $new_group && adduser -S $new_user $new_group
-chown $new_user:$new_group -R "${GOPATH}/src/${REPO}"
+wget --quiet -O /tmp/goreleaser.tar.gz "https://github.com/goreleaser/goreleaser/releases/download/${GORELEASER_VERSION}/goreleaser_Linux_x86_64.tar.gz"
+tar xzf /tmp/goreleaser.tar.gz -C /usr/local/bin
 
 echo "==> Running unit tests"
 
-su $new_user -s /bin/sh -c 'CGO_ENABLED=0 make test'
+CGO_ENABLED=0 GO111MODULE=on go test ./...
 
-echo "==> Done"
+goreleaser release \
+  --rm-dist

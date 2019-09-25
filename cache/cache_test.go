@@ -15,6 +15,8 @@ package cache
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -27,10 +29,9 @@ import (
 	"github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/helper/dhutil"
-	"github.com/hashicorp/vault/helper/jsonutil"
-	"github.com/hashicorp/vault/helper/logging"
 	vaulthttp "github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/logical"
+	"github.com/hashicorp/vault/sdk/helper/logging"
+	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
 )
 
@@ -72,7 +73,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 	}
 
 	// Create role
-	resp, err := client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
+	_, err = client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
 		"period":   "20s",
 		"policies": "dev-policy",
 	})
@@ -81,7 +82,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 	}
 
 	// Get role_id
-	resp, err = client.Logical().Read("auth/approle/role/role-period/role-id")
+	resp, err := client.Logical().Read("auth/approle/role/role-period/role-id")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +145,8 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 			"wrapped-token",
 			secret.WrapInfo,
 			[]*config.Sink{
-				&config.Sink{
+				{
+					Type:    "file",
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -157,7 +159,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 			"unexpected-json-format",
 			`{"not": "secret"}`,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -172,7 +174,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 				Token: randomUUID(),
 			},
 			[]*config.Sink{
-				&config.Sink{
+				{
 					WrapTTL: wrapTTL,
 					Config: map[string]interface{}{
 						"path": filename,
@@ -185,7 +187,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			data, err := jsonutil.EncodeJSON(tc.data)
+			data, err := json.Marshal(tc.data)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -228,7 +230,8 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"plain-token",
 			[]*config.Sink{
-				&config.Sink{
+				{
+					Type: "file",
 					Config: map[string]interface{}{
 						"path": "testdata/token-plain.txt",
 					},
@@ -239,7 +242,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"no-path",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{}, // no path
 				},
 			},
@@ -248,7 +251,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"path-not-string",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{
 						"path": map[string]interface{}{
 							"hello": "world",
@@ -261,7 +264,7 @@ func TestGetCachedTokens_Plain(t *testing.T) {
 		{
 			"file-doesnt-exist",
 			[]*config.Sink{
-				&config.Sink{
+				{
 					Config: map[string]interface{}{
 						"path": "testdata/file-doesnt-exist.txt",
 					},
@@ -301,11 +304,11 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateKeyInfo := new(PrivateKeyInfo)
-	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
+	pk := new(privateKeyInfo)
+	if err = json.Unmarshal(privateKeyData, pk); err != nil {
 		t.Fatal(err)
 	}
-	privateKey := privateKeyInfo.Curve25519PrivateKey
+	privateKey := pk.Curve25519PrivateKey
 
 	resp := &dhutil.Envelope{
 		Curve25519PublicKey: base64Decode("jHJcqNbAydq9NkvNud86vh2AOv0fPRdrLtCoEoxwTVc="),
@@ -342,9 +345,10 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
+					Type:   "file",
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -360,9 +364,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			`{"not": "valid"}`,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -378,9 +382,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -395,9 +399,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -415,9 +419,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -435,7 +439,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/temp-priv-key.json",
 			`asdf`,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -451,11 +455,11 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			&PrivateKeyInfo{
+			&privateKeyInfo{
 				Curve25519PrivateKey: []byte(""),
 			},
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -471,9 +475,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			"testdata/token-encrypted.json",
 			resp,
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "barfoo",
 					Config: map[string]interface{}{
@@ -493,9 +497,9 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 				EncryptedPayload:    resp.EncryptedPayload,
 			},
 			"testdata/temp-priv-key.json",
-			privateKeyInfo,
+			pk,
 			[]*config.Sink{
-				&config.Sink{
+				{
 					DHType: "curve25519",
 					AAD:    "foobar",
 					Config: map[string]interface{}{
@@ -513,7 +517,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Encode token and write file
-			data, err := jsonutil.EncodeJSON(tc.tokenData)
+			data, err := json.Marshal(tc.tokenData)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -523,7 +527,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			defer os.Remove(tc.tokenFile)
 
 			// Encode private key and write file
-			data, err = jsonutil.EncodeJSON(tc.pkData)
+			data, err = json.Marshal(tc.pkData)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -559,8 +563,8 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privateKeyInfo := new(PrivateKeyInfo)
-	if err = jsonutil.DecodeJSON(privateKeyData, privateKeyInfo); err != nil {
+	privateKeyInfo := new(privateKeyInfo)
+	if err = json.Unmarshal(privateKeyData, privateKeyInfo); err != nil {
 		t.Fatal(err)
 	}
 	privateKey := privateKeyInfo.Curve25519PrivateKey
@@ -589,7 +593,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	privKeyOld := os.Getenv(EnvDiffieHellmanPrivateKey)
 	defer os.Setenv(EnvDiffieHellmanPrivateKey, privKeyOld)
 
-	data, err = jsonutil.EncodeJSON(resp)
+	data, err = json.Marshal(resp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -599,7 +603,8 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	defer os.Remove("testdata/token-encrypted.json")
 
 	sinks := []*config.Sink{
-		&config.Sink{
+		{
+			Type:   "file",
 			DHType: "curve25519",
 			AAD:    "foobar",
 			Config: map[string]interface{}{
@@ -638,6 +643,262 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 			}
 			if tokens[0] != expected {
 				t.Fatalf("Tokens differ:\n%v", cmp.Diff(tokens[0], expected))
+			}
+		})
+	}
+}
+
+func TestUnwrapToken(t *testing.T) {
+	cases := []struct {
+		name        string
+		token       string
+		unwrap      unwrapFunc
+		expectErr   string
+		expectToken string
+	}{
+		{
+			name:        "bad-json",
+			token:       "not a json!",
+			unwrap:      nil,
+			expectErr:   "error JSON-decoding TTL-wrapped secret: invalid character 'o' in literal null (expecting 'u')",
+			expectToken: "",
+		},
+		{
+			name:  "unwrap-error",
+			token: `{"token":"s.2zOhQugrfYqd6E1ccCyNBIHv"}`,
+			unwrap: func(_ string) (*api.Secret, error) {
+				return nil, errors.New("oops")
+			},
+			expectErr:   "error unwrapping token: oops",
+			expectToken: "",
+		},
+		{
+			name:  "token-id-error",
+			token: `{"token":"s.2zOhQugrfYqd6E1ccCyNBIHv"}`,
+			unwrap: func(_ string) (*api.Secret, error) {
+				return &api.Secret{
+					Data: map[string]interface{}{
+						"id": 123613246,
+					},
+				}, nil
+			},
+			expectErr:   "error reading token from Vault response: token found but in the wrong format",
+			expectToken: "",
+		},
+		{
+			name:  "token-from-secret-data",
+			token: `{"token":"s.2zOhQugrfYqd6E1ccCyNBIHv"}`,
+			unwrap: func(_ string) (*api.Secret, error) {
+				return &api.Secret{
+					Data: map[string]interface{}{
+						"token": "s.2zOhQugrfYqd6E1ccCyNBIHv",
+					},
+				}, nil
+			},
+			expectErr:   "",
+			expectToken: "s.2zOhQugrfYqd6E1ccCyNBIHv",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotToken, err := unwrapToken(tc.token, tc.unwrap)
+			if tc.expectErr != "" {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if err.Error() != tc.expectErr {
+					t.Errorf("Expected error %q, got error %q", tc.expectErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !cmp.Equal(gotToken, tc.expectToken) {
+				t.Errorf("Tokens differ:\n%v", cmp.Diff(tc.expectToken, gotToken))
+			}
+		})
+	}
+}
+
+func TestReadDHPrivateKey(t *testing.T) {
+	expectKey, err := base64.StdEncoding.DecodeString("NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM=")
+	if err != nil {
+		t.Fatalf("error base64-decoding key: %v", err)
+	}
+
+	cases := []struct {
+		name      string
+		config    map[string]interface{}
+		expectErr string
+		expectKey []byte
+	}{
+		{
+			name:      "no-path-to-private-key-in-config",
+			config:    nil,
+			expectErr: `If the cached token is encrypted, the Diffie-Hellman private key should be specified with the environment variable DCVL_DH_PRIV_KEY as a base64-encoded string or in the 'file.config.dh_priv' field of the config file as a path to a JSON-encoded PrivateKeyInfo structure`, // nolint: lll
+			expectKey: nil,
+		},
+		{
+			name: "dh-private-key-not-string",
+			config: map[string]interface{}{
+				"dh_priv": 12345,
+			},
+			expectErr: "'dh_priv' field of file sink cannot be converted to string",
+			expectKey: nil,
+		},
+		{
+			name: "dh-private-key-file-does-not-exist",
+			config: map[string]interface{}{
+				"dh_priv": "testdata/does-not-exist.json",
+			},
+			expectErr: "error opening 'dh_priv' file testdata/does-not-exist.json: open testdata/does-not-exist.json: no such file or directory", // nolint: lll
+			expectKey: nil,
+		},
+		{
+			name: "dh-private-key-malformed",
+			config: map[string]interface{}{
+				"dh_priv": "testdata/dh-private-key-malformed.json",
+			},
+			expectErr: "error JSON-decoding file testdata/dh-private-key-malformed.json: json: cannot unmarshal string into Go value of type cache.privateKeyInfo", // nolint: lll
+			expectKey: nil,
+		},
+		{
+			name: "dh-private-key-empty",
+			config: map[string]interface{}{
+				"dh_priv": "testdata/dh-private-key-empty.json",
+			},
+			expectErr: "field 'curve25519_private_key' of file testdata/dh-private-key-empty.json is empty",
+			expectKey: nil,
+		},
+		{
+			name: "success",
+			config: map[string]interface{}{
+				"dh_priv": "testdata/dh-private-key.json",
+			},
+			expectErr: "",
+			expectKey: expectKey,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotKey, err := readDHPrivateKey(tc.config)
+			if tc.expectErr != "" {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if err.Error() != tc.expectErr {
+					t.Errorf("Expected error %q, got error %q", tc.expectErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !cmp.Equal(gotKey, tc.expectKey) {
+				t.Errorf("Keys differ:\n%v", cmp.Diff(tc.expectKey, gotKey))
+			}
+		})
+	}
+}
+
+func TestDecryptToken(t *testing.T) {
+	noop := func() {}
+
+	cases := []struct {
+		name        string
+		pre         func()
+		post        func()
+		token       string
+		aad         string
+		config      map[string]interface{}
+		expectErr   string
+		expectToken string
+	}{
+		{
+			name:        "bad-json",
+			pre:         noop,
+			post:        noop,
+			token:       `not a json`,
+			aad:         "",
+			config:      nil,
+			expectErr:   "error JSON-decoding file sink: invalid character 'o' in literal null (expecting 'u')",
+			expectToken: "",
+		},
+		{
+			name:        "error-reading-key-from-env",
+			pre:         func() { os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64") },
+			post:        func() { os.Unsetenv(EnvDiffieHellmanPrivateKey) },
+			token:       `{"curve25519_public_key":""}`,
+			aad:         "",
+			config:      nil,
+			expectErr:   "error base64-decoding $DCVL_DH_PRIV_KEY: illegal base64 data at input byte 1",
+			expectToken: "",
+		},
+		{
+			name:        "reads-private-key-from-env",
+			pre:         func() { os.Setenv(EnvDiffieHellmanPrivateKey, "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=") },
+			post:        func() { os.Unsetenv(EnvDiffieHellmanPrivateKey) },
+			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
+			aad:         "TESTAAD",
+			config:      nil,
+			expectErr:   "",
+			expectToken: "{\"token\":\"s.jig43pxA52Y2xhiahImw3HQv\",\"accessor\":\"9l9LCryNuBMuTyWTbmZeFhSx\",\"ttl\":300,\"creation_time\":\"2019-09-25T15:31:25.646033046-04:00\",\"creation_path\":\"sys/wrapping/wrap\",\"wrapped_accessor\":\"\"}\n",
+		},
+		{
+			name:        "reads-private-key-from-config",
+			pre:         noop,
+			post:        noop,
+			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
+			aad:         "TESTAAD",
+			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key-2.json"},
+			expectErr:   "",
+			expectToken: "{\"token\":\"s.jig43pxA52Y2xhiahImw3HQv\",\"accessor\":\"9l9LCryNuBMuTyWTbmZeFhSx\",\"ttl\":300,\"creation_time\":\"2019-09-25T15:31:25.646033046-04:00\",\"creation_path\":\"sys/wrapping/wrap\",\"wrapped_accessor\":\"\"}\n",
+		},
+		{
+			name:        "error-generating-shared-keys",
+			pre:         noop,
+			post:        noop,
+			token:       `{"curve25519_public_key":"","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
+			aad:         "TESTAAD",
+			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key.json"},
+			expectErr:   "error creating AES-GCM key: invalid public key length: 0",
+			expectToken: "",
+		},
+		{
+			name:        "error-decrypting",
+			pre:         noop,
+			post:        noop,
+			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
+			aad:         "TESTAADAAA", // Wrong AAD
+			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key-2.json"},
+			expectErr:   "error decrypting token: cipher: message authentication failed",
+			expectToken: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.pre()
+			defer tc.post()
+
+			gotToken, err := decryptToken(tc.token, tc.aad, tc.config)
+			if tc.expectErr != "" {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				if err.Error() != tc.expectErr {
+					t.Errorf("Expected error %q, got error %q", tc.expectErr, err.Error())
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !cmp.Equal(gotToken, tc.expectToken) {
+				t.Errorf("Tokens differ:\n%v", cmp.Diff(tc.expectToken, gotToken))
 			}
 		})
 	}

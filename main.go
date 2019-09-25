@@ -16,18 +16,41 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
+	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/command/agent/config"
+	homedir "github.com/mitchellh/go-homedir"
+	"golang.org/x/xerrors"
+
 	"github.com/morningconsult/docker-credential-vault-login/helper"
+	"github.com/morningconsult/docker-credential-vault-login/vault"
 	"github.com/morningconsult/docker-credential-vault-login/version"
 )
 
-const banner = "Docker Credential Helper for Vault Storage version %v, commit %v, built %v\n"
+const (
+	banner = "Docker Credential Helper for Vault Storage version %v, commit %v, built %v\n"
+
+	defaultConfigFile = "/etc/docker-credential-vault-login/config.hcl"
+	defaultLogDir     = "~/.docker-credential-vault-login"
+
+	envConfigFile     = "DCVL_CONFIG_FILE"
+	envLogDir         = "DCVL_LOG_DIR"
+	envSecretPath     = "DCVL_SECRET"
+	envDisableCaching = "DCVL_DISABLE_CACHE"
+)
 
 func main() {
-	var versionFlag bool
+	var versionFlag, disableCache bool
+	var configFile string
 	flag.BoolVar(&versionFlag, "version", false, "print version and exit")
+	flag.BoolVar(&disableCache, "disable-cache", false, "disable token caching")
+	flag.StringVar(&configFile, "config", defaultConfigFile, "path to the configuration file")
 	flag.Parse()
 
 	// Exit safely when version is used
@@ -35,5 +58,131 @@ func main() {
 		fmt.Printf(banner, version.Version, version.Commit, version.Date)
 		os.Exit(0)
 	}
-	credentials.Serve(helper.NewHelper(nil))
+
+	// Parse config file
+	config, err := loadConfig(configFile)
+	if err != nil {
+		log.Fatalf("error parsing configuration file: %v", err)
+	}
+
+	// Get the path to where the secret is kept in Vault
+	secretPath, err := getSecretPath(config.AutoAuth.Method.Config)
+	if err != nil {
+		log.Fatalf("error getting path to secret: %v", err)
+	}
+
+	// Create new Vault client
+	client, err := vault.NewClient(config.AutoAuth.Method, config.Vault)
+	if err != nil {
+		log.Fatalf("error creating new Vault client: %v", err)
+	}
+
+	// Check whether caching should be enabled
+	enableCache, err := cacheEnabled(disableCache)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Open log writer
+	logWriter, err := newLogWriter(config.AutoAuth.Method.Config)
+	if err != nil {
+		log.Fatalf("error creating log file: %v", err)
+	}
+	defer logWriter.Close()
+
+	// Create logger
+	logger := hclog.New(&hclog.LoggerOptions{
+		Level:  hclog.Error,
+		Output: logWriter,
+	})
+
+	// Create a new credential helper
+	helper := helper.New(helper.Options{
+		Logger:      logger,
+		Client:      client,
+		Secret:      secretPath,
+		EnableCache: enableCache,
+		AuthConfig:  config.AutoAuth,
+	})
+	credentials.Serve(helper)
+}
+
+func loadConfig(configFile string) (*config.Config, error) {
+	// Get path to config file
+	if f := os.Getenv(envConfigFile); f != "" {
+		var err error
+		configFile, err = homedir.Expand(f)
+		if err != nil {
+			return nil, xerrors.Errorf("error expanding directory %q: %w", f, err)
+		}
+	}
+
+	// Parse config file
+	config, err := config.LoadConfig(configFile, nil)
+	if err != nil {
+		return nil, err
+	}
+	if config == nil {
+		return nil, xerrors.New("no configuration read. Please provide the configuration file with the " +
+			envConfigFile + " environment variable.")
+	}
+	if config.AutoAuth == nil {
+		return nil, xerrors.New("no 'auto_auth' block found in configuration file")
+	}
+	if config.AutoAuth.Method == nil {
+		return nil, xerrors.New("no 'auto_auth.method' block found in configuration file")
+	}
+	return config, nil
+}
+
+func getSecretPath(config map[string]interface{}) (string, error) {
+	secret := os.Getenv(envSecretPath)
+	if secret == "" {
+		secretRaw, ok := config["secret"]
+		if !ok {
+			return "", xerrors.Errorf("The path to the secret where your Docker credentials are "+
+				"stored must be specified via either (1) the %s environment variable or (2) the "+
+				"field 'auto_auth.config.secret' of the config file.", envSecretPath)
+		}
+		secret, ok = secretRaw.(string)
+		if !ok {
+			return "", xerrors.New("field 'auto_auth.method.config.secret' could not be converted to string")
+		}
+		if secret == "" {
+			return "", xerrors.New("field 'auto_auth.method.config.secret' is empty")
+		}
+	}
+	return secret, nil
+}
+
+func newLogWriter(config map[string]interface{}) (*os.File, error) {
+	logDir := defaultLogDir
+	if v := os.Getenv(envLogDir); v != "" {
+		logDir = v
+	} else {
+		l, ok := config["log_dir"].(string)
+		if ok && l != "" {
+			logDir = l
+		}
+	}
+	logDir, err := homedir.Expand(logDir)
+	if err != nil {
+		return nil, xerrors.Errorf("error expanding logging directory %s: %w", logDir, err)
+	}
+	if err = os.MkdirAll(logDir, 0750); err != nil {
+		return nil, xerrors.Errorf("error creating directory %s: %w", logDir, err)
+	}
+	logFile := filepath.Join(logDir, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+}
+
+func cacheEnabled(disableCache bool) (bool, error) {
+	if v := os.Getenv(envDisableCaching); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			return false, xerrors.Errorf("value of %s could not be converted to boolean", envDisableCaching)
+		}
+		disableCache = b
+	}
+	return !disableCache, nil
 }

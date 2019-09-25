@@ -12,30 +12,19 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-set -e
+set -eu
 
-TOOL="docker-credential-vault-login"
+readonly GOLANGCI_LINT_VERSION="v1.17.0"
 
-ROOT=$( cd "$( dirname "${0}" )/.." && pwd )
+ROOT=$( cd "$( dirname "${0}" )/../.." && pwd )
 cd "${ROOT}"
 
-mkdir -p "${ROOT}/bin"
+apk add -qU --no-cache --no-progress \
+    curl \
+    git
 
-echo "==> Building Docker image..."
+curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin "${GOLANGCI_LINT_VERSION}"
 
-IMAGE=$( docker build \
-  --quiet \
-  --build-arg TARGET_GOARCH=${TARGET_GOARCH} \
-  --build-arg TARGET_GOOS=${TARGET_GOOS} \
-  . \
-)
+CGO_ENABLED=0 golangci-lint run ./...
 
-echo "==> Building the binary..."
-
-CONTAINER_ID=$( docker run --rm --detach --tty ${IMAGE} )
-
-docker cp "${CONTAINER_ID}:/build/bin/${TOOL}" "${ROOT}/bin"
-
-docker kill "${CONTAINER_ID}" > /dev/null
-
-echo "==> Done. The binary can be found at: ${ROOT}/bin/${TOOL}"
+CGO_ENABLED=0 GO111MODULE=on go test ./...

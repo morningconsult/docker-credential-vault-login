@@ -1,7 +1,0 @@
----
-platform: linux
-inputs:
-  - name: test-merge-request
-run:
-  path: ci/run-tests.sh
-  dir: test-merge-request

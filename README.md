@@ -11,6 +11,8 @@ This program leverages much of the [Vault agent](https://www.vaultproject.io/doc
 * Alibaba Cloud (AliCloud)
 * Vault AppRole
 * Amazon Web Services (AWS)
+* CloudFoundry (CF)
+* Cert
 * Microsoft Azure
 * Google Cloud Platform (GCP)
 * JSON Web Tokens (JWT)
@@ -304,6 +306,7 @@ This application uses the following environment variables:
 * **DCVL_SECRET** (default: `""`) - The path to the secret where your Docker credentials are kept in Vault.
 * **DCVL_LOG_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
 * **DCVL_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens or use cached tokens to authenticate to Vault.
+* **DCVL_DH_PRIV_KEY** (default: `""`) - The path to the Diffie-Hellman private key to be used to decrypt an encrypted cached token. See the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section.
 
 ## Error Logs
 

@@ -11,18 +11,22 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.11.4
+FROM golang:1.12.9-alpine3.10
 
-WORKDIR /go/src/github.com/morningconsult/docker-credential-vault-login
+RUN set -e; \
+  apk add -qU --no-cache git make; \
+  rm -f /var/cache/apk/*;
 
 ARG TARGET_GOOS
 ARG TARGET_GOARCH
 
-COPY . .
-
 ENV GOOS $TARGET_GOOS
 ENV GOARCH $TARGET_GOARCH
 
-RUN make
+WORKDIR /build
 
-ENTRYPOINT "/bin/bash"
+COPY . .
+
+RUN GO111MODULE=on make
+
+ENTRYPOINT "/bin/sh"
