@@ -14,7 +14,7 @@
 
 set -e
 
-readonly PROJECT="github.com/morningconsult/go-elasticsearch-alerts"
+readonly PROJECT="github.com/morningconsult/docker-credential-vault-login"
 readonly GORELEASER_VERSION="v0.108.0"
 
 echo "==> Installing APK dependencies"

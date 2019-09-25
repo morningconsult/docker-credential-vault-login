@@ -95,6 +95,9 @@ set_pipeline: check_fly
 		--pipeline $(CONCOURSE_PIPELINE) \
 		--non-interactive \
 		-v github-repo="$$(git config remote.origin.url)" \
+		-v github-email="dbellinghoven@morningconsult.com" \
+		-v github-actor="Dilan Bellinghoven"
+
 
 	$(FLY) --target mci-ci-oss unpause-pipeline \
 		--pipeline $(CONCOURSE_PIPELINE)

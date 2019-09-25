@@ -51,7 +51,7 @@ resources:
   icon: golf
   source:
     repository: golang
-    tag: 1.13.0-alpine3.10
+    tag: 1.12.9-alpine3.10
 
 - name: python
   type: registry-image
@@ -152,16 +152,19 @@ jobs:
       put: slack
       params: {alert_type: aborted}
 
-- name: build-release
+- name: publish-release
+  build_logs_to_retain: 30
   serial: true
   plan:
-  - aggregate:
-    - get: new-release
+  - in_parallel:
+    - get: docker-credential-vault-login-bumped
       trigger: true
+      passed: [build-new-release]
     - get: golang
   - task: test-and-build
     image: golang
-    file: new-release/ci/tasks/build-release.yml
+    file: docker-credential-vault-login-bumped/ci/tasks/publish-release.yml
+    input_mapping: {repo: docker-credential-vault-login-bumped}
     params:
       GITHUB_TOKEN: ((github-token))
     on_failure:
