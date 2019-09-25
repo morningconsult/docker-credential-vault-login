@@ -42,18 +42,18 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 	for i, sink := range sinks {
 		switch sink.Type {
 		case "file":
-			token, path, err := readFileSink(sink.Config)
+			token, err := readFileSink(sink.Config)
 			if err != nil {
-				logger.Error(fmt.Sprintf("error reading file sink %d", i), "error", err)
+				logger.Error(fmt.Sprintf("error reading file sink %d", i+1), "error", err)
 				continue
 			}
 
 			// Token is encrypted
 			if sink.DHType != "" {
 				var err error
-				token, err = decryptToken(path, token, sink.AAD, sink.Config)
+				token, err = decryptToken(token, sink.AAD, sink.Config)
 				if err != nil {
-					logger.Error(fmt.Sprintf("error decrypting file sink %s", path), "error", err)
+					logger.Error(fmt.Sprintf("error decrypting file sink %d", i+1), "error", err)
 					continue
 				}
 			}
@@ -63,7 +63,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 				var err error
 				token, err = unwrapToken(token, client)
 				if err != nil {
-					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %s", path), "error", err)
+					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %d", i+1), "error", err)
 					continue
 				}
 			}
@@ -77,28 +77,28 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 	return tokens
 }
 
-func readFileSink(config map[string]interface{}) (string, string, error) {
+func readFileSink(config map[string]interface{}) (string, error) {
 	pathRaw, ok := config["path"]
 	if !ok {
-		return "", "", xerrors.New("'path' not specified for sink")
+		return "", xerrors.New("'path' not specified for sink")
 	}
 
 	path, ok := pathRaw.(string)
 	if !ok {
-		return "", "", xerrors.New("value of 'path' of sink could not be converted to string")
+		return "", xerrors.New("value of 'path' of sink could not be converted to string")
 	}
 
 	fileData, err := ioutil.ReadFile(path) // nolint: gosec
 	if err != nil {
-		return "", "", xerrors.Errorf("error opening file sink %s: %w", path, err)
+		return "", xerrors.Errorf("error opening file sink %s: %w", path, err)
 	}
-	return string(fileData), path, nil
+	return string(fileData), nil
 }
 
-func decryptToken(path, token string, aad string, config map[string]interface{}) (string, error) {
+func decryptToken(token string, aad string, config map[string]interface{}) (string, error) {
 	var resp dhutil.Envelope
 	if err := json.Unmarshal([]byte(token), &resp); err != nil {
-		return "", xerrors.Errorf("error JSON-decoding file sink %s: %w", path, err)
+		return "", xerrors.Errorf("error JSON-decoding file sink: %w", err)
 	}
 
 	var privateKey []byte
