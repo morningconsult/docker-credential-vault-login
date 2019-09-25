@@ -61,7 +61,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			// Secret is TTL-wrapped
 			if sink.WrapTTL != 0 {
 				var err error
-				token, err = unwrapToken(token, client)
+				token, err = unwrapToken(token, client.Logical().Unwrap)
 				if err != nil {
 					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %d", i+1), "error", err)
 					continue
@@ -114,7 +114,7 @@ func decryptToken(token string, aad string, config map[string]interface{}) (stri
 		var err error
 		privateKey, err = readDHPrivateKey(config)
 		if err != nil {
-			return "", xerrors.Errorf("error ")
+			return "", xerrors.Errorf("error reading Diffie-Hellman private key file: %w", err)
 		}
 	}
 
@@ -172,14 +172,15 @@ func readDHPrivateKey(config map[string]interface{}) ([]byte, error) {
 	return pkInfo.Curve25519PrivateKey, nil
 }
 
-func unwrapToken(token string, client *api.Client) (string, error) {
+type unwrapFunc func(token string) (*api.Secret, error)
+
+func unwrapToken(token string, unwrap unwrapFunc) (string, error) {
 	var wrapInfo api.SecretWrapInfo
 	if err := json.Unmarshal([]byte(token), &wrapInfo); err != nil {
 		return "", xerrors.Errorf("error JSON-decoding TTL-wrapped secret: %w", err)
 	}
 
-	client.SetToken(wrapInfo.Token)
-	secret, err := client.Logical().Unwrap("")
+	secret, err := unwrap(wrapInfo.Token)
 	if err != nil {
 		return "", xerrors.Errorf("error unwrapping token: %w", err)
 	}

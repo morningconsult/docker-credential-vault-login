@@ -188,8 +188,13 @@ auto_auth {
 	}
 
 	sink "file" {
-		config = {
-			path = "testdata/token-sink"
+		wrap_ttl = "5m"
+		aad      = "TESTAAD"
+		dh_type  = "curve25519"
+		dh_path  = "testdata/dh-pub-key.json"
+		config   = {
+			path    = "testdata/token-sink"
+			dh_priv = "testdata/dh-priv-key.json"
 		}
 	}
 }`
@@ -234,15 +239,11 @@ auto_auth {
 		t.Fatal(err)
 	}
 
-	data, err := ioutil.ReadFile("testdata/token-sink")
-	if err != nil {
-		t.Fatal(err)
-	}
-	clientToken := string(data)
+	clientToken := h.client.Token()
 
 	// Test that it can read the secret using the cached token
 	t.Run("can-use-cached-token", func(t *testing.T) {
-		h.client.ClearToken()
+		h.client.ClearToken() // Client has no token so it will have to reauthenticate
 		h.cacheEnabled = true
 
 		makeApproleFiles()

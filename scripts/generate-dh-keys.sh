@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -14,19 +14,10 @@
 
 set -e 
 
-if [ -z $( which go ) ]
-then
-	echo "Go is not installed. Please install Go before running this script."
-fi
-
-ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
+ROOT=$( cd "$( dirname "${0}" )/.." && pwd )
 TEMPDIR="${ROOT}/$( mktemp -d generate-dh-keys.XXXXXX )"
 
-export GOPATH="${TEMPDIR}"
-
-cd $GOPATH
-
-go get github.com/hashicorp/vault/helper/dhutil
+cd "${TEMPDIR}"
 
 cat <<EOF > main.go
 package main
@@ -77,13 +68,13 @@ func main() {
 }
 EOF
 
-go run main.go
+GO111MODULE=on go run main.go
 
 cp dh-*-key.json "${ROOT}"
 
-cd $ROOT
+cd "${ROOT}"
 
-rm -rf $TEMPDIR
+rm -rf "${TEMPDIR}"
 
 echo "Done. The following Diffie-Hellman keys were created:"
 
