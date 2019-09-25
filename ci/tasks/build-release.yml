@@ -1,9 +1,11 @@
 ---
 platform: linux
-inputs:
-  - name: new-release
 params:
-  GITHUB_TOKEN:
+  GITHUB_ACTOR:
+  GITHUB_EMAIL:
+inputs:
+- name: repo
+outputs:
+- name: repo-dirty
 run:
-  path: ci/build-release.sh
-  dir: new-release
+  path: repo/ci/release/build-release.sh
