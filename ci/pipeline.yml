@@ -85,6 +85,7 @@ jobs:
     params:
       path: test-pull-request
       status: pending
+      context: test-pr
   - task: validate-pull-request
     image: golang
     file: test-pull-request/ci/tasks/validate.yml
@@ -94,15 +95,18 @@ jobs:
       params:
         path: test-pull-request
         status: failure
+        context: test-pr
     on_abort:
       put: test-pull-request
       params:
         path: test-pull-request
         status: error
+        context: test-pr
   - put: test-pull-request
     params:
       path: test-pull-request
       status: success
+      context: test-pr
 
 - name: validate-master
   build_logs_to_retain: 30

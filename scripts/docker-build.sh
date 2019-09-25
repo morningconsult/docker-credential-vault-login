@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Copyright 2019 The Morning Consult, LLC or its affiliates. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"). You may
@@ -15,29 +15,27 @@
 set -e
 
 TOOL="docker-credential-vault-login"
-REPO="github.com/morningconsult/${TOOL}"
-BIN_DIR="bin"
-ROOT=$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )
 
+ROOT=$( cd "$( dirname "${0}" )/.." && pwd )
 cd "${ROOT}"
 
-mkdir -p "${BIN_DIR}"
+mkdir -p "${ROOT}/bin"
 
 echo "==> Building Docker image..."
 
 IMAGE=$( docker build \
-	--quiet \
-	--build-arg TARGET_GOARCH=${TARGET_GOARCH} \
-	--build-arg TARGET_GOOS=${TARGET_GOOS} \
-	. \
+  --quiet \
+  --build-arg TARGET_GOARCH=${TARGET_GOARCH} \
+  --build-arg TARGET_GOOS=${TARGET_GOOS} \
+  . \
 )
 
 echo "==> Building the binary..."
 
 CONTAINER_ID=$( docker run --rm --detach --tty ${IMAGE} )
 
-docker cp "${CONTAINER_ID}:/go/src/${REPO}/${BIN_DIR}/${TOOL}" "${ROOT}/${BIN_DIR}"
+docker cp "${CONTAINER_ID}:/build/bin/${TOOL}" "${ROOT}/bin"
 
 docker kill "${CONTAINER_ID}" > /dev/null
 
-echo "==> Done. The binary can be found in:  ${ROOT}/${BIN_DIR}/${TOOL}"
+echo "==> Done. The binary can be found at: ${ROOT}/bin/${TOOL}"

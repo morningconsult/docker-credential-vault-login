@@ -50,7 +50,7 @@ test:
 
 $(LOCAL_BINARY): $(SOURCES)
 	@echo "==> Starting binary build..."
-	@sh -c "'./scripts/build-binary.sh' './bin' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse --short HEAD)' '$(REPO)'"
+	@sh -c "'./scripts/build-binary.sh' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse --short HEAD)' '$(REPO)'"
 	@echo "==> Done. Binary can be found at ./bin/docker-credential-vault-login"
 
 mocktools:
@@ -64,10 +64,6 @@ mocktools:
 build_mocks: mocktools
 	scripts/build-mocks.sh
 .PHONY: build_mocks
-
-install_dep:
-	@curl --silent https://raw.githubusercontent.com/golang/dep/master/install.sh | sh > /dev/null
-.PHONY: install_dep
 
 #=============================================================================
 # Release and Deployment tasks
