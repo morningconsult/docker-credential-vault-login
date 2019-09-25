@@ -2,7 +2,7 @@
 
 ![Vocker](doc/vault.png)
 
-[![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/build-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
+[![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/publish-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
 
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. When you run `docker pull` it automatically authenticates to your [Vault](https://www.vaultproject.io/) server, fetches your Docker credentials, and uses those credentials to log in to your Docker registry before pulling the Docker image.
 
@@ -104,26 +104,29 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 ### Configuration File
 
-**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/autoauth/index.html). The Vault agent documentation will be the primary reference for how to compose this file.**
+**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/index.html). Specifically, it uses only the [`vault`](https://www.vaultproject.io/docs/agent/index.html#vault-stanza) (optional) and [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) (required) sections of the Agent configuration file. The Vault Agent documentation will be the primary reference for how to compose this file.**
 
 At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
-This configuration file is essentially broken into two parts: (1) an authentication method (`auto_auth.method`) and (2) one or more "sinks" (`auto_auth.sink`) which are referred to in the context of this application as "cached tokens". The `method` stanza directs how the process will authenticate to your Vault instance in order to obtain a Vault client token, while the `sink` stanzas direct how the process will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the process is executed.
+This configuration file is essentially broken into three parts: (1) an authentication method (`auto_auth.method`), (2) one or more "sinks" (`auto_auth.sink`) (which are referred to in the context of this application as "cached tokens"), and (3) an optional stanza configuring how to reach your Vault server (`vault`). The `method` stanza directs how the process will authenticate to your Vault instance in order to obtain a Vault client token, while the `sink` stanzas direct how the process will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the process is executed.
 
 While all the rules that apply to the Vault agent configuration file apply here, there are also some additional application-specific rules:
 
-- **`auto_auth` stanza only**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, and `auto_auth`), only the [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) field is required. 
+- **Only the `auto_auth`, and `vault` stanzas are honored**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, `auto_auth`, `vault`, `cache`, `listener`, etc.), only the `auto_auth` and `vault` stanzas are needed. All other stanzas will be ignored. The `vault` stanza is optional. The [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) can be used in instead of the `vault` stanza.
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
-- **Vault client configuration**. While you may configure the Vault client using the designated Vault environment variables, you may also configure the client in the configuration file. See the [Vault Client Configuration](#vault-client-configuration) section for more information.
-- **Rolling error log directory**. You can specify the directory to which log files will be written with the `auto_auth.method.config.log_dir` field. This can also be specified with the `DCVL_LOG_DIR` environment variable. The environment variable takes precedence.
 
 #### Example
 
 The configuration file shown in this example is based on an [example](https://www.vaultproject.io/docs/agent/index.html#example-configuration) provided in the Vault documentation:
 
 ```hcl
+vault {
+	address         = "https://example.com"
+	tls_skip_verify = "true"
+}
+
 auto_auth {
 	method "aws" {
 		mount_path = "auth/aws"
@@ -153,12 +156,12 @@ auto_auth {
 }
 ```
 
-**Note**: The Diffie-Hellman public and private key files (`dh_path` and `dh_priv` fields) can be generated by executing [this](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) script provided in the repository.
+**Note**: The Diffie-Hellman public and private key files (`dh_path` and `dh_priv` fields) can be generated by executing [this](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) script provided in the repository. Note that this script requires version 1.11 of Go or newer.
 
 Using this configuration file, the application will perform the following when you run `docker pull`:
 
 1. **Read all cached tokens ("sinks").** Specifically, the process will read `/tmp/file-foo`, expecting this file to contain a plaintext token. Then, it will read `/tmp/file-bar.json`, decrypt it using the Diffie-Hellman public-private key pair (`/tmp/dh-pub-key.json` and `/tmp/dh-priv-key.json` respectively), and [unwrap](https://www.vaultproject.io/docs/concepts/response-wrapping.html) it to obtain a usable client token.
-2. **Use a cached token to read the secret.** If any of the cached tokens were successfully read, the process will try each one to attempt to read your Docker credentials from Vault at the path `secret/application/docker` until it successfully reads the secret.
+2. **Use a cached token to read the secret.** It will then attempt to read your read your Docker credentials from Vault at the path `secret/application/docker` with each of the cached tokens. If any of the cached tokens were successful, the process will pass the credentials to the Docker daemon and exit.
 3. **Re-authenticate if all cached tokens failed.** If the process was unable to read the secret using any of the cached tokens, it will authenticate to your Vault instance via the [AWS IAM](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) endpoint using the `foobar` role to obtain a new Vault client token.
 4. **Use the new token to read the secret.** If authentication was successful, the process will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
 5. **Cache the new token.** If authentication was successful, the process will also cache the tokens in the manner dictated by the `sink` stanzas of the configuration file: (1) as plaintext in a file called `/tmp/file-foo` and (2) TTL-wrapped and encrypted in a JSON file called `/tmp/file-bar.json`.
@@ -215,35 +218,6 @@ $ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
  The environment variable takes precedence.
 
 **Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
-
-### Vault Client Configuration
-
-Some configurations regarding how this process should communicate with your Vault server must also be specified. For example, these might include the URL of your Vault server, whether it should communicate using TLS, and, if so, which CA certificate, client key, and client certificate. These can be specified using either the Vault [environment variables](https://www.vaultproject.io/docs/commands/index.html#environment-variables) or the `auto_auth.method.config` field (like in the HCL shown below), or some combination of the two. At a minimum, you will probably have to specify the address of your Vault server.
-
-```hcl
-auto_auth {
-	method "aws" {
-		mount_path = "auth/aws"
-		config = {
-			type              = "iam"
-			role              = "foobar"
-			secret            = "secret/application/docker"
-			vault_addr        = "http://vault.service.consul"
-			vault_cacert      = "/tmp/ca-cert.pem"
-			vault_client_cert = "/tmp/client-cert.pem"
-			vault_client_key  = "/tmp/client-key.pem"
-		}
-	}
-
-	sink "file" {
-		config = {
-			path = "/tmp/file-foo"
-		}
-	}
-}
-```
-
-The keys in the `auto_auth.method.config` section used to configure the Vault client are the same as their respective environment variables. The environment variables take precedence. More examples are provided in following sections.
 
 ### Token Authentication
 
@@ -307,6 +281,8 @@ This application uses the following environment variables:
 * **DCVL_LOG_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
 * **DCVL_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens or use cached tokens to authenticate to Vault.
 * **DCVL_DH_PRIV_KEY** (default: `""`) - The path to the Diffie-Hellman private key to be used to decrypt an encrypted cached token. See the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section.
+
+Note that this application will also honor all of the [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) as well.
 
 ## Error Logs
 
@@ -383,8 +359,8 @@ Now you have a restricted Docker registry hosted in a Docker container at `local
 
 ```shell
 $ cd /tmp
-$ wget https://releases.hashicorp.com/vault/1.0.1/vault_1.0.1_linux_amd64.zip
-$ unzip vault_1.0.1_linux_amd64.zip
+$ wget https://releases.hashicorp.com/vault/1.2.3/vault_1.2.3_linux_amd64.zip
+$ unzip vault_1.2.3_linux_amd64.zip
 ```
 
 2. Start Vault in development mode
@@ -421,6 +397,7 @@ $ export VAULT_TOKEN="s.2SEXNmeT27KURAvSS8nMioOB"
 
 ```shell
 $ ./vault auth enable approle
+Success! Enabled approle auth method at: approle/
 ```
 
 6. Create a named role.
@@ -433,47 +410,56 @@ $ ./vault write auth/approle/role/my-role \
     token_max_ttl=30m \
     secret_id_num_uses=40 \
     policies=default,dev-policy
+Success! Data written to: auth/approle/role/my-role
 ```
 
 7. Fetch the RoleID of the AppRole.
 
 ```shell
 $ ./vault read auth/approle/role/my-role/role-id
-role_id     6b2d5d6f-85d4-7b8f-6670-8e0f346f6c31
+Key        Value
+---        -----
+role_id    0b876805-aa07-3406-453f-ff0d0721770b
 ```
 
 8. Get a SecretID issued against the AppRole.
 
 ```shell
 $ ./vault write -f auth/approle/role/my-role/secret-id
-secret_id             72d1c8d5-6fff-90d9-ecfc-e91538e7565c
-secret_id_accessor    8ebe29c2-adbb-1529-d198-5354b69acb02
+Key                   Value
+---                   -----
+secret_id             ae58d7d8-71e5-de73-28f6-9444c92423ff
+secret_id_accessor    13f69811-451a-b1fd-e8dc-b80e2c6bf369
 ```
 
 9. Write the RoleID and SecretID to files.
 
 ```shell
-$ echo "6b2d5d6f-85d4-7b8f-6670-8e0f346f6c31" > /tmp/test-vault-role-id
-$ echo "8ebe29c2-adbb-1529-d198-5354b69acb02" > /tmp/test-vault-secret-id
+$ echo "0b876805-aa07-3406-453f-ff0d0721770b" > /tmp/test-vault-role-id
+$ echo "ae58d7d8-71e5-de73-28f6-9444c92423ff" > /tmp/test-vault-secret-id
 ```
 
 10. Disable secrets engines (this is because we are in development mode).
 
 ```shell
 $ ./vault secrets disable kv
+Success! Disabled the secrets engine (if it existed) at: kv/
 $ ./vault secrets disable secret
+Success! Disabled the secrets engine (if it existed) at: secret/
 ```
 
 11. Enable the secret engine.
 
 ```shell
 $ ./vault secrets enable -path=secret kv
+Success! Enabled the kv secrets engine at: secret/
 ```
 
 12. Write your credentials to Vault.
 
 ```shell
 $ ./vault write secret/application/docker username=testuser password=testpassword
+Success! Data written to: secret/application/docker
 ```
 
 13. Check that the secret was successfully written.
@@ -496,6 +482,7 @@ path "secret/application/docker" {
 }
 EOF
 $ ./vault policy write dev-policy /tmp/policy.hcl
+Success! Uploaded policy: dev-policy
 ```
 
 **Recap**
@@ -514,12 +501,9 @@ It should fail since you have not yet logged into the registry and the credentia
 1. Install the `docker-credential-vault-login` binary (see the [Installation](#installation) section) and place it at some location on your `PATH`.
 
 ```shell
-$ mkdir -p /tmp/build-dcvl/bin /tmp/build-dcvl/src/github.com/morningconsult
-$ cd /tmp/build-dcvl/src/github.com/morningconsult
-$ git clone https://github.com/morningconsult/docker-credential-vault-login
-$ cd docker-credential-vault-login
-$ GOPATH=/tmp/build-dcvl make
-$ sudo mv ./bin/docker-credential-vault-login /usr/local/bin
+$ wget https://github.com/morningconsult/docker-credential-vault-login/releases/download/v0.2.10/docker-credential-vault-login_0.2.10_Linux_x86_64.tar.gz
+$ tar xzf docker-credential-vault-login_0.2.10_Linux_x86_64.tar.gz
+$ sudo mv docker-credential-vault-login /usr/local/bin
 ```
 
 2. Create the configuration file.
@@ -527,14 +511,18 @@ $ sudo mv ./bin/docker-credential-vault-login /usr/local/bin
 ```shell
 $ sudo mkdir -p /etc/docker-credential-vault-login
 $ cat <<EOF > /tmp/config.hcl
+vault {
+        address = "http://127.0.0.1:8200"
+}
+
 auto_auth {
         method "approle" {
                 mount_path = "auth/approle"
                 config     = {
-                        secret              = "secret/application/docker"
-                        role_id_file_path   = "/tmp/test-vault-role-id"
-                        secret_id_file_path = "/tmp/test-vault-secret-id"
-                        vault_addr          = "http://127.0.0.1:8200"
+                        secret                              = "secret/application/docker"
+                        role_id_file_path                   = "/tmp/test-vault-role-id"
+                        secret_id_file_path                 = "/tmp/test-vault-secret-id"
+                        remove_secret_id_file_after_reading = "false"
                 }
         }
 
@@ -561,12 +549,6 @@ $ docker pull localhost:5000/my-alpine
 ```
 
 You should have successfully pulled the image from your local repository.
-
-**Note:** If you want to repeat this demonstation, you will have to recreate the secret ID file since it is consumed upon execution of the credential helper.
-
-```shell
-$ echo "8ebe29c2-adbb-1529-d198-5354b69acb02" > /tmp/test-vault-secret-id
-```
 
 ### Cleanup
 
@@ -598,3 +580,4 @@ $ echo $CONFIG | jq -Mr > ~/.docker/config.json
 #### Must I always have at least one sink in my configuration file (even if I am using the token authentication method)?
 
 Yes, you must always have at least one sink in your configuration file. This is simply due to the design of the Vault agent code. However, if you disable caching by setting the `DCVL_DISABLE_CACHE` environment variable to `true` then the process will not actually cache any tokens, regardless of the sinks specified in your configuration file.
+
