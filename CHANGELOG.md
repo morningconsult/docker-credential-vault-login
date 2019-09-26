@@ -1,7 +1,11 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.2.11"></a>
+## [v0.2.11] - 2019-09-25
 ### Chore
+- Bump version and update changelog [ci skip]
 - Make a change so CI picks it up
 - Point badge to correct URL [ci skip]
 - Update README [ci skip]
@@ -197,7 +201,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.10...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.11...HEAD
+[v0.2.11]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.10...v0.2.11
 [v0.2.10]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.9...v0.2.10
 [v0.2.9]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.8...v0.2.9
 [v0.2.8]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.7...v0.2.8
