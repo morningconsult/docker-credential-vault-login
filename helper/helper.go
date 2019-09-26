@@ -145,6 +145,10 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 		h.logger.Error("error authenticating", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
+	// Cache the token if caching is enabled
+	if h.cacheEnabled {
+		h.cacheToken(token)
+	}
 	h.client.SetToken(token)
 
 	// Get credentials
@@ -157,21 +161,10 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 }
 
 func (h *Helper) authenticate() (string, error) {
-	sinks, err := vault.BuildSinks(h.authConfig.Sinks, h.logger, h.client)
-	if err != nil {
-		return "", xerrors.Errorf("error building sinks: %w", err)
-	}
-
 	method, err := vault.BuildAuthMethod(h.authConfig.Method, h.logger)
 	if err != nil {
 		return "", xerrors.Errorf("error creating auth method: %w", err)
 	}
-
-	ss := sink.NewSinkServer(&sink.SinkServerConfig{
-		Logger:        h.logger.Named("sink.server"),
-		Client:        h.client,
-		ExitAfterAuth: true,
-	})
 
 	ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
 		Logger:  h.logger.Named("auth.handler"),
@@ -182,35 +175,37 @@ func (h *Helper) authenticate() (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
 	defer cancel()
 
-	newTokenCh := make(chan string)
-
 	go ah.Run(ctx, method)
-	go ss.Run(ctx, newTokenCh, sinks)
 
 	var token string
 	select {
 	case <-ctx.Done():
 		<-ah.DoneCh
-		<-ss.DoneCh
 		return "", xerrors.Errorf("failed to get credentials within timeout (%s)", h.authTimeout)
 	case token = <-ah.OutputCh:
 		// will have to unwrap token if wrapped
 		h.logger.Info("successfully authenticated")
 	}
-
-	if h.cacheEnabled {
-		newTokenCh <- token
-		select {
-		case <-ctx.Done():
-			<-ah.DoneCh
-			<-ss.DoneCh
-			return "", xerrors.Errorf("failed to write token to sink(s) within the timeout (%s)", h.authTimeout)
-		case <-ss.DoneCh:
-		}
-	}
 	cancel()
 	<-ah.DoneCh
-	<-ss.DoneCh
-	close(newTokenCh)
 	return token, nil
+}
+
+func (h *Helper) cacheToken(token string) {
+	sinks, err := vault.BuildSinks(h.authConfig.Sinks, h.logger, h.client)
+	if err != nil {
+		h.logger.Error("error building sinks; will not cache token", "error", err)
+		return
+	}
+	if len(sinks) > 0 {
+		ss := sink.NewSinkServer(&sink.SinkServerConfig{
+			Logger:        h.logger.Named("sink.server"),
+			Client:        h.client,
+			ExitAfterAuth: true,
+		})
+		newTokenCh := make(chan string, 1)
+		newTokenCh <- token
+		ss.Run(context.Background(), newTokenCh, sinks)
+		close(newTokenCh)
+	}
 }

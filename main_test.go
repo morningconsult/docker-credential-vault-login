@@ -20,64 +20,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestLoadConfig(t *testing.T) {
-
-	cases := []struct {
-		name string
-		file string
-		err  string
-	}{
-		{
-			"file-doesnt-exist",
-			"testdata/nonexistent.hcl",
-			"stat testdata/nonexistent.hcl: no such file or directory",
-		},
-		{
-			"provided-directory",
-			"testdata",
-			"location is a directory, not a file",
-		},
-		{
-			"empty-file",
-			"testdata/empty-file.hcl",
-			"no 'auto_auth' block found in configuration file",
-		},
-		{
-			"no-method",
-			"testdata/no-method.hcl",
-			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
-		},
-		{
-			"no-mount-path",
-			"testdata/no-mount-path.hcl",
-			"",
-		},
-		{
-			"valid",
-			"testdata/valid.hcl",
-			"",
-		},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := loadConfig(tc.file)
-			if tc.err != "" {
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				if err.Error() != tc.err {
-					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
 func TestGetSecretPath(t *testing.T) {
 	testSecret := "secret/docker/creds" // nolint: gosec
 

@@ -7,10 +7,4 @@ auto_auth {
 			secret              = "secret/docker/creds"
 		}
 	}
-
-	sink "file" {
-		config = {
-			path = "/tmp/foo"
-		}
-	}
 }

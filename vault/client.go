@@ -101,7 +101,7 @@ func configureToken(client *api.Client, methodConfig *config.Method) (*api.Clien
 
 // BuildSinks creates a set of sinks from the sink configurations.
 func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*sink.SinkConfig, error) {
-	var sinks []*sink.SinkConfig
+	sinks := make([]*sink.SinkConfig, 0, len(sc))
 	for _, ss := range sc {
 		switch ss.Type {
 		case "file":

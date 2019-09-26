@@ -14,6 +14,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -24,10 +25,10 @@ import (
 
 	"github.com/docker/docker-credential-helpers/credentials"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/command/agent/config"
 	homedir "github.com/mitchellh/go-homedir"
 	"golang.org/x/xerrors"
 
+	"github.com/morningconsult/docker-credential-vault-login/config"
 	"github.com/morningconsult/docker-credential-vault-login/helper"
 	"github.com/morningconsult/docker-credential-vault-login/vault"
 	"github.com/morningconsult/docker-credential-vault-login/version"
@@ -59,8 +60,17 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Get path to config file
+	if f := os.Getenv(envConfigFile); f != "" {
+		var err error
+		configFile, err = homedir.Expand(f)
+		if err != nil {
+			log.Fatalf("error expanding directory %q: %v", f, err)
+		}
+	}
+
 	// Parse config file
-	config, err := loadConfig(configFile)
+	config, err := config.LoadConfig(configFile)
 	if err != nil {
 		log.Fatalf("error parsing configuration file: %v", err)
 	}
@@ -107,34 +117,6 @@ func main() {
 	credentials.Serve(helper)
 }
 
-func loadConfig(configFile string) (*config.Config, error) {
-	// Get path to config file
-	if f := os.Getenv(envConfigFile); f != "" {
-		var err error
-		configFile, err = homedir.Expand(f)
-		if err != nil {
-			return nil, xerrors.Errorf("error expanding directory %q: %w", f, err)
-		}
-	}
-
-	// Parse config file
-	config, err := config.LoadConfig(configFile, nil)
-	if err != nil {
-		return nil, err
-	}
-	if config == nil {
-		return nil, xerrors.New("no configuration read. Please provide the configuration file with the " +
-			envConfigFile + " environment variable.")
-	}
-	if config.AutoAuth == nil {
-		return nil, xerrors.New("no 'auto_auth' block found in configuration file")
-	}
-	if config.AutoAuth.Method == nil {
-		return nil, xerrors.New("no 'auto_auth.method' block found in configuration file")
-	}
-	return config, nil
-}
-
 func getSecretPath(config map[string]interface{}) (string, error) {
 	secret := os.Getenv(envSecretPath)
 	if secret == "" {
@@ -146,10 +128,10 @@ func getSecretPath(config map[string]interface{}) (string, error) {
 		}
 		secret, ok = secretRaw.(string)
 		if !ok {
-			return "", xerrors.New("field 'auto_auth.method.config.secret' could not be converted to string")
+			return "", errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
 		}
 		if secret == "" {
-			return "", xerrors.New("field 'auto_auth.method.config.secret' is empty")
+			return "", errors.New("field 'auto_auth.method.config.secret' is empty")
 		}
 	}
 	return secret, nil
