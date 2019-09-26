@@ -138,17 +138,22 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 		}
 	}
 
+	ctx := context.Background()
+
 	// Failed to read secret with cached token. Reauthenticate.
 	h.client.ClearToken()
-	token, err := h.authenticate()
+	token, err := h.authenticate(ctx)
 	if err != nil {
 		h.logger.Error("error authenticating", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
+
 	// Cache the token if caching is enabled
 	if h.cacheEnabled {
-		h.cacheToken(token)
+		h.cacheToken(ctx, token)
 	}
+
+	// Give the newly-obtained token to the client
 	h.client.SetToken(token)
 
 	// Get credentials
@@ -160,7 +165,7 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 	return creds.Username, creds.Password, nil
 }
 
-func (h *Helper) authenticate() (string, error) {
+func (h *Helper) authenticate(ctx context.Context) (string, error) {
 	method, err := vault.BuildAuthMethod(h.authConfig.Method, h.logger)
 	if err != nil {
 		return "", xerrors.Errorf("error creating auth method: %w", err)
@@ -172,7 +177,7 @@ func (h *Helper) authenticate() (string, error) {
 		WrapTTL: h.authConfig.Method.WrapTTL,
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), h.authTimeout)
+	ctx, cancel := context.WithTimeout(ctx, h.authTimeout)
 	defer cancel()
 
 	go ah.Run(ctx, method)
@@ -191,7 +196,7 @@ func (h *Helper) authenticate() (string, error) {
 	return token, nil
 }
 
-func (h *Helper) cacheToken(token string) {
+func (h *Helper) cacheToken(ctx context.Context, token string) {
 	sinks, err := vault.BuildSinks(h.authConfig.Sinks, h.logger, h.client)
 	if err != nil {
 		h.logger.Error("error building sinks; will not cache token", "error", err)
@@ -205,7 +210,7 @@ func (h *Helper) cacheToken(token string) {
 		})
 		newTokenCh := make(chan string, 1)
 		newTokenCh <- token
-		ss.Run(context.Background(), newTokenCh, sinks)
+		ss.Run(ctx, newTokenCh, sinks)
 		close(newTokenCh)
 	}
 }
