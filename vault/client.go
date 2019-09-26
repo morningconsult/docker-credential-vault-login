@@ -61,7 +61,7 @@ func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Cli
 			defer os.Unsetenv(api.EnvVaultClientCert)
 		}
 		if os.Getenv(api.EnvVaultClientKey) == "" && vaultConfig.ClientKey != "" {
-			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientCert)
+			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientKey)
 			defer os.Unsetenv(api.EnvVaultClientKey)
 		}
 	}
