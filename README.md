@@ -108,11 +108,12 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
-This configuration file is essentially broken into three parts: (1) an authentication method (`auto_auth.method`), (2) one or more "sinks" (`auto_auth.sink`) (which are referred to in the context of this application as "cached tokens"), and (3) an optional stanza configuring how to reach your Vault server (`vault`). The `method` stanza directs how the process will authenticate to your Vault instance in order to obtain a Vault client token, while the `sink` stanzas direct how the process will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the process is executed.
+This configuration file is essentially broken into three parts: (1) an authentication method (`auto_auth.method`), (2) any number of "sinks" (`auto_auth.sink`) (which are referred to in the context of this application as "cached tokens"), and (3) an optional stanza configuring how to reach your Vault server (`vault`). The `method` stanza directs how the process will authenticate to your Vault instance in order to obtain a Vault client token, while the `sink` stanzas direct how the process will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the process is executed.
 
 While all the rules that apply to the Vault agent configuration file apply here, there are also some additional application-specific rules:
 
 - **Only the `auto_auth`, and `vault` stanzas are honored**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, `auto_auth`, `vault`, `cache`, `listener`, etc.), only the `auto_auth` and `vault` stanzas are needed. All other stanzas will be ignored. The `vault` stanza is optional. The [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) can be used in instead of the `vault` stanza.
+- **Sinks are optional**. Sinks are used for storing tokens for reuse later, avoiding the need to reauthenticate. However, they are only optional. To add a sink, include it in the `auto_auth.sink` stanza. Any number of sinks may be used.
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
 - **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
@@ -574,10 +575,3 @@ $ docker image remove registry:2
 $ CONFIG=$( cat ~/.docker/config.json | jq -Mr 'del(.credHelpers | ."localhost:5000") | del(.auths | ."localhost:5000")' )
 $ echo $CONFIG | jq -Mr > ~/.docker/config.json
 ```
-
-## Frequently-Asked Questions
-
-#### Must I always have at least one sink in my configuration file (even if I am using the token authentication method)?
-
-Yes, you must always have at least one sink in your configuration file. This is simply due to the design of the Vault agent code. However, if you disable caching by setting the `DCVL_DISABLE_CACHE` environment variable to `true` then the process will not actually cache any tokens, regardless of the sinks specified in your configuration file.
-
