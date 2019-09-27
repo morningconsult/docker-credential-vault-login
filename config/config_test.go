@@ -50,7 +50,7 @@ func TestLoadConfig(t *testing.T) {
 		{
 			"multiple-sinks",
 			"testdata/multiple-sinks.hcl",
-			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
+			"",
 		},
 		{
 			"no-sinks",
