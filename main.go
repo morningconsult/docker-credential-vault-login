@@ -14,7 +14,6 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -42,7 +41,6 @@ const (
 
 	envConfigFile     = "DCVL_CONFIG_FILE"
 	envLogDir         = "DCVL_LOG_DIR"
-	envSecretPath     = "DCVL_SECRET"
 	envDisableCaching = "DCVL_DISABLE_CACHE"
 )
 
@@ -70,19 +68,19 @@ func main() {
 	}
 
 	// Parse config file
-	config, err := config.LoadConfig(configFile)
+	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		log.Fatalf("error parsing configuration file: %v", err)
 	}
 
-	// Get the path to where the secret is kept in Vault
-	secretPath, err := getSecretPath(config.AutoAuth.Method.Config)
+	// Build secrets table
+	secretsTable, err := config.BuildSecretsTable(cfg.AutoAuth.Method.Config)
 	if err != nil {
-		log.Fatalf("error getting path to secret: %v", err)
+		log.Fatalf("error building secrets table: %v", err)
 	}
 
 	// Create new Vault client
-	client, err := vault.NewClient(config.AutoAuth.Method, config.Vault)
+	client, err := vault.NewClient(cfg.AutoAuth.Method, cfg.Vault)
 	if err != nil {
 		log.Fatalf("error creating new Vault client: %v", err)
 	}
@@ -94,7 +92,7 @@ func main() {
 	}
 
 	// Open log writer
-	logWriter, err := newLogWriter(config.AutoAuth.Method.Config)
+	logWriter, err := newLogWriter(cfg.AutoAuth.Method.Config)
 	if err != nil {
 		log.Fatalf("error creating log file: %v", err)
 	}
@@ -110,31 +108,11 @@ func main() {
 	helper := helper.New(helper.Options{
 		Logger:      logger,
 		Client:      client,
-		Secret:      secretPath,
+		Secret:      secretsTable,
 		EnableCache: enableCache,
-		AuthConfig:  config.AutoAuth,
+		AuthConfig:  cfg.AutoAuth,
 	})
 	credentials.Serve(helper)
-}
-
-func getSecretPath(config map[string]interface{}) (string, error) {
-	secret := os.Getenv(envSecretPath)
-	if secret == "" {
-		secretRaw, ok := config["secret"]
-		if !ok {
-			return "", xerrors.Errorf("The path to the secret where your Docker credentials are "+
-				"stored must be specified via either (1) the %s environment variable or (2) the "+
-				"field 'auto_auth.config.secret' of the config file.", envSecretPath)
-		}
-		secret, ok = secretRaw.(string)
-		if !ok {
-			return "", errors.New("field 'auto_auth.method.config.secret' could not be converted to string")
-		}
-		if secret == "" {
-			return "", errors.New("field 'auto_auth.method.config.secret' is empty")
-		}
-	}
-	return secret, nil
 }
 
 func newLogWriter(config map[string]interface{}) (*os.File, error) {

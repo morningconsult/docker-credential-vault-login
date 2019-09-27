@@ -102,7 +102,7 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 ### Configuration File
 
-**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/index.html). Specifically, it uses only the [`vault`](https://www.vaultproject.io/docs/agent/index.html#vault-stanza) (optional) and [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) (required) sections of the Agent configuration file. The Vault Agent documentation will be the primary reference for how to compose this file.**
+**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/index.html) (with a few small differences). Specifically, it uses only the [`vault`](https://www.vaultproject.io/docs/agent/index.html#vault-stanza) (optional) and [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) (required) sections of the Agent configuration file. The Vault Agent documentation will be the primary reference for how to compose this file.**
 
 At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
 
@@ -169,15 +169,9 @@ If it was able to successfully read your Docker credentials from Vault, it will 
 
 #### Secret Path
 
-The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server.
 
-For example, if you keep your Docker credentials at `secret/application/docker`, you can set the secret either by executing
-
-```shell
-$ export DCVL_SECRET="secret/application/docker"
-```
-
-or by setting it in the configuration file.
+For example, if you keep your Docker credentials at `secret/application/docker`, you can set the secret either by executing by setting it in the configuration file.
 
 ```hcl
 auto_auth {
@@ -197,6 +191,34 @@ auto_auth {
 	}
 }
 ```
+
+With this configuration, when you run a `docker pull`, the process will attempt to read your secret at `secret/application/docker`, regardless of which registry is requested.
+
+You may also specify different secrets for different registries. In the example below:
+
+```hcl
+auto_auth {
+	method "aws" {
+		mount_path = "auth/aws"
+		config = {
+			type   = "iam"
+			role   = "foobar"
+			secret = {
+                                registry-1.example.com = "secret/docker/registry1"
+                                registry-2.example.com = "secret/docker/registry2"
+                        }
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
+
+the process will attempt to read your secret at `secret/docker/registry1` if you attempt to pull an image from `registry-1.example.com` (e.g. `docker pull registry-1.example.com/my-image`). On the other hand, if you were to run `docker pull registry-2.example.com/my-image`, it would attempt to read the secret from `secret/docker/registry2`.
 
 #### Diffie-Hellman Private Key
 
@@ -276,7 +298,6 @@ auto_auth {
 This application uses the following environment variables:
 
 * **DCVL_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.hcl"`) - The path to your `config.hcl` file.
-* **DCVL_SECRET** (default: `""`) - The path to the secret where your Docker credentials are kept in Vault.
 * **DCVL_LOG_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
 * **DCVL_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens or use cached tokens to authenticate to Vault.
 * **DCVL_DH_PRIV_KEY** (default: `""`) - The path to the Diffie-Hellman private key to be used to decrypt an encrypted cached token. See the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section.
