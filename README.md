@@ -113,7 +113,7 @@ While all the rules that apply to the Vault agent configuration file apply here,
 - **Only the `auto_auth`, and `vault` stanzas are honored**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, `auto_auth`, `vault`, `cache`, `listener`, etc.), only the `auto_auth` and `vault` stanzas are needed. All other stanzas will be ignored. The `vault` stanza is optional. The [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) can be used in instead of the `vault` stanza.
 - **Sinks are optional**. Sinks are used for storing tokens for reuse later, avoiding the need to reauthenticate. They are optional. To add a sink, include it in the `auto_auth.sink` stanza. Any number of sinks may be used.
 - **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
-- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
+- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified in the configuration file. See the [Secret Path](#secret-path) section for how to specify the secret.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
 #### Example
@@ -169,9 +169,11 @@ If it was able to successfully read your Docker credentials from Vault, it will 
 
 #### Secret Path
 
-The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server.
+The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. You can specify just one secret or you can point different registries to different secrets.
 
-For example, if you keep your Docker credentials at `secret/application/docker`, you can set the secret either by executing by setting it in the configuration file.
+##### Single secret for all registries
+
+If you want the process to look for your Docker credentials at just one path in Vault, then the value of `secret` should just be a string representing the path to the secret. For example, if you keep your Docker credentials at `secret/application/docker`, you might construct your configuration file like this:
 
 ```hcl
 auto_auth {
@@ -192,9 +194,11 @@ auto_auth {
 }
 ```
 
-With this configuration, when you run a `docker pull`, the process will attempt to read your secret at `secret/application/docker`, regardless of which registry is requested.
+With this configuration, when you run a `docker pull`, the process will attempt to read your secret at `secret/application/docker`, regardless of which registry is requested. In other words, if you run `docker pull registry.example.com/my-image`, `docker pull registry.foo.bar/bin-baz`, or any other registry, then the process will attempt to lookup your Docker credentials at `secret/application/docker` every time.
 
-You may also specify different secrets for different registries. In the example below:
+##### Different secrets for different registries
+
+You may also specify different secrets for different registries. for example, you might construct your configuration file like this:
 
 ```hcl
 auto_auth {
@@ -218,7 +222,7 @@ auto_auth {
 }
 ```
 
-the process will attempt to read your secret at `secret/docker/registry1` if you attempt to pull an image from `registry-1.example.com` (e.g. `docker pull registry-1.example.com/my-image`). On the other hand, if you were to run `docker pull registry-2.example.com/my-image`, it would attempt to read the secret from `secret/docker/registry2`.
+With this configuration, if you attempt to pull an image from `registry-1.example.com` (e.g. `docker pull registry-1.example.com/my-image`) then the process will attempt to lookup your Docker credentials at `secret/docker/registry1`. On the other hand, if you were to run `docker pull registry-2.example.com/my-image`, it will attempt to lookup the credentials at `secret/docker/registry2`.
 
 #### Diffie-Hellman Private Key
 
