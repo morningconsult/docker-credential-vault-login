@@ -48,6 +48,11 @@ func TestLoadConfig(t *testing.T) {
 			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
 		},
 		{
+			"multiple-sinks",
+			"testdata/multiple-sinks.hcl",
+			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
+		},
+		{
 			"no-sinks",
 			"testdata/no-sinks.hcl",
 			"",
@@ -72,7 +77,7 @@ func TestLoadConfig(t *testing.T) {
 					t.Fatal("expected an error but didn't receive one")
 				}
 				if err.Error() != tc.err {
-					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
+					t.Fatalf("Expected error:\n\t%s\nGot:\n\t%s", tc.err, err.Error())
 				}
 				return
 			}
