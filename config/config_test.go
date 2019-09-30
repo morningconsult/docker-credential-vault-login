@@ -163,7 +163,18 @@ func TestBuildSecretsTable(t *testing.T) {
 		{
 			name:               "no-secrets-field",
 			config:             map[string]interface{}{},
-			expectErr:          "path to the secret where your Docker credentials are stored must be specified via in the field 'auto_auth.method.config.secret' of the config file", // nolint: lll
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "both-secret-fields",
+			config: map[string]interface{}{
+				"secret": "secret/docker/creds",
+				"secrets": []map[string]interface{}{
+					{"registry-1.example.com": "secret/docker/registry1"},
+				},
+			},
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
 			expectSecretsTable: SecretsTable{},
 		},
 		{
@@ -171,7 +182,15 @@ func TestBuildSecretsTable(t *testing.T) {
 			config: map[string]interface{}{
 				"secret": "",
 			},
-			expectErr:          "field 'auto_auth.method.config.secret' is empty",
+			expectErr:          "field 'auto_auth.method.config.secret' must not be empty",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "secret-not-string",
+			config: map[string]interface{}{
+				"secret": 12345,
+			},
+			expectErr:          "field 'auto_auth.method.config.secret' must be a string",
 			expectSecretsTable: SecretsTable{},
 		},
 		{
@@ -185,29 +204,37 @@ func TestBuildSecretsTable(t *testing.T) {
 		{
 			name: "empty-map-secrets",
 			config: map[string]interface{}{
-				"secret": map[string]interface{}{},
+				"secrets": []map[string]interface{}{},
 			},
-			expectErr:          "field 'auto_auth.method.config.secret' must be either a string or a map",
+			expectErr:          "field 'auto_auth.method.config.secrets' must have at least one entry",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "secrets-bad-type",
+			config: map[string]interface{}{
+				"secrets": "not a []map[string]interface{}",
+			},
+			expectErr:          "field 'auto_auth.method.config.secrets' must be a map[string]string",
 			expectSecretsTable: SecretsTable{},
 		},
 		{
 			name: "map-secrets-have-empty-values",
 			config: map[string]interface{}{
-				"secret": map[string]interface{}{
-					"registry.example.com": "",
+				"secrets": []map[string]interface{}{
+					{"registry.example.com": ""},
 				},
 			},
-			expectErr:          "field 'auto_auth.method.config.secret' must be either a string or a map",
+			expectErr:          "field 'auto_auth.method.config.secrets' must have at least one entry",
 			expectSecretsTable: SecretsTable{},
 		},
 		{
 			name: "valid-map-secrets",
 			config: map[string]interface{}{
-				"secret": map[string]interface{}{
-					"registry.example.com": "secret/docker/creds",
+				"secrets": []map[string]interface{}{
+					{"registry.example.com": "secret/docker/creds"},
 				},
 			},
-			expectErr: "field 'auto_auth.method.config.secret' must be either a string or a map",
+			expectErr: "",
 			expectSecretsTable: SecretsTable{
 				registryToSecret: map[string]string{
 					"registry.example.com": "secret/docker/creds",

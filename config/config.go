@@ -117,32 +117,50 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 // of the configuration file. The value of this field may be either a
 // string or a map[string]string.
 func BuildSecretsTable(config map[string]interface{}) (SecretsTable, error) { // nolint: gocyclo
-	secretRaw, ok := config["secret"]
+	errInvalidFormat := errors.New("path to the secret where your Docker credentials are stored " +
+		"must be specified in either 'auto_auth.method.config.secret' or " +
+		"'auto_auth.method.config.secrets', but not both")
+	secretRaw, hasSecret := config["secret"]
+	secretsRaw, hasSecrets := config["secrets"]
+	if hasSecret && hasSecrets {
+		return SecretsTable{}, errInvalidFormat
+	}
+	if hasSecret {
+		return secretsTableFromString(secretRaw)
+	} else if hasSecrets {
+		return secretsTableFromMap(secretsRaw)
+	}
+	return SecretsTable{}, errInvalidFormat
+}
+
+func secretsTableFromString(secretRaw interface{}) (SecretsTable, error) {
+	secret, ok := secretRaw.(string)
 	if !ok {
-		return SecretsTable{}, errors.New("path to the secret where your Docker credentials are stored " +
-			"must be specified via in the field 'auto_auth.method.config.secret' of the config file")
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must be a string")
 	}
-	switch s := secretRaw.(type) {
-	case string:
-		if s == "" {
-			return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' is empty")
-		}
-		return SecretsTable{oneSecret: s}, nil
-	case []map[string]interface{}:
-		if len(s) == 0 {
-			return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' is empty")
-		}
-		obj := make(map[string]string)
-		for host, pathRaw := range s[0] {
-			if path, ok := pathRaw.(string); ok && path != "" && host != "" {
-				obj[host] = path
-			}
-		}
-		if len(obj) == 0 {
-			return SecretsTable{}, errors.New("'auto_auth.method.config.secret' should be a map[string]string")
-		}
-		return SecretsTable{registryToSecret: obj}, nil
-	default:
-		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must be either a string or a map")
+	if secret == "" {
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must not be empty")
 	}
+	return SecretsTable{oneSecret: secret}, nil
+}
+
+func secretsTableFromMap(secretsRaw interface{}) (SecretsTable, error) {
+	errEmptyMap := errors.New("field 'auto_auth.method.config.secrets' must have at least one entry")
+	secretsArr, ok := secretsRaw.([]map[string]interface{})
+	if !ok {
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secrets' must be a map[string]string")
+	}
+	if len(secretsArr) == 0 {
+		return SecretsTable{}, errEmptyMap
+	}
+	obj := make(map[string]string)
+	for host, pathRaw := range secretsArr[0] {
+		if path, ok := pathRaw.(string); ok && path != "" && host != "" {
+			obj[host] = path
+		}
+	}
+	if len(obj) == 0 {
+		return SecretsTable{}, errEmptyMap
+	}
+	return SecretsTable{registryToSecret: obj}, nil
 }

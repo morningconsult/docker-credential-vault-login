@@ -45,7 +45,7 @@ Within Vault, you should store your Docker credentials in the following format:
     "password": "my-secure-password"
 }
 ```
-Note that the Vault path where you store these credentials will be used as the value of the `auto_auth.method.config.secret` field of your `config.hcl` file (see the [Configuration File](#configuration-file) section).
+Note that the Vault path where you store these credentials will be used as the value of the `secret` or `secrets` field of your configuration file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
 
@@ -111,9 +111,9 @@ This configuration file is essentially broken into three parts: (1) an authentic
 While all the rules that apply to the Vault agent configuration file apply here, there are also some additional application-specific rules:
 
 - **Only the `auto_auth`, and `vault` stanzas are honored**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, `auto_auth`, `vault`, `cache`, `listener`, etc.), only the `auto_auth` and `vault` stanzas are needed. All other stanzas will be ignored. The `vault` stanza is optional. The [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) can be used in instead of the `vault` stanza.
+- **Docker credentials secret**. The path to the secret(s) where your Docker credentials is/are kept in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified in the configuration file. See the [Secret Path](#secret-path) section for how to specify the secret(s).
 - **Sinks are optional**. Sinks are used for storing tokens for reuse later, avoiding the need to reauthenticate. They are optional. To add a sink, include it in the `auto_auth.sink` stanza. Any number of sinks may be used. If no sinks are used, then the credential helper will authenticate every time it runs in order to obtain a Vault token.
-- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
-- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified in the configuration file. See the [Secret Path](#secret-path) section for how to specify the secret.
+- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
 #### Example
@@ -169,7 +169,7 @@ If it was able to successfully read your Docker credentials from Vault, it will 
 
 #### Secret Path
 
-The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. You can specify just one secret or you can point different registries to different secrets.
+The `auto_auth.method.config` field of the configuration file must contain the *either* the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server *or* the key `secrets` which point different registries to different secrets **BUT NOT BOTH**.
 
 ##### Single secret for all registries
 
@@ -198,16 +198,16 @@ With this configuration, when you run a `docker pull`, the process will attempt 
 
 ##### Different secrets for different registries
 
-You may also specify different secrets for different registries. for example, you might construct your configuration file like this:
+You may also specify different secrets for different registries via the `secrets` field. for example, you might construct your configuration file like this:
 
 ```hcl
 auto_auth {
 	method "aws" {
 		mount_path = "auth/aws"
 		config = {
-			type   = "iam"
-			role   = "foobar"
-			secret = {
+			type    = "iam"
+			role    = "foobar"
+			secrets = {
                                 registry-1.example.com = "secret/docker/registry1"
                                 registry-2.example.com = "secret/docker/registry2"
                         }

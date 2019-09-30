@@ -4,7 +4,7 @@ auto_auth {
 		config = {
 			role_id_file_path   = "/tmp/role-id"
 			secret_id_file_path = "/tmp/secret-id"
-			secret = {
+			secrets = {
 				registry-1.example.com = "secret/docker/creds"
 				registry-2.example.com = "secret/docker/extra/creds"
 			}
