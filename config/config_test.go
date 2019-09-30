@@ -18,34 +18,40 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	vaultconfig "github.com/hashicorp/vault/command/agent/config"
 )
 
 func TestLoadConfig(t *testing.T) {
 
 	cases := []struct {
-		name string
-		file string
-		err  string
+		name         string
+		file         string
+		err          string
+		expectConfig *vaultconfig.Config
 	}{
 		{
 			"file-doesnt-exist",
 			"testdata/nonexistent.hcl",
 			"stat testdata/nonexistent.hcl: no such file or directory",
+			nil,
 		},
 		{
 			"provided-directory",
 			"testdata",
 			"location is a directory, not a file",
+			nil,
 		},
 		{
 			"empty-file",
 			"testdata/empty-file.hcl",
 			"no 'auto_auth' block found in configuration file",
+			nil,
 		},
 		{
 			"no-method",
 			"testdata/no-method.hcl",
 			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
+			nil,
 		},
 		{
 			"multiple-sinks",
@@ -56,22 +62,77 @@ func TestLoadConfig(t *testing.T) {
 			"no-sinks",
 			"testdata/no-sinks.hcl",
 			"",
+			&vaultconfig.Config{
+				AutoAuth: &vaultconfig.AutoAuth{
+					Method: &vaultconfig.Method{
+						Type:      "approle",
+						MountPath: "auth/approle",
+						Config: map[string]interface{}{
+							"role_id_file_path":   "/tmp/role-id",
+							"secret":              "secret/docker/creds",
+							"secret_id_file_path": "/tmp/secret-id",
+						},
+					},
+				},
+			},
 		},
 		{
 			"no-mount-path",
 			"testdata/no-mount-path.hcl",
 			"",
+			&vaultconfig.Config{
+				AutoAuth: &vaultconfig.AutoAuth{
+					Method: &vaultconfig.Method{
+						Type:      "aws",
+						MountPath: "auth/aws",
+						Config: map[string]interface{}{
+							"role":   "dev-role-iam",
+							"secret": "secret/docker/creds",
+							"type":   "iam",
+						},
+					},
+					Sinks: []*vaultconfig.Sink{
+						{
+							Type: "file",
+							Config: map[string]interface{}{
+								"path": "/tmp/foo",
+							},
+						},
+					},
+				},
+			},
 		},
 		{
 			"valid",
 			"testdata/valid.hcl",
 			"",
+			&vaultconfig.Config{
+				AutoAuth: &vaultconfig.AutoAuth{
+					Method: &vaultconfig.Method{
+						Type:      "approle",
+						MountPath: "auth/approle",
+						Config: map[string]interface{}{
+							"role_id_file_path":   "/tmp/role-id",
+							"secret":              "secret/docker/creds",
+							"secret_id_file_path": "/tmp/secret-id",
+						},
+					},
+					Sinks: []*vaultconfig.Sink{
+						{
+							Type: "file",
+							Config: map[string]interface{}{
+								"path": "/tmp/foo",
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := LoadConfig(tc.file)
+			gotConfig, err := LoadConfig(tc.file)
 			if tc.err != "" {
 				if err == nil {
 					t.Fatal("expected an error but didn't receive one")
@@ -83,6 +144,15 @@ func TestLoadConfig(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatal(err)
+			}
+			comparer := cmp.Comparer(func(c1 *vaultconfig.Config, c2 *vaultconfig.Config) bool {
+				if (c1 == nil || c2 == nil) && !((c1 == nil) && (c2 == nil)) {
+					return false
+				}
+				return cmp.Equal(c1.AutoAuth, c2.AutoAuth) && cmp.Equal(c1.Vault, c2.Vault)
+			})
+			if !cmp.Equal(tc.expectConfig, gotConfig, comparer) {
+				t.Errorf("Configurations differ:\n%v", cmp.Diff(tc.expectConfig, gotConfig))
 			}
 		})
 	}
