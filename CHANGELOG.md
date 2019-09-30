@@ -1,6 +1,18 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Chore
+- Update README to reflect new optional sink feature
+
+### Feat
+- Sinks are now optional
+
+
+<a name="v0.2.12"></a>
+## [v0.2.12] - 2019-09-26
+### Chore
+- Bump version and update changelog [ci skip]
+
 
 <a name="v0.2.11"></a>
 ## [v0.2.11] - 2019-09-25
@@ -201,7 +213,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.11...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.12...HEAD
+[v0.2.12]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.11...v0.2.12
 [v0.2.11]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.10...v0.2.11
 [v0.2.10]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.9...v0.2.10
 [v0.2.9]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.8...v0.2.9
