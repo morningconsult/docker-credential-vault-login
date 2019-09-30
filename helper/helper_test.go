@@ -33,6 +33,8 @@ import (
 	"github.com/hashicorp/vault/sdk/helper/logging"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/hashicorp/vault/vault"
+
+	mciconfig "github.com/morningconsult/docker-credential-vault-login/config"
 )
 
 func TestHelper_Add(t *testing.T) {
@@ -207,7 +209,7 @@ auto_auth {
 	defer os.Remove(configFile)
 	defer os.Remove("testdata/token-sink")
 
-	config, err := config.LoadConfig(configFile, hclog.NewNullLogger())
+	config, err := mciconfig.LoadConfig(configFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -261,6 +263,57 @@ auto_auth {
 		}
 		if h.client.Token() != clientToken {
 			t.Errorf("Expected token %s, got token %s", clientToken, h.client.Token())
+		}
+	})
+
+	// Ensure that if the role does not have permission to read
+	// the secret, it fails
+	t.Run("can-authenticate-without-sinks", func(t *testing.T) {
+		noSinksHCL := `
+auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = %q
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+}`
+		noSinksHCL = fmt.Sprintf(noSinksHCL, secretPath, roleIDFile, secretIDFile)
+
+		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
+		if err = ioutil.WriteFile(configFile, []byte(noSinksHCL), 0644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(noSinksConfigFile)
+
+		config, err = mciconfig.LoadConfig(noSinksConfigFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		client.ClearToken()
+		h = New(Options{
+			Logger:      hclog.NewNullLogger(),
+			Client:      client,
+			AuthTimeout: 3,
+			Secret:      secretPath,
+			AuthConfig:  config.AutoAuth,
+		})
+
+		makeApproleFiles()
+
+		user, pw, err = h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if user != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
+		}
+		if pw != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", pw)
 		}
 	})
 
