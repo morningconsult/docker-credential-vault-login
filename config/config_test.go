@@ -57,6 +57,7 @@ func TestLoadConfig(t *testing.T) {
 			"multiple-sinks",
 			"testdata/multiple-sinks.hcl",
 			"",
+			nil,
 		},
 		{
 			"no-sinks",
