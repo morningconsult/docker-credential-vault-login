@@ -543,10 +543,12 @@ auto_auth {
         method "approle" {
                 mount_path = "auth/approle"
                 config     = {
-                        secret                              = "secret/application/docker"
                         role_id_file_path                   = "/tmp/test-vault-role-id"
                         secret_id_file_path                 = "/tmp/test-vault-secret-id"
                         remove_secret_id_file_after_reading = "false"
+			secrets = {
+				"localhost:5000" = "secret/application/docker"
+			}
                 }
         }
 
