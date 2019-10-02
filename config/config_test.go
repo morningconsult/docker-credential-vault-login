@@ -14,6 +14,7 @@
 package config
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -132,7 +133,7 @@ func TestLoadConfig(t *testing.T) {
 					t.Fatal("expected an error but didn't receive one")
 				}
 				if err.Error() != tc.err {
-					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
+					t.Fatalf("Expected error:\n\t%s\nGot:\n\t%s", tc.err, err.Error())
 				}
 				return
 			}
@@ -150,4 +151,169 @@ func TestLoadConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildSecretsTable(t *testing.T) {
+	cases := []struct {
+		name               string
+		config             map[string]interface{}
+		expectErr          string
+		expectSecretsTable SecretsTable
+	}{
+		{
+			name:               "no-secrets-field",
+			config:             map[string]interface{}{},
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "both-secret-fields",
+			config: map[string]interface{}{
+				"secret": "secret/docker/creds",
+				"secrets": []map[string]interface{}{
+					{"registry-1.example.com": "secret/docker/registry1"},
+				},
+			},
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "empty-string-secret",
+			config: map[string]interface{}{
+				"secret": "",
+			},
+			expectErr:          "field 'auto_auth.method.config.secret' must not be empty",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "secret-not-string",
+			config: map[string]interface{}{
+				"secret": 12345,
+			},
+			expectErr:          "field 'auto_auth.method.config.secret' must be a string",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "valid-string-secret",
+			config: map[string]interface{}{
+				"secret": "secret/docker/creds",
+			},
+			expectErr:          "",
+			expectSecretsTable: SecretsTable{oneSecret: "secret/docker/creds"},
+		},
+		{
+			name: "empty-map-secrets",
+			config: map[string]interface{}{
+				"secrets": []map[string]interface{}{},
+			},
+			expectErr:          "field 'auto_auth.method.config.secrets' must have at least one entry",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "secrets-bad-type",
+			config: map[string]interface{}{
+				"secrets": "not a []map[string]interface{}",
+			},
+			expectErr:          "field 'auto_auth.method.config.secrets' must be a map[string]string",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "map-secrets-have-empty-values",
+			config: map[string]interface{}{
+				"secrets": []map[string]interface{}{
+					{"registry.example.com": ""},
+				},
+			},
+			expectErr:          "field 'auto_auth.method.config.secrets' must have at least one entry",
+			expectSecretsTable: SecretsTable{},
+		},
+		{
+			name: "valid-map-secrets",
+			config: map[string]interface{}{
+				"secrets": []map[string]interface{}{
+					{"registry.example.com": "secret/docker/creds"},
+				},
+			},
+			expectErr: "",
+			expectSecretsTable: SecretsTable{
+				registryToSecret: map[string]string{
+					"registry.example.com": "secret/docker/creds",
+				},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st, err := BuildSecretsTable(tc.config)
+			if tc.expectErr != "" {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				gotErr := err.Error()
+				if gotErr != tc.expectErr {
+					t.Fatalf("Expected error %q, got error %q", tc.expectErr, gotErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(tc.expectSecretsTable, st) {
+				t.Errorf("Expected:\n%+v\nGot:\n%v", tc.expectSecretsTable, st)
+			}
+		})
+	}
+}
+
+func TestEndToEnd(t *testing.T) {
+	t.Run("one-secret", func(t *testing.T) {
+		cfg, err := LoadConfig("testdata/valid.hcl")
+		if err != nil {
+			t.Fatal(err)
+		}
+		secretTable, err := BuildSecretsTable(cfg.AutoAuth.Method.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectSecret := "secret/docker/creds"
+		expectST := SecretsTable{oneSecret: expectSecret}
+		if !reflect.DeepEqual(expectST, secretTable) {
+			t.Fatalf("Expected secrets table %+v, got secrets table %+v", expectST, secretTable)
+		}
+		gotSecret := expectST.GetPath("")
+		if expectSecret != gotSecret {
+			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
+		}
+	})
+
+	t.Run("multiple-secrets", func(t *testing.T) {
+		cfg, err := LoadConfig("testdata/multi-secret.hcl")
+		if err != nil {
+			t.Fatal(err)
+		}
+		secretTable, err := BuildSecretsTable(cfg.AutoAuth.Method.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectST := SecretsTable{
+			registryToSecret: map[string]string{
+				"registry-1.example.com": "secret/docker/creds",
+				"registry-2.example.com": "secret/docker/extra/creds",
+			},
+		}
+		if !reflect.DeepEqual(expectST, secretTable) {
+			t.Fatalf("Expected secrets table %+v, got secrets table %+v", expectST, secretTable)
+		}
+		gotSecret := expectST.GetPath("registry-1.example.com")
+		expectSecret := "secret/docker/creds"
+		if expectSecret != gotSecret {
+			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
+		}
+		gotSecret = expectST.GetPath("registry-2.example.com")
+		expectSecret = "secret/docker/extra/creds"
+		if expectSecret != gotSecret {
+			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
+		}
+	})
 }

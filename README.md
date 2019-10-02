@@ -45,7 +45,7 @@ Within Vault, you should store your Docker credentials in the following format:
     "password": "my-secure-password"
 }
 ```
-Note that the Vault path where you store these credentials will be used as the value of the `auto_auth.method.config.secret` field of your `config.hcl` file (see the [Configuration File](#configuration-file) section).
+Note that the Vault path where you store these credentials will be used as the value of the `secret` or `secrets` field of your configuration file (see the [Configuration File](#configuration-file) section).
 
 ## Installation
 
@@ -102,18 +102,22 @@ With Docker 1.13.0 or greater, you can configure Docker to use different credent
 
 ### Configuration File
 
-**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/index.html). Specifically, it uses only the [`vault`](https://www.vaultproject.io/docs/agent/index.html#vault-stanza) (optional) and [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) (required) sections of the Agent configuration file. The Vault Agent documentation will be the primary reference for how to compose this file.**
+**This application relies on the same configuration file as the [Vault agent configuration file](https://www.vaultproject.io/docs/agent/index.html) (with a few small differences). Specifically, it uses only the [`vault`](https://www.vaultproject.io/docs/agent/index.html#vault-stanza) (optional) and [`auto_auth`](https://www.vaultproject.io/docs/agent/autoauth/index.html) (required) sections of the Agent configuration file. The Vault Agent documentation will be the primary reference for how to compose this file.**
 
-At runtime, the process will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, the process will fail.
+At runtime, the helper will first search for this file at the path specified by `DCVL_CONFIG_FILE` environmental variable. If this environmental variable is not set, it will search for it at the default path `/etc/docker-credential-vault-login/config.hcl`. If the configuration file is found in neither location, it will fail.
 
-This configuration file is essentially broken into three parts: (1) an authentication method (`auto_auth.method`), (2) any number of "sinks" (`auto_auth.sink`) (which are referred to in the context of this application as "cached tokens"), and (3) an optional stanza configuring how to reach your Vault server (`vault`). The `method` stanza directs how the process will authenticate to your Vault instance in order to obtain a Vault client token, while the `sink` stanzas direct how the process will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the process is executed.
+This configuration file is essentially broken into three parts:
+
+1. An authentication method (`auto_auth.method`). This stanza directs how the helper will authenticate to your Vault instance in order to obtain a Vault client token.
+1. Any number of "sinks" (`auto_auth.sink`) (which are referred to in the context of this application as "cached tokens"). These stanzas direct how the helper will store client tokens for reuse. The cached tokens prevent the need to re-authenticate each time the helper is executed.
+1. An optional stanza configuring how to reach your Vault server (`vault`).
 
 While all the rules that apply to the Vault agent configuration file apply here, there are also some additional application-specific rules:
 
 - **Only the `auto_auth`, and `vault` stanzas are honored**. Of the various top-level elements that can be included in the file (e.g. `pid_file`, `exit_after_auth`, `auto_auth`, `vault`, `cache`, `listener`, etc.), only the `auto_auth` and `vault` stanzas are needed. All other stanzas will be ignored. The `vault` stanza is optional. The [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) can be used in instead of the `vault` stanza.
+- **Docker credentials secret**. The path to the secret(s) where your Docker credentials is/are kept in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified in the configuration file. See the [Secret Path](#secret-path) section for how to specify the secret(s).
 - **Sinks are optional**. Sinks are used for storing tokens for reuse later, avoiding the need to reauthenticate. They are optional. To add a sink, include it in the `auto_auth.sink` stanza. Any number of sinks may be used. If no sinks are used, then the credential helper will authenticate every time it runs in order to obtain a Vault token.
-- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information
-- **Docker credentials secret**. The path to the secret where you keep your Docker credentials in Vault (see the [Prerequisites](#prerequisites) section for what this secret should look like) must be specified either in the configuration file or by an environment variable. See the [Secret Path](#secret-path) section for how to specify the secret.
+- **`token` authentication method**. In addition to the [authentication methods](https://www.vaultproject.io/docs/agent/autoauth/methods/index.html) supported by the Vault agent (e.g. `aws`, `gcp`, `alicloud`, etc.), a `token` method is also supported which allows you to bypass authentication by manually providing a valid Vault client token. See the [Token Authentication](#token-authentication) section for more information.
 - **Diffie-Hellman private key**. As mentioned in [sink](https://www.vaultproject.io/docs/agent/autoauth/index.html#configuration-sinks-) section the Vault agent documentation, a Diffie-Hellman public key must be provided if you wish to encrypt tokens. However, in order to decrypt those tokens for future use, you must also provide the Diffie-Hellman private key either in the configuration file or by an environment variable (see the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section).
 
 #### Example
@@ -157,27 +161,23 @@ auto_auth {
 
 **Note**: The Diffie-Hellman public and private key files (`dh_path` and `dh_priv` fields) can be generated by executing [this](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) script provided in the repository. Note that this script requires version 1.11 of Go or newer.
 
-Using this configuration file, the application will perform the following when you run `docker pull`:
+Using this configuration file, the helper will perform the following when you run `docker pull`:
 
-1. **Read all cached tokens ("sinks").** Specifically, the process will read `/tmp/file-foo`, expecting this file to contain a plaintext token. Then, it will read `/tmp/file-bar.json`, decrypt it using the Diffie-Hellman public-private key pair (`/tmp/dh-pub-key.json` and `/tmp/dh-priv-key.json` respectively), and [unwrap](https://www.vaultproject.io/docs/concepts/response-wrapping.html) it to obtain a usable client token.
-2. **Use a cached token to read the secret.** It will then attempt to read your read your Docker credentials from Vault at the path `secret/application/docker` with each of the cached tokens. If any of the cached tokens were successful, the process will pass the credentials to the Docker daemon and exit.
-3. **Re-authenticate if all cached tokens failed.** If the process was unable to read the secret using any of the cached tokens, it will authenticate to your Vault instance via the [AWS IAM](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) endpoint using the `foobar` role to obtain a new Vault client token.
-4. **Use the new token to read the secret.** If authentication was successful, the process will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
-5. **Cache the new token.** If authentication was successful, the process will also cache the tokens in the manner dictated by the `sink` stanzas of the configuration file: (1) as plaintext in a file called `/tmp/file-foo` and (2) TTL-wrapped and encrypted in a JSON file called `/tmp/file-bar.json`.
+1. **Read all cached tokens ("sinks").** Specifically, the helper will read `/tmp/file-foo`, expecting this file to contain a plaintext token. Then, it will read `/tmp/file-bar.json`, decrypt it using the Diffie-Hellman public-private key pair (`/tmp/dh-pub-key.json` and `/tmp/dh-priv-key.json` respectively), and [unwrap](https://www.vaultproject.io/docs/concepts/response-wrapping.html) it to obtain a usable client token.
+2. **Use a cached token to read the secret.** It will then attempt to read your read your Docker credentials from Vault at the path `secret/application/docker` with each of the cached tokens. If any of the cached tokens were successful, the helper will pass the credentials to the Docker daemon and exit.
+3. **Re-authenticate if all cached tokens failed.** If the helper was unable to read the secret using any of the cached tokens, it will authenticate to your Vault instance via the [AWS IAM](https://www.vaultproject.io/docs/auth/aws.html#iam-auth-method) endpoint using the `foobar` role to obtain a new Vault client token.
+4. **Use the new token to read the secret.** If authentication was successful, the helper will use the newly-obtained token to read your Docker credentials at `secret/application/docker`.
+5. **Cache the new token.** If authentication was successful, the helper will also cache the tokens in the manner dictated by the `sink` stanzas of the configuration file: (1) as plaintext in a file called `/tmp/file-foo` and (2) TTL-wrapped and encrypted in a JSON file called `/tmp/file-bar.json`.
 
 If it was able to successfully read your Docker credentials from Vault, it will pass these credentials to the Docker daemon which will then use them to login to your Docker registry before pulling your image.
 
 #### Secret Path
 
-The `auto_auth.method.config` field of the configuration file must contain the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server. This can also be specified with the `DCVL_SECRET` environment variable. The environment variable takes precedence.
+The `auto_auth.method.config` field of the configuration file must contain the *either* the key `secret` whose value is the path to the secret where your Docker credentials are kept in your Vault server *or* the key `secrets` which point different registries to different secrets **BUT NOT BOTH**.
 
-For example, if you keep your Docker credentials at `secret/application/docker`, you can set the secret either by executing
+##### Single secret for all registries
 
-```shell
-$ export DCVL_SECRET="secret/application/docker"
-```
-
-or by setting it in the configuration file.
+If you want the helper to look for your Docker credentials at just one path in Vault, then the value of `secret` should just be a string representing the path to the secret. For example, if you keep your Docker credentials at `secret/application/docker`, you might construct your configuration file like this:
 
 ```hcl
 auto_auth {
@@ -198,9 +198,39 @@ auto_auth {
 }
 ```
 
+With this configuration, when you run a `docker pull`, the helper will attempt to read your secret at `secret/application/docker`, regardless of which registry is requested. In other words, if you run `docker pull registry.example.com/my-image`, `docker pull registry.foo.bar/bin-baz`, or any other registry, then the helper will attempt to lookup your Docker credentials at `secret/application/docker` every time.
+
+##### Different secrets for different registries
+
+You may also specify different secrets for different registries via the `secrets` field. for example, you might construct your configuration file like this:
+
+```hcl
+auto_auth {
+	method "aws" {
+		mount_path = "auth/aws"
+		config = {
+			type    = "iam"
+			role    = "foobar"
+			secrets = {
+                                registry-1.example.com = "secret/docker/registry1"
+                                registry-2.example.com = "secret/docker/registry2"
+                        }
+		}
+	}
+
+	sink "file" {
+		config = {
+			path = "/tmp/file-foo"
+		}
+	}
+}
+```
+
+With this configuration, if you attempt to pull an image from `registry-1.example.com` (e.g. `docker pull registry-1.example.com/my-image`) then the helper will attempt to lookup your Docker credentials at `secret/docker/registry1`. On the other hand, if you were to run `docker pull registry-2.example.com/my-image`, it will attempt to lookup the credentials at `secret/docker/registry2`.
+
 #### Diffie-Hellman Private Key
 
-If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `auto_auth.sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the application will decrypt the token. This file should be a JSON file structured like the one shown below:
+If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth/index.html#encrypting-tokens), the `auto_auth.sink.config` field must contain the key `dh_priv` whose value is the path to a file containing your Diffie-Hellman private key with which the helper will decrypt the token. This file should be a JSON file structured like the one shown below:
 
 ```json
 {
@@ -273,15 +303,14 @@ auto_auth {
 
 ### Environment Variables
 
-This application uses the following environment variables:
+This helper uses the following environment variables:
 
 * **DCVL_CONFIG_FILE** (default: `"/etc/docker-credential-vault-login/config.hcl"`) - The path to your `config.hcl` file.
-* **DCVL_SECRET** (default: `""`) - The path to the secret where your Docker credentials are kept in Vault.
 * **DCVL_LOG_DIR** (default: `"~/.docker-credential-vault-login"`) - The location at which error logs and cached tokens (if caching is enabled) will be stored.
-* **DCVL_DISABLE_CACHE** (default: `"false"`) - If `true`, the application will not cache Vault client tokens or use cached tokens to authenticate to Vault.
+* **DCVL_DISABLE_CACHE** (default: `"false"`) - If `true`, the helper will not cache Vault client tokens or use cached tokens to authenticate to Vault.
 * **DCVL_DH_PRIV_KEY** (default: `""`) - The path to the Diffie-Hellman private key to be used to decrypt an encrypted cached token. See the [Diffie-Hellman Private Key](#diffie-hellman-private-key) section.
 
-Note that this application will also honor all of the [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) as well.
+Note that this will honor all of the [Vault environment variables](https://www.vaultproject.io/docs/commands/#environment-variables) as well.
 
 ## Error Logs
 
@@ -518,10 +547,12 @@ auto_auth {
         method "approle" {
                 mount_path = "auth/approle"
                 config     = {
-                        secret                              = "secret/application/docker"
                         role_id_file_path                   = "/tmp/test-vault-role-id"
                         secret_id_file_path                 = "/tmp/test-vault-secret-id"
                         remove_secret_id_file_after_reading = "false"
+			secrets = {
+				"localhost:5000" = "secret/application/docker"
+			}
                 }
         }
 

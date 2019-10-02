@@ -35,11 +35,15 @@ var (
 	defaultAuthTimeout = 10 * time.Second
 )
 
+type secretTable interface {
+	GetPath(host string) string
+}
+
 // Options is used to configure a new Helper instance
 type Options struct {
 	Logger      hclog.Logger
 	Client      *api.Client
-	Secret      string
+	Secret      secretTable
 	EnableCache bool
 	AuthTimeout int64
 	WrapTTL     time.Duration
@@ -53,7 +57,7 @@ type Options struct {
 type Helper struct {
 	logger       hclog.Logger
 	client       *api.Client
-	secret       string
+	secret       secretTable
 	cacheEnabled bool
 	authTimeout  time.Duration
 	authConfig   *config.AutoAuth
@@ -93,10 +97,11 @@ func (h *Helper) List() (map[string]string, error) {
 
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
-func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
+func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
+	secret := h.secret.GetPath(serverURL)
 	if h.client.Token() != "" {
 		// Get credentials with provided token
-		creds, err := vault.GetCredentials(h.secret, h.client)
+		creds, err := vault.GetCredentials(secret, h.client)
 		if err != nil {
 			h.logger.Error("error reading secret from Vault", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -129,7 +134,7 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 			h.client.SetToken(token)
 
 			// Get credentials
-			creds, err := vault.GetCredentials(h.secret, h.client)
+			creds, err := vault.GetCredentials(secret, h.client)
 			if err != nil {
 				h.logger.Error("error reading secret from Vault", "error", err)
 				continue
@@ -157,7 +162,7 @@ func (h *Helper) Get(_ string) (string, string, error) { // nolint: gocyclo
 	h.client.SetToken(token)
 
 	// Get credentials
-	creds, err := vault.GetCredentials(h.secret, h.client)
+	creds, err := vault.GetCredentials(secret, h.client)
 	if err != nil {
 		h.logger.Error("error reading secret from Vault", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()

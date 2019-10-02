@@ -219,7 +219,7 @@ auto_auth {
 		Logger:      hclog.NewNullLogger(),
 		Client:      client,
 		AuthTimeout: 3,
-		Secret:      secretPath,
+		Secret:      mockSecretTable{oneSecret: secretPath},
 		AuthConfig:  config.AutoAuth,
 		EnableCache: true,
 	})
@@ -266,8 +266,7 @@ auto_auth {
 		}
 	})
 
-	// Ensure that if the role does not have permission to read
-	// the secret, it fails
+	// Test that it can authenticate without sinks
 	t.Run("can-authenticate-without-sinks", func(t *testing.T) {
 		noSinksHCL := `
 auto_auth {
@@ -298,13 +297,71 @@ auto_auth {
 			Logger:      hclog.NewNullLogger(),
 			Client:      client,
 			AuthTimeout: 3,
-			Secret:      secretPath,
+			Secret:      mockSecretTable{oneSecret: secretPath},
 			AuthConfig:  config.AutoAuth,
 		})
 
 		makeApproleFiles()
 
 		user, pw, err = h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if user != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
+		}
+		if pw != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", pw)
+		}
+	})
+
+	// Test that you can use multiple registries
+	t.Run("multiple-secrets", func(t *testing.T) {
+		multiSecret := `
+auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+			secret = {
+				registry-1.example.com = %q
+				registry-2.example.com = "secret/docker/other/creds"
+			}
+		}
+	}
+}`
+		multiSecret = fmt.Sprintf(multiSecret, roleIDFile, secretIDFile, secretPath)
+
+		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
+		if err = ioutil.WriteFile(configFile, []byte(multiSecret), 0644); err != nil {
+			t.Fatal(err)
+		}
+		defer os.Remove(noSinksConfigFile)
+
+		config, err = mciconfig.LoadConfig(noSinksConfigFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		client.ClearToken()
+		hh := New(Options{
+			Logger:      hclog.Default(),
+			Client:      client,
+			AuthTimeout: 3,
+			Secret: mockSecretTable{
+				hostToSecret: map[string]string{
+					"registry-1.example.com": secretPath,
+					"registry-2.example.com": "secret/docker/other/creds",
+				},
+			},
+			AuthConfig: config.AutoAuth,
+		})
+
+		makeApproleFiles()
+
+		user, pw, err = hh.Get("registry-1.example.com")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -429,7 +486,7 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(Options{
-		Secret:      "secret/docker/creds",
+		Secret:      mockSecretTable{oneSecret: "secret/docker/creds"},
 		Logger:      logger,
 		AuthTimeout: 1,
 		Client:      client,
@@ -444,4 +501,16 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	if !strings.Contains(buf.String(), expected) {
 		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
 	}
+}
+
+type mockSecretTable struct {
+	oneSecret    string
+	hostToSecret map[string]string
+}
+
+func (s mockSecretTable) GetPath(host string) string {
+	if s.oneSecret != "" {
+		return s.oneSecret
+	}
+	return s.hostToSecret[host]
 }

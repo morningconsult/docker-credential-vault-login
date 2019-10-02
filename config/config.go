@@ -42,6 +42,22 @@ listener "tcp" {
 // This error message must always be kept up to date.
 const errNoSinkMsg = "auto_auth requires at least one sink or cache.use_auto_auth_token=true "
 
+// SecretsTable is used to lookup the path to where your Docker
+// credentials are stored in Vault based on a given hostname.
+type SecretsTable struct {
+	oneSecret        string
+	registryToSecret map[string]string
+}
+
+// GetPath returns the path to the Vault secret where your Docker
+// credentials are kept for the registry.
+func (s SecretsTable) GetPath(registry string) string {
+	if s.oneSecret != "" {
+		return s.oneSecret
+	}
+	return s.registryToSecret[registry]
+}
+
 // LoadConfig will parse the configuration file and return a
 // configuration struct.
 func LoadConfig(configFile string) (*vaultconfig.Config, error) {
@@ -95,4 +111,56 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 		return nil, errors.New("no 'auto_auth' block found in configuration file")
 	}
 	return config, nil
+}
+
+// BuildSecretsTable parses the auto_auth.method.secrets.config stanza
+// of the configuration file. The value of this field may be either a
+// string or a map[string]string.
+func BuildSecretsTable(config map[string]interface{}) (SecretsTable, error) { // nolint: gocyclo
+	errInvalidFormat := errors.New("path to the secret where your Docker credentials are stored " +
+		"must be specified in either 'auto_auth.method.config.secret' or " +
+		"'auto_auth.method.config.secrets', but not both")
+	secretRaw, hasSecret := config["secret"]
+	secretsRaw, hasSecrets := config["secrets"]
+	if hasSecret && hasSecrets {
+		return SecretsTable{}, errInvalidFormat
+	}
+	if hasSecret {
+		return secretsTableFromString(secretRaw)
+	} else if hasSecrets {
+		return secretsTableFromMap(secretsRaw)
+	}
+	return SecretsTable{}, errInvalidFormat
+}
+
+func secretsTableFromString(secretRaw interface{}) (SecretsTable, error) {
+	secret, ok := secretRaw.(string)
+	if !ok {
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must be a string")
+	}
+	if secret == "" {
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must not be empty")
+	}
+	return SecretsTable{oneSecret: secret}, nil
+}
+
+func secretsTableFromMap(secretsRaw interface{}) (SecretsTable, error) {
+	errEmptyMap := errors.New("field 'auto_auth.method.config.secrets' must have at least one entry")
+	secretsArr, ok := secretsRaw.([]map[string]interface{})
+	if !ok {
+		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secrets' must be a map[string]string")
+	}
+	if len(secretsArr) == 0 {
+		return SecretsTable{}, errEmptyMap
+	}
+	obj := make(map[string]string)
+	for host, pathRaw := range secretsArr[0] {
+		if path, ok := pathRaw.(string); ok && path != "" && host != "" {
+			obj[host] = path
+		}
+	}
+	if len(obj) == 0 {
+		return SecretsTable{}, errEmptyMap
+	}
+	return SecretsTable{registryToSecret: obj}, nil
 }
