@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Chore
+- Update github.com/hashicorp/vault to branch rel-1.2.4 so that the AWS region can be specified in the configuration file
+
+
+<a name="v0.2.14"></a>
+## [v0.2.14] - 2019-10-02
+### Chore
+- Bump version and update changelog [ci skip]
+
 
 <a name="v0.2.13"></a>
 ## [v0.2.13] - 2019-09-30
@@ -217,7 +226,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.13...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.14...HEAD
+[v0.2.14]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.13...v0.2.14
 [v0.2.13]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.12...v0.2.13
 [v0.2.12]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.11...v0.2.12
 [v0.2.11]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.10...v0.2.11
