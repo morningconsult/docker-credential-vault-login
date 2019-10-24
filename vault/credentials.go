@@ -46,23 +46,18 @@ func GetCredentials(path string, client *api.Client) (Credentials, error) {
 
 	creds := secret.Data
 
-	data, ok := creds["data"].(map[string]interface{})
-	if !ok {
-		if username, ok = creds["username"].(string); !ok || username == "" {
-			missingSecrets = append(missingSecrets, "username")
-		}
-		if password, ok = creds["password"].(string); !ok || password == "" {
-			missingSecrets = append(missingSecrets, "password")
-		}
+	_, isKvv2 := secret.Data["metadata"].(map[string]interface{})
+	if isKvv2 {
+		creds = secret.Data["data"].(map[string]interface{})
 	}
 
-	if username, ok = data["username"].(string); !ok || username == "" {
+	if username, ok = creds["username"].(string); !ok || username == "" {
 		missingSecrets = append(missingSecrets, "username")
 	}
-	if password, ok = data["password"].(string); !ok || password == "" {
+
+	if password, ok = creds["password"].(string); !ok || password == "" {
 		missingSecrets = append(missingSecrets, "password")
 	}
-
 
 	if len(missingSecrets) > 0 {
 		return Credentials{}, xerrors.Errorf("No %s found in Vault at path %q", strings.Join(missingSecrets, " or "), path)

@@ -161,6 +161,12 @@ func TestGetCredentialsKvv2(t *testing.T) {
 				"username": "test@user.com",
 				"password": "correct horse battery staple",
 			},
+			"metadata": map[string]interface {}{
+				"created_time":"2019-10-24T18:39:39.656654Z",
+				"deletion_time":"",
+				"destroyed":false,
+				"version":"1",
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
