@@ -46,6 +46,8 @@ func GetCredentials(path string, client *api.Client) (Credentials, error) {
 
 	creds := secret.Data
 
+	// Check for metadata in the response which will only exist if this is a kv-v2 mount
+	// https://www.vaultproject.io/api/secret/kv/kv-v2.html#sample-response-1
 	_, isKvv2 := secret.Data["metadata"].(map[string]interface{})
 	if isKvv2 {
 		creds = secret.Data["data"].(map[string]interface{})
