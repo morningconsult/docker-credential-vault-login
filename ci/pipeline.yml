@@ -76,6 +76,7 @@ jobs:
 - name: validate-pull-request
   build_logs_to_retain: 30
   serial: true
+  public: true
   plan:
   - in_parallel:
     - get: test-pull-request
