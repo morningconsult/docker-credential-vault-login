@@ -15,12 +15,12 @@ package vault
 
 import (
 	"fmt"
-	"github.com/hashicorp/vault/api"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/sdk/helper/logging"
 	server "github.com/hashicorp/vault/vault"
@@ -157,15 +157,15 @@ func TestGetCredentialsKvv2(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		secret := "secret/data/docker/creds"
 		_, err := client.Logical().Write(secret, map[string]interface{}{
-			"data": map[string]interface{} {
+			"data": map[string]interface{}{
 				"username": "test@user.com",
 				"password": "correct horse battery staple",
 			},
-			"metadata": map[string]interface {}{
-				"created_time":"2019-10-24T18:39:39.656654Z",
-				"deletion_time":"",
-				"destroyed":false,
-				"version":"1",
+			"metadata": map[string]interface{}{
+				"created_time":  "2019-10-24T18:39:39.656654Z",
+				"deletion_time": "",
+				"destroyed":     false,
+				"version":       "1",
 			},
 		})
 		if err != nil {
