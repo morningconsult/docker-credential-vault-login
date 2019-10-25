@@ -20,6 +20,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-uuid"
+	"github.com/hashicorp/vault/api"
 	vaulthttp "github.com/hashicorp/vault/http"
 	"github.com/hashicorp/vault/sdk/helper/logging"
 	server "github.com/hashicorp/vault/vault"
@@ -110,6 +111,62 @@ func TestGetCredentials(t *testing.T) {
 		_, err := client.Logical().Write(secret, map[string]interface{}{
 			"username": "test@user.com",
 			"password": "correct horse battery staple",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Logical().Delete(secret)
+
+		creds, err := GetCredentials(secret, client)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if creds.Username != "test@user.com" {
+			t.Fatalf("Usernames differ:\n%v", cmp.Diff("test@user.com", creds.Username))
+		}
+		if creds.Password != "correct horse battery staple" {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff("correct horse battery staple", creds.Password))
+		}
+	})
+}
+
+func TestGetCredentialsKvv2(t *testing.T) {
+	coreConfig := &server.CoreConfig{
+		Logger: logging.NewVaultLogger(hclog.Error),
+	}
+	cluster := server.NewTestCluster(t, coreConfig, &server.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	core := cluster.Cores[0].Core
+	server.TestWaitActive(t, core)
+	client := cluster.Cores[0].Client
+	//addr := client.Address()
+
+	err := client.Sys().TuneMount("secret/", api.MountConfigInput{
+		Options: map[string]string{
+			"version": "2",
+		},
+	})
+	if err != nil {
+		t.Fatal("error tuning mount to kv v2")
+	}
+
+	t.Run("success", func(t *testing.T) {
+		secret := "secret/data/docker/creds"
+		_, err := client.Logical().Write(secret, map[string]interface{}{
+			"data": map[string]interface{}{
+				"username": "test@user.com",
+				"password": "correct horse battery staple",
+			},
+			"metadata": map[string]interface{}{
+				"created_time":  "2019-10-24T18:39:39.656654Z",
+				"deletion_time": "",
+				"destroyed":     false,
+				"version":       "1",
+			},
 		})
 		if err != nil {
 			t.Fatal(err)
