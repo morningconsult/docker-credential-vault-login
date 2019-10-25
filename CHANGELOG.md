@@ -1,6 +1,12 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.2.16"></a>
+## [v0.2.16] - 2019-10-25
+### Chore
+- Bump version and update changelog [ci skip]
+
 ### Ci
 - Make merge requests public [ci skip]
 
@@ -233,7 +239,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.15...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.16...HEAD
+[v0.2.16]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.15...v0.2.16
 [v0.2.15]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.14...v0.2.15
 [v0.2.14]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.13...v0.2.14
 [v0.2.13]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.12...v0.2.13
