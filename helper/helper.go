@@ -98,6 +98,7 @@ func (h *Helper) List() (map[string]string, error) {
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
 func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
+	var err error
 	secret, err := h.secret.GetPath(serverURL)
 	if err != nil {
 		h.logger.Error("error parsing registry path", "error", err)
