@@ -7,6 +7,7 @@ auto_auth {
 			secrets = {
 				registry-1.example.com = "secret/docker/creds"
 				registry-2.example.com = "secret/docker/extra/creds"
+				"localhost:5000"       = "secret/docker/localhost/creds"
 			}
 		}
 	}

@@ -36,7 +36,7 @@ var (
 )
 
 type secretTable interface {
-	GetPath(host string) string
+	GetPath(host string) (string, error)
 }
 
 // Options is used to configure a new Helper instance
@@ -98,7 +98,11 @@ func (h *Helper) List() (map[string]string, error) {
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
 func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
-	secret := h.secret.GetPath(serverURL)
+	secret, err := h.secret.GetPath(serverURL)
+	if err != nil {
+		h.logger.Error("error parsing registry path", "error", err)
+		return "", "", xerrors.Errorf("error parsing registry path: %w", err)
+	}
 	if h.client.Token() != "" {
 		// Get credentials with provided token
 		creds, err := vault.GetCredentials(secret, h.client)

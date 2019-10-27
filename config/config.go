@@ -17,8 +17,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	vaultconfig "github.com/hashicorp/vault/command/agent/config"
 )
@@ -51,11 +53,26 @@ type SecretsTable struct {
 
 // GetPath returns the path to the Vault secret where your Docker
 // credentials are kept for the registry.
-func (s SecretsTable) GetPath(registry string) string {
+func (s SecretsTable) GetPath(registry string) (string, error) {
 	if s.oneSecret != "" {
-		return s.oneSecret
+		return s.oneSecret, nil
 	}
-	return s.registryToSecret[registry]
+
+	// Add scheme if one is not present so url.Parse works as expected
+	if !strings.HasPrefix(registry, "http://") && !strings.HasPrefix(registry, "https://") {
+		registry = "http://" + registry
+	}
+
+	u, err := url.Parse(registry)
+	if err != nil {
+		return "", err
+	}
+	registry = u.Hostname()
+	if u.Port() != "" {
+		registry = registry + ":" + u.Port()
+	}
+
+	return s.registryToSecret[registry], nil
 }
 
 // LoadConfig will parse the configuration file and return a
