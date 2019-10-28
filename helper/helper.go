@@ -36,7 +36,7 @@ var (
 )
 
 type secretTable interface {
-	GetPath(host string) string
+	GetPath(host string) (string, error)
 }
 
 // Options is used to configure a new Helper instance
@@ -98,10 +98,19 @@ func (h *Helper) List() (map[string]string, error) {
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
 func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
-	secret := h.secret.GetPath(serverURL)
+	var (
+		creds  vault.Credentials
+		secret string
+		err    error
+	)
+	secret, err = h.secret.GetPath(serverURL)
+	if err != nil {
+		h.logger.Error("error parsing registry path", "error", err)
+		return "", "", xerrors.Errorf("error parsing registry path: %w", err)
+	}
 	if h.client.Token() != "" {
 		// Get credentials with provided token
-		creds, err := vault.GetCredentials(secret, h.client)
+		creds, err = vault.GetCredentials(secret, h.client)
 		if err != nil {
 			h.logger.Error("error reading secret from Vault", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -110,7 +119,8 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 	}
 
 	if h.cacheEnabled {
-		clone, err := h.client.Clone()
+		var clone *api.Client
+		clone, err = h.client.Clone()
 		if err != nil {
 			h.logger.Error("error cloning Vault API client", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
@@ -124,7 +134,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 
 		// Renew the cached tokens
 		for _, token := range cachedTokens {
-			if _, err := h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
+			if _, err = h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
 				h.logger.Error("error renewing token", "error", err)
 			}
 		}
@@ -134,7 +144,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 			h.client.SetToken(token)
 
 			// Get credentials
-			creds, err := vault.GetCredentials(secret, h.client)
+			creds, err = vault.GetCredentials(secret, h.client)
 			if err != nil {
 				h.logger.Error("error reading secret from Vault", "error", err)
 				continue
@@ -162,7 +172,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 	h.client.SetToken(token)
 
 	// Get credentials
-	creds, err := vault.GetCredentials(secret, h.client)
+	creds, err = vault.GetCredentials(secret, h.client)
 	if err != nil {
 		h.logger.Error("error reading secret from Vault", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()

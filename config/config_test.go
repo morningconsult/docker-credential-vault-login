@@ -281,7 +281,10 @@ func TestEndToEnd(t *testing.T) {
 		if !reflect.DeepEqual(expectST, secretTable) {
 			t.Fatalf("Expected secrets table %+v, got secrets table %+v", expectST, secretTable)
 		}
-		gotSecret := expectST.GetPath("")
+		gotSecret, err := expectST.GetPath("")
+		if err != nil {
+			t.Fatal(err)
+		}
 		if expectSecret != gotSecret {
 			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
 		}
@@ -300,18 +303,33 @@ func TestEndToEnd(t *testing.T) {
 			registryToSecret: map[string]string{
 				"registry-1.example.com": "secret/docker/creds",
 				"registry-2.example.com": "secret/docker/extra/creds",
+				"localhost:5000":         "secret/docker/localhost/creds",
 			},
 		}
 		if !reflect.DeepEqual(expectST, secretTable) {
 			t.Fatalf("Expected secrets table %+v, got secrets table %+v", expectST, secretTable)
 		}
-		gotSecret := expectST.GetPath("registry-1.example.com")
+		gotSecret, err := expectST.GetPath("registry-1.example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
 		expectSecret := "secret/docker/creds"
 		if expectSecret != gotSecret {
 			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
 		}
-		gotSecret = expectST.GetPath("registry-2.example.com")
+		gotSecret, err = expectST.GetPath("registry-2.example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
 		expectSecret = "secret/docker/extra/creds"
+		if expectSecret != gotSecret {
+			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
+		}
+		gotSecret, err = expectST.GetPath("localhost:5000")
+		if err != nil {
+			t.Fatal(err)
+		}
+		expectSecret = "secret/docker/localhost/creds"
 		if expectSecret != gotSecret {
 			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
 		}

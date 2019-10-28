@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -508,9 +509,24 @@ type mockSecretTable struct {
 	hostToSecret map[string]string
 }
 
-func (s mockSecretTable) GetPath(host string) string {
+func (s mockSecretTable) GetPath(host string) (string, error) {
 	if s.oneSecret != "" {
-		return s.oneSecret
+		return s.oneSecret, nil
 	}
-	return s.hostToSecret[host]
+
+	// Add scheme if one is not present so url.Parse works as expected
+	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+		host = "http://" + host
+	}
+
+	u, err := url.Parse(host)
+	if err != nil {
+		return "", err
+	}
+	host = u.Hostname()
+	if u.Port() != "" {
+		host = host + ":" + u.Port()
+	}
+
+	return s.hostToSecret[host], nil
 }
