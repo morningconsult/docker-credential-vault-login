@@ -482,7 +482,7 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	client.SetClientTimeout(1 * time.Second)
 	client.ClearToken()
 
-	config, err := config.LoadConfig("testdata/valid.hcl", nil)
+	config, err := config.LoadConfig("testdata/valid.hcl")
 	if err != nil {
 		t.Fatal(err)
 	}
