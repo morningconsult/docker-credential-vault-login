@@ -79,7 +79,7 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 // configuration struct.
 func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 	// Try to parse config file once
-	config, err := vaultconfig.LoadConfig(configFile, nil)
+	config, err := vaultconfig.LoadConfig(configFile)
 	if err != nil {
 		// No sinks in configuration file - do a workaround to allow no sinks
 		if err.Error() != errNoSinkMsg {
@@ -116,7 +116,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 		}
 
 		// Reload configuration with temporary file
-		config, err = vaultconfig.LoadConfig(tempFile.Name(), nil)
+		config, err = vaultconfig.LoadConfig(tempFile.Name())
 		if err != nil {
 			return nil, err
 		}
