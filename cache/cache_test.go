@@ -590,9 +590,6 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 
 	expected := string(data)
 
-	privKeyOld := os.Getenv(EnvDiffieHellmanPrivateKey)
-	defer os.Setenv(EnvDiffieHellmanPrivateKey, privKeyOld)
-
 	data, err = json.Marshal(resp)
 	if err != nil {
 		t.Fatal(err)
@@ -602,39 +599,87 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	}
 	defer os.Remove("testdata/token-encrypted.json")
 
-	sinks := []*config.Sink{
-		{
-			Type:   "file",
-			DHType: "curve25519",
-			AAD:    "foobar",
-			Config: map[string]interface{}{
-				"path": "testdata/token-encrypted.json",
-			},
-		},
-	}
-
 	cases := []struct {
 		name   string
-		env    string
+		envKey string
+		envVal string
+		sinks  []*config.Sink
 		tokens int
 	}{
 		{
 			"valid-base64",
+			"DCVL_DH_PRIV_KEY_1",
 			base64.StdEncoding.EncodeToString(privateKey),
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":        "testdata/token-encrypted.json",
+						"dh_priv_env": "DCVL_DH_PRIV_KEY_1",
+					},
+				},
+			},
 			1,
 		},
 		{
 			"invalid-base64",
+			"DCVL_DH_PRIV_KEY_1",
 			"not valid base64!",
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path":        "testdata/token-encrypted.json",
+						"dh_priv_env": "DCVL_DH_PRIV_KEY_1",
+					},
+				},
+			},
+			0,
+		},
+		{
+			"old-env-var-only",
+			EnvDiffieHellmanPrivateKey,
+			base64.StdEncoding.EncodeToString(privateKey),
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path": "testdata/token-encrypted.json",
+					},
+				},
+			},
+			1,
+		},
+		{
+			"no-env-vars",
+			"",
+			"",
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path": "testdata/token-encrypted.json",
+					},
+				},
+			},
 			0,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv(EnvDiffieHellmanPrivateKey, tc.env)
+			os.Setenv(tc.envKey, tc.envVal)
+			defer os.Unsetenv(tc.envKey)
 
-			tokens := GetCachedTokens(hclog.NewNullLogger(), sinks, nil)
+			tokens := GetCachedTokens(hclog.NewNullLogger(), tc.sinks, nil)
 			if len(tokens) != tc.tokens {
 				t.Fatalf("Expected %d token(s), got %d tokens", tc.tokens, len(tokens))
 			}
@@ -737,7 +782,7 @@ func TestReadDHPrivateKey(t *testing.T) {
 		{
 			name:      "no-path-to-private-key-in-config",
 			config:    nil,
-			expectErr: `If the cached token is encrypted, the Diffie-Hellman private key should be specified with the environment variable DCVL_DH_PRIV_KEY as a base64-encoded string or in the 'file.config.dh_priv' field of the config file as a path to a JSON-encoded PrivateKeyInfo structure`, // nolint: lll
+			expectErr: "no Diffie-Hellman private key provided",
 			expectKey: nil,
 		},
 		{
@@ -745,7 +790,7 @@ func TestReadDHPrivateKey(t *testing.T) {
 			config: map[string]interface{}{
 				"dh_priv": 12345,
 			},
-			expectErr: "'dh_priv' field of file sink cannot be converted to string",
+			expectErr: "no Diffie-Hellman private key provided",
 			expectKey: nil,
 		},
 		{
@@ -828,22 +873,31 @@ func TestDecryptToken(t *testing.T) {
 			expectToken: "",
 		},
 		{
-			name:        "error-reading-key-from-env",
-			pre:         func() { os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64") },
-			post:        func() { os.Unsetenv(EnvDiffieHellmanPrivateKey) },
+			name: "error-reading-key-from-env",
+			pre: func() {
+				// This is to check backwards compatibility - it ensures that
+				// the DCVL_DH_PRIV_KEY environment variable takes precedence
+				// over any other environment variables
+				os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64")
+				os.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=")
+			},
+			post: func() {
+				os.Unsetenv(EnvDiffieHellmanPrivateKey)
+				os.Unsetenv("DCVL_DH_PRIV_KEY_1")
+			},
 			token:       `{"curve25519_public_key":""}`,
 			aad:         "",
-			config:      nil,
-			expectErr:   "error base64-decoding $DCVL_DH_PRIV_KEY: illegal base64 data at input byte 1",
+			config:      map[string]interface{}{"dh_priv_env": "DCVL_DH_PRIV_KEY_1"},
+			expectErr:   "error reading Diffie-Hellman private key file: error base64-decoding DCVL_DH_PRIV_KEY: illegal base64 data at input byte 1",
 			expectToken: "",
 		},
 		{
 			name:        "reads-private-key-from-env",
-			pre:         func() { os.Setenv(EnvDiffieHellmanPrivateKey, "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=") },
-			post:        func() { os.Unsetenv(EnvDiffieHellmanPrivateKey) },
+			pre:         func() { os.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=") },
+			post:        func() { os.Unsetenv("DCVL_DH_PRIV_KEY_1") },
 			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
 			aad:         "TESTAAD",
-			config:      nil,
+			config:      map[string]interface{}{"dh_priv_env": "DCVL_DH_PRIV_KEY_1"},
 			expectErr:   "",
 			expectToken: "{\"token\":\"s.jig43pxA52Y2xhiahImw3HQv\",\"accessor\":\"9l9LCryNuBMuTyWTbmZeFhSx\",\"ttl\":300,\"creation_time\":\"2019-09-25T15:31:25.646033046-04:00\",\"creation_path\":\"sys/wrapping/wrap\",\"wrapped_accessor\":\"\"}\n",
 		},

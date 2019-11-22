@@ -16,6 +16,7 @@ package cache
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -39,6 +40,7 @@ type privateKeyInfo struct {
 // return them. Currently, this function only supports "file" sinks.
 func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Client) []string {
 	tokens := make([]string, 0, len(sinks))
+
 	for i, sink := range sinks {
 		switch sink.Type {
 		case "file":
@@ -52,7 +54,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			if sink.DHType != "" {
 				var err error
 				token, err = decryptToken(token, sink.AAD, sink.Config)
-				if err != nil {
+				if err != nil { // nolint: wsl
 					logger.Error(fmt.Sprintf("error decrypting file sink %d", i+1), "error", err)
 					continue
 				}
@@ -62,11 +64,12 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			if sink.WrapTTL != 0 {
 				var err error
 				token, err = unwrapToken(token, client.Logical().Unwrap)
-				if err != nil {
+				if err != nil { // nolint: wsl
 					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %d", i+1), "error", err)
 					continue
 				}
 			}
+
 			if token != "" {
 				tokens = append(tokens, token)
 			}
@@ -74,6 +77,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			logger.Info(fmt.Sprintf("unsupported sink type: %s", sink.Type))
 		}
 	}
+
 	return tokens
 }
 
@@ -92,6 +96,7 @@ func readFileSink(config map[string]interface{}) (string, error) {
 	if err != nil {
 		return "", xerrors.Errorf("error opening file sink %s: %w", path, err)
 	}
+
 	return string(fileData), nil
 }
 
@@ -101,21 +106,9 @@ func decryptToken(token string, aad string, config map[string]interface{}) (stri
 		return "", xerrors.Errorf("error JSON-decoding file sink: %w", err)
 	}
 
-	var privateKey []byte
-	if v := os.Getenv(EnvDiffieHellmanPrivateKey); v != "" {
-		var err error
-		privateKey, err = base64.StdEncoding.DecodeString(v)
-		if err != nil {
-			return "", xerrors.Errorf("error base64-decoding $%s: %w", EnvDiffieHellmanPrivateKey, err)
-		}
-	}
-
-	if len(privateKey) == 0 {
-		var err error
-		privateKey, err = readDHPrivateKey(config)
-		if err != nil {
-			return "", xerrors.Errorf("error reading Diffie-Hellman private key file: %w", err)
-		}
+	privateKey, err := readDHPrivateKey(config)
+	if err != nil {
+		return "", xerrors.Errorf("error reading Diffie-Hellman private key file: %w", err)
 	}
 
 	if len(privateKey) == 0 {
@@ -135,41 +128,73 @@ func decryptToken(token string, aad string, config map[string]interface{}) (stri
 	if err != nil {
 		return "", xerrors.Errorf("error decrypting token: %w", err)
 	}
+
 	return string(data), nil
 }
 
-func readDHPrivateKey(config map[string]interface{}) ([]byte, error) {
-	dhPrivKeyFileRaw, ok := config["dh_priv"]
-	if !ok {
-		return nil, xerrors.Errorf(
-			"If the cached token is encrypted, the Diffie-Hellman private "+
-				"key should be specified with the environment variable %s as a base64-encoded "+
-				"string or in the 'file.config.dh_priv' field of the config file as a path "+
-				"to a JSON-encoded PrivateKeyInfo structure",
-			EnvDiffieHellmanPrivateKey,
-		)
+func parseDHPrivateKeyEnv(key string) ([]byte, error) {
+	encoded := os.Getenv(key)
+	if encoded == "" {
+		return nil, xerrors.Errorf("environment variable %s is not set", key)
 	}
 
-	dhPrivKeyFile, ok := dhPrivKeyFileRaw.(string)
-	if !ok {
-		return nil, xerrors.Errorf("'dh_priv' field of file sink cannot be converted to string")
-	}
-
-	file, err := os.Open(dhPrivKeyFile) // nolint: gosec
+	privateKey, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return nil, xerrors.Errorf("error opening 'dh_priv' file %s: %w", dhPrivKeyFile, err)
+		return nil, xerrors.Errorf("error base64-decoding %s: %w", key, err)
 	}
+
+	return privateKey, nil
+}
+
+func parseDHPrivateKeyFile(path string) ([]byte, error) {
+	file, err := os.Open(path) // nolint: gosec
+	if err != nil {
+		return nil, xerrors.Errorf("error opening 'dh_priv' file %s: %w", path, err)
+	}
+
 	defer file.Close()
 
 	var pkInfo privateKeyInfo
 	if err = json.NewDecoder(file).Decode(&pkInfo); err != nil {
-		return nil, xerrors.Errorf("error JSON-decoding file %s: %w", dhPrivKeyFile, err)
+		return nil, xerrors.Errorf("error JSON-decoding file %s: %w", path, err)
 	}
 
 	if len(pkInfo.Curve25519PrivateKey) == 0 {
-		return nil, xerrors.Errorf("field 'curve25519_private_key' of file %s is empty", dhPrivKeyFile)
+		return nil, xerrors.Errorf("field 'curve25519_private_key' of file %s is empty", path)
 	}
+
 	return pkInfo.Curve25519PrivateKey, nil
+}
+
+func readDHPrivateKey(config map[string]interface{}) ([]byte, error) {
+	var dhPrivKeyEnv string
+
+	// This is here only for backwards compatibility
+	if os.Getenv(EnvDiffieHellmanPrivateKey) != "" {
+		dhPrivKeyEnv = EnvDiffieHellmanPrivateKey
+	}
+
+	if dhPrivKeyEnv == "" {
+		dhPrivKeyEnv, _ = config["dh_priv_env"].(string)
+	}
+
+	// Try getting Diffie-Hellman private key from environment first
+	if dhPrivKeyEnv != "" {
+		return parseDHPrivateKeyEnv(dhPrivKeyEnv)
+	}
+
+	// If the environment variable is not set, try getting the
+	// Diffie-Hellman private key from a file
+	dhPrivKeyFile, ok := config["dh_priv"].(string)
+
+	// Return an error if no Diffie-Hellman key is provided in neither
+	// the environment nor by a file
+	if !ok {
+		return nil, errors.New("no Diffie-Hellman private key provided")
+	}
+
+	// Try reading the Diffie-Hellman private key from file
+	return parseDHPrivateKeyFile(dhPrivKeyFile)
 }
 
 type unwrapFunc func(token string) (*api.Secret, error)
@@ -197,5 +222,6 @@ func unwrapToken(token string, unwrap unwrapFunc) (string, error) {
 			}
 		}
 	}
+
 	return token, nil
 }

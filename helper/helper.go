@@ -103,11 +103,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 		secret string
 		err    error
 	)
+
 	secret, err = h.secret.GetPath(serverURL)
 	if err != nil {
 		h.logger.Error("error parsing registry path", "error", err)
 		return "", "", xerrors.Errorf("error parsing registry path: %w", err)
 	}
+
 	if h.client.Token() != "" {
 		// Get credentials with provided token
 		creds, err = vault.GetCredentials(secret, h.client)
@@ -115,11 +117,13 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 			h.logger.Error("error reading secret from Vault", "error", err)
 			return "", "", credentials.NewErrCredentialsNotFound()
 		}
+
 		return creds.Username, creds.Password, nil
 	}
 
 	if h.cacheEnabled {
 		var clone *api.Client
+
 		clone, err = h.client.Clone()
 		if err != nil {
 			h.logger.Error("error cloning Vault API client", "error", err)
@@ -149,6 +153,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 				h.logger.Error("error reading secret from Vault", "error", err)
 				continue
 			}
+
 			return creds.Username, creds.Password, nil
 		}
 	}
@@ -157,6 +162,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 
 	// Failed to read secret with cached token. Reauthenticate.
 	h.client.ClearToken()
+
 	token, err := h.authenticate(ctx)
 	if err != nil {
 		h.logger.Error("error authenticating", "error", err)
@@ -177,6 +183,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 		h.logger.Error("error reading secret from Vault", "error", err)
 		return "", "", credentials.NewErrCredentialsNotFound()
 	}
+
 	return creds.Username, creds.Password, nil
 }
 
@@ -208,6 +215,7 @@ func (h *Helper) authenticate(ctx context.Context) (string, error) {
 	}
 	cancel()
 	<-ah.DoneCh
+
 	return token, nil
 }
 
@@ -217,6 +225,7 @@ func (h *Helper) cacheToken(ctx context.Context, token string) {
 		h.logger.Error("error building sinks; will not cache token", "error", err)
 		return
 	}
+
 	if len(sinks) > 0 {
 		ss := sink.NewSinkServer(&sink.SinkServerConfig{
 			Logger:        h.logger.Named("sink.server"),
