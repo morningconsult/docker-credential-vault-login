@@ -640,11 +640,44 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 			},
 			0,
 		},
+		{
+			"old-env-var-only",
+			EnvDiffieHellmanPrivateKey,
+			base64.StdEncoding.EncodeToString(privateKey),
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path": "testdata/token-encrypted.json",
+					},
+				},
+			},
+			1,
+		},
+		{
+			"no-env-vars",
+			"",
+			"",
+			[]*config.Sink{
+				{
+					Type:   "file",
+					DHType: "curve25519",
+					AAD:    "foobar",
+					Config: map[string]interface{}{
+						"path": "testdata/token-encrypted.json",
+					},
+				},
+			},
+			0,
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			os.Setenv(tc.envKey, tc.envVal)
+			defer os.Unsetenv(tc.envKey)
 
 			tokens := GetCachedTokens(hclog.NewNullLogger(), tc.sinks, nil)
 			if len(tokens) != tc.tokens {
