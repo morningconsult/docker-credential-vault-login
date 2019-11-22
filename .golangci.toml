@@ -9,7 +9,7 @@ exclude = [
   'G104: Errors unhandled',
 ]
 
-exclude-rules = [{ path = '_test\.go', linters = [ 'dupl', 'goconst', 'gocyclo', 'scopelint', 'lll', 'gosec']}]
+exclude-rules = [{ path = '_test\.go', linters = [ 'dupl', 'goconst', 'gocyclo', 'scopelint', 'lll', 'gosec', 'funlen', 'wsl', 'gocognit']}]
 
 exclude-use-default = false
 
@@ -19,6 +19,7 @@ disable = [
   "interfacer",
   "gochecknoglobals", # There are valid use cases for globals
   "maligned",         # Readability is more important than saving bytes
+  "funlen",
 ]
 
 [linters-settings]

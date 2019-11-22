@@ -238,13 +238,50 @@ If a cached token is [encrypted](https://www.vaultproject.io/docs/agent/autoauth
 }
 ```
 
-The private key can also be specified with the `DCVL_DH_PRIV_KEY` environment variable. Using the JSON above as an example, you can set the private key with the environment variable by running the following command:
+The private key can also be specified with an environment variable. You can set your private key to any environment variable you wish. The value should simply be the private key expressed as a base64-encoded string. The environment variable used should be specified in the `auto_auth.sink.config`' field of the configuration file. For example, let's say I want to use a different set of Diffie-Hellman keys for my sinks. For one sink, I want to set the private key to the `DCVL_DH_PRIV_KEY_1` environment variable, and for the other, I want to set it to the `DCVL_DH_PRIV_KEY_2` variable. To do this, I might write the following configuration file:
 
-```shell
-$ export DCVL_DH_PRIV_KEY="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+```hcl
+auto_auth {
+	method "aws" {
+		mount_path = "auth/aws"
+		config = {
+			type    = "iam"
+			role    = "foobar"
+			secrets = {
+                                registry-1.example.com = "secret/docker/registry1"
+                                registry-2.example.com = "secret/docker/registry2"
+                        }
+		}
+	}
+
+	sink "file" {
+		dh_type = "curve25519"
+                dh_path = "/tmp/dh-pub-1.json"
+		config  = {
+			path = "/tmp/file-foo"
+			dh_priv_env = "DCVL_DH_PRIV_KEY_1"
+		}
+	}
+
+	sink "file" {
+		dh_type = "curve25519"
+                dh_path = "/tmp/dh-pub-2.json"
+		config  = {
+			path = "/tmp/file-foo"
+			dh_priv_env = "DCVL_DH_PRIV_KEY_2"
+		}
+	}
+}
 ```
 
- The environment variable takes precedence.
+Then, I would set the environment variables:
+
+```shell
+$ export DCVL_DH_PRIV_KEY_1="NXAnojBsGvT9UMkLPssHdrqEOoqxBFV+c3Bf9YP8VcM="
+$ export DCVL_DH_PRIV_KEY_2="kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA="
+```
+
+If both `dh_priv` and `dh_priv_env` are set, the environment variable takes precedence.
 
 **Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
 

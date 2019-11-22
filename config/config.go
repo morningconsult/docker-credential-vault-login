@@ -67,6 +67,7 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	registry = u.Hostname()
 	if u.Port() != "" {
 		registry = registry + ":" + u.Port()
@@ -77,7 +78,7 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 
 // LoadConfig will parse the configuration file and return a
 // configuration struct.
-func LoadConfig(configFile string) (*vaultconfig.Config, error) {
+func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: gocyclo
 	// Try to parse config file once
 	config, err := vaultconfig.LoadConfig(configFile)
 	if err != nil {
@@ -85,7 +86,10 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 		if err.Error() != errNoSinkMsg {
 			return nil, err
 		}
-		data, err := ioutil.ReadFile(configFile) // nolint: gosec
+
+		var data []byte
+
+		data, err = ioutil.ReadFile(configFile) // nolint: gosec
 		if err != nil {
 			return nil, err
 		}
@@ -102,15 +106,20 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 
 		// Write modified configuration file string to temporary file
 		configFileBase := filepath.Base(configFile)
-		tempFile, err := ioutil.TempFile("", configFileBase+".*")
+
+		var tempFile *os.File
+
+		tempFile, err = ioutil.TempFile("", configFileBase+".*")
 		if err != nil {
 			return nil, err
 		}
+
 		defer os.Remove(tempFile.Name())
 
 		if _, err = tempFile.Write([]byte(hcl)); err != nil {
 			return nil, err
 		}
+
 		if err = tempFile.Close(); err != nil {
 			return nil, err
 		}
@@ -121,12 +130,19 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 			return nil, err
 		}
 	}
+
 	if config == nil {
 		return nil, errors.New("no configuration found")
 	}
+
 	if config.AutoAuth == nil {
 		return nil, errors.New("no 'auto_auth' block found in configuration file")
 	}
+
+	if err = validateSinks(config.AutoAuth.Sinks); err != nil {
+		return nil, err
+	}
+
 	return config, nil
 }
 
@@ -139,14 +155,17 @@ func BuildSecretsTable(config map[string]interface{}) (SecretsTable, error) { //
 		"'auto_auth.method.config.secrets', but not both")
 	secretRaw, hasSecret := config["secret"]
 	secretsRaw, hasSecrets := config["secrets"]
+
 	if hasSecret && hasSecrets {
 		return SecretsTable{}, errInvalidFormat
 	}
+
 	if hasSecret {
 		return secretsTableFromString(secretRaw)
 	} else if hasSecrets {
 		return secretsTableFromMap(secretsRaw)
 	}
+
 	return SecretsTable{}, errInvalidFormat
 }
 
@@ -155,29 +174,58 @@ func secretsTableFromString(secretRaw interface{}) (SecretsTable, error) {
 	if !ok {
 		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must be a string")
 	}
+
 	if secret == "" {
 		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secret' must not be empty")
 	}
+
 	return SecretsTable{oneSecret: secret}, nil
 }
 
 func secretsTableFromMap(secretsRaw interface{}) (SecretsTable, error) {
 	errEmptyMap := errors.New("field 'auto_auth.method.config.secrets' must have at least one entry")
+
 	secretsArr, ok := secretsRaw.([]map[string]interface{})
 	if !ok {
 		return SecretsTable{}, errors.New("field 'auto_auth.method.config.secrets' must be a map[string]string")
 	}
+
 	if len(secretsArr) == 0 {
 		return SecretsTable{}, errEmptyMap
 	}
+
 	obj := make(map[string]string)
+
 	for host, pathRaw := range secretsArr[0] {
 		if path, ok := pathRaw.(string); ok && path != "" && host != "" {
 			obj[host] = path
 		}
 	}
+
 	if len(obj) == 0 {
 		return SecretsTable{}, errEmptyMap
 	}
+
 	return SecretsTable{registryToSecret: obj}, nil
+}
+
+func validateSinks(sinks []*vaultconfig.Sink) error {
+	for i, sink := range sinks {
+		// Sink is encrypted
+		if sink.DHType != "" {
+			_, pok := sink.Config["dh_priv"]
+			_, eok := sink.Config["dh_priv_env"]
+
+			if !pok && !eok {
+				return fmt.Errorf("sink %d (type: %s) is invalid: if the cached token is encrypted, "+
+					"the Diffie-Hellman private key must be provided either by providing the name "+
+					"of the environment variable to which your key is set (the 'file.config.dh_priv_env' "+
+					"field of the configuration file) or by providing a path to a file which contains the "+
+					"key as a JSON-encoded PrivateKeyInfo structure (the 'file.config.dh_priv' field of "+
+					"the configuration file)", i+1, sink.Type)
+			}
+		}
+	}
+
+	return nil
 }

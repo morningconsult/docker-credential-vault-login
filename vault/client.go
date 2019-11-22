@@ -38,41 +38,52 @@ import (
 
 // NewClient creates a new Vault client. Note that Vault environment
 // variables take precedence over the vaultConfig.
-func NewClient(methodConfig *config.Method, vaultConfig *config.Vault) (*api.Client, error) { // nolint: gocyclo
+func NewClient( // nolint: gocyclo, gocognit
+	methodConfig *config.Method,
+	vaultConfig *config.Vault,
+) (*api.Client, error) {
 	if vaultConfig != nil {
 		if os.Getenv(api.EnvVaultAddress) == "" && vaultConfig.Address != "" {
 			os.Setenv(api.EnvVaultAddress, vaultConfig.Address)
 			defer os.Unsetenv(api.EnvVaultAddress)
 		}
+
 		if os.Getenv(api.EnvVaultCACert) == "" && vaultConfig.CACert != "" {
 			os.Setenv(api.EnvVaultCACert, vaultConfig.CACert)
 			defer os.Unsetenv(api.EnvVaultCACert)
 		}
+
 		if os.Getenv(api.EnvVaultCAPath) == "" && vaultConfig.CAPath != "" {
 			os.Setenv(api.EnvVaultCAPath, vaultConfig.CAPath)
 			defer os.Unsetenv(api.EnvVaultCAPath)
 		}
+
 		if os.Getenv(api.EnvVaultSkipVerify) == "" && vaultConfig.TLSSkipVerifyRaw != nil {
 			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify))
 			defer os.Unsetenv(api.EnvVaultSkipVerify)
 		}
+
 		if os.Getenv(api.EnvVaultClientCert) == "" && vaultConfig.ClientCert != "" {
 			os.Setenv(api.EnvVaultClientCert, vaultConfig.ClientCert)
 			defer os.Unsetenv(api.EnvVaultClientCert)
 		}
+
 		if os.Getenv(api.EnvVaultClientKey) == "" && vaultConfig.ClientKey != "" {
 			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientKey)
 			defer os.Unsetenv(api.EnvVaultClientKey)
 		}
 	}
+
 	clientConfig := api.DefaultConfig()
 	if clientConfig.Error != nil {
 		return nil, clientConfig.Error
 	}
+
 	client, err := api.NewClient(clientConfig)
 	if err != nil {
 		return nil, err
 	}
+
 	return configureToken(client, methodConfig)
 }
 
@@ -84,24 +95,29 @@ func configureToken(client *api.Client, methodConfig *config.Method) (*api.Clien
 			if !ok {
 				return nil, xerrors.New("missing 'auto_auth.method.config.token' value")
 			}
+
 			token, ok := tokenRaw.(string)
 			if !ok {
 				return nil, xerrors.New("could not convert 'auto_auth.method.config.token' config value to string")
 			}
+
 			if token == "" {
 				return nil, xerrors.New("'auto_auth.method.config.token' value is empty")
 			}
+
 			client.SetToken(token)
 		}
 	default:
 		client.ClearToken()
 	}
+
 	return client, nil
 }
 
 // BuildSinks creates a set of sinks from the sink configurations.
 func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*sink.SinkConfig, error) {
 	sinks := make([]*sink.SinkConfig, 0, len(sc))
+
 	for _, ss := range sc {
 		switch ss.Type {
 		case "file":
@@ -114,16 +130,19 @@ func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*
 				DHPath:  ss.DHPath,
 				AAD:     ss.AAD,
 			}
+
 			s, err := file.NewFileSink(config)
 			if err != nil {
 				return nil, xerrors.Errorf("error creating file sink: %w", err)
 			}
+
 			config.Sink = s
 			sinks = append(sinks, config)
 		default:
 			return nil, xerrors.Errorf("unknown sink type %q", ss.Type)
 		}
 	}
+
 	return sinks, nil
 }
 
@@ -134,14 +153,18 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 	if config.Namespace != "" {
 		mountPath = path.Join(config.Namespace, mountPath)
 	}
+
 	authConfig := &auth.AuthConfig{
 		Logger:    logger.Named(fmt.Sprintf("auth.%s", config.Type)),
 		MountPath: mountPath,
 		Config:    config.Config,
 	}
 
-	var method auth.AuthMethod
-	var err error
+	var (
+		method auth.AuthMethod
+		err    error
+	)
+
 	switch config.Type {
 	case "alicloud":
 		method, err = alicloud.NewAliCloudAuthMethod(authConfig)
@@ -164,8 +187,10 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 	default:
 		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
 	}
+
 	if err != nil {
 		return nil, xerrors.Errorf("error creating %s auth method: %v", config.Type, err)
 	}
+
 	return method, nil
 }

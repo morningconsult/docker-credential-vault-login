@@ -464,11 +464,9 @@ Code: 403. Errors:
 				expected, buf.String())
 		}
 	})
-
 }
 
 func TestHelper_Get_FastTimeout(t *testing.T) {
-
 	buf := bytes.Buffer{}
 	logger := hclog.New(&hclog.LoggerOptions{
 		Level:  hclog.Error,

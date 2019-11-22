@@ -22,7 +22,6 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-
 	cases := []struct {
 		name         string
 		file         string
@@ -51,6 +50,12 @@ func TestLoadConfig(t *testing.T) {
 			"no-method",
 			"testdata/no-method.hcl",
 			"error parsing 'auto_auth': error parsing 'method': one and only one \"method\" block is required",
+			nil,
+		},
+		{
+			"no-dh-keys",
+			"testdata/no-dh-keys.hcl",
+			"sink 1 (type: file) is invalid: if the cached token is encrypted, the Diffie-Hellman private key must be provided either by providing the name of the environment variable to which your key is set (the 'file.config.dh_priv_env' field of the configuration file) or by providing a path to a file which contains the key as a JSON-encoded PrivateKeyInfo structure (the 'file.config.dh_priv' field of the configuration file)",
 			nil,
 		},
 		{

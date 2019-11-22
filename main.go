@@ -44,9 +44,12 @@ const (
 	envDisableCaching = "DCVL_DISABLE_CACHE"
 )
 
-func main() {
-	var versionFlag, disableCache bool
-	var configFile string
+func main() { // nolint: funlen
+	var (
+		versionFlag, disableCache bool
+		configFile                string
+	)
+
 	flag.BoolVar(&versionFlag, "version", false, "print version and exit")
 	flag.BoolVar(&disableCache, "disable-cache", false, "disable token caching")
 	flag.StringVar(&configFile, "config", defaultConfigFile, "path to the configuration file")
@@ -61,6 +64,7 @@ func main() {
 	// Get path to config file
 	if f := os.Getenv(envConfigFile); f != "" {
 		var err error
+
 		configFile, err = homedir.Expand(f)
 		if err != nil {
 			log.Fatalf("error expanding directory %q: %v", f, err)
@@ -125,14 +129,18 @@ func newLogWriter(config map[string]interface{}) (*os.File, error) {
 			logDir = l
 		}
 	}
+
 	logDir, err := homedir.Expand(logDir)
 	if err != nil {
 		return nil, xerrors.Errorf("error expanding logging directory %s: %w", logDir, err)
 	}
+
 	if err = os.MkdirAll(logDir, 0750); err != nil {
 		return nil, xerrors.Errorf("error creating directory %s: %w", logDir, err)
 	}
+
 	logFile := filepath.Join(logDir, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
+
 	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 }
 
@@ -142,7 +150,9 @@ func cacheEnabled(disableCache bool) (bool, error) {
 		if err != nil {
 			return false, xerrors.Errorf("value of %s could not be converted to boolean", envDisableCaching)
 		}
+
 		disableCache = b
 	}
+
 	return !disableCache, nil
 }
