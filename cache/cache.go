@@ -167,8 +167,19 @@ func parseDHPrivateKeyFile(path string) ([]byte, error) {
 }
 
 func readDHPrivateKey(config map[string]interface{}) ([]byte, error) {
+	var dhPrivKeyEnv string
+
+	// This is here only for backwards compatibility
+	if os.Getenv(EnvDiffieHellmanPrivateKey) != "" {
+		dhPrivKeyEnv = EnvDiffieHellmanPrivateKey
+	}
+
+	if dhPrivKeyEnv == "" {
+		dhPrivKeyEnv, _ = config["dh_priv_env"].(string)
+	}
+
 	// Try getting Diffie-Hellman private key from environment first
-	if dhPrivKeyEnv, ok := config["dh_priv_env"].(string); ok {
+	if dhPrivKeyEnv != "" {
 		return parseDHPrivateKeyEnv(dhPrivKeyEnv)
 	}
 

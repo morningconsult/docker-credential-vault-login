@@ -590,9 +590,6 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 
 	expected := string(data)
 
-	privKeyOld := os.Getenv(EnvDiffieHellmanPrivateKey)
-	defer os.Setenv(EnvDiffieHellmanPrivateKey, privKeyOld)
-
 	data, err = json.Marshal(resp)
 	if err != nil {
 		t.Fatal(err)
@@ -843,13 +840,22 @@ func TestDecryptToken(t *testing.T) {
 			expectToken: "",
 		},
 		{
-			name:        "error-reading-key-from-env",
-			pre:         func() { os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64") },
-			post:        func() { os.Unsetenv(EnvDiffieHellmanPrivateKey) },
+			name: "error-reading-key-from-env",
+			pre: func() {
+				// This is to check backwards compatibility - it ensures that
+				// the DCVL_DH_PRIV_KEY environment variable takes precedence
+				// over any other environment variables
+				os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64")
+				os.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=")
+			},
+			post: func() {
+				os.Unsetenv(EnvDiffieHellmanPrivateKey)
+				os.Unsetenv("DCVL_DH_PRIV_KEY_1")
+			},
 			token:       `{"curve25519_public_key":""}`,
 			aad:         "",
-			config:      nil,
-			expectErr:   "error reading Diffie-Hellman private key file: no Diffie-Hellman private key provided",
+			config:      map[string]interface{}{"dh_priv_env": "DCVL_DH_PRIV_KEY_1"},
+			expectErr:   "error reading Diffie-Hellman private key file: error base64-decoding DCVL_DH_PRIV_KEY: illegal base64 data at input byte 1",
 			expectToken: "",
 		},
 		{
