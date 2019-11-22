@@ -283,6 +283,8 @@ $ export DCVL_DH_PRIV_KEY_2="kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA="
 
 If both `dh_priv` and `dh_priv_env` are set, the environment variable takes precedence.
 
+**Note**: For backwards compatibility, the `DCVL_DH_PRIV_KEY` environment variable is still honored. If this variable is set, then it will be used for all sinks, regardless of what you set in the `dh_priv` or `dh_priv_env` fields. Do not use this environment variable unless you are using only one Diffie-Hellman key pair for all sinks.
+
 **Note**: You can generate a Diffie-Hellman public-private key pair with the [script](https://github.com/morningconsult/docker-credential-vault-login/blob/master/scripts/generate-dh-keys.sh) provided in this repository.
 
 ### Token Authentication
