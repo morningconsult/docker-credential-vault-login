@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -220,7 +219,13 @@ auto_auth {
 		Logger:      hclog.NewNullLogger(),
 		Client:      client,
 		AuthTimeout: 3,
-		Secret:      mockSecretTable{oneSecret: secretPath},
+		Secret: mockSecretTable{
+			mockSecretTableConfig{
+				getPath: func(_ string) (string, error) {
+					return secretPath, nil
+				},
+			},
+		},
 		AuthConfig:  config.AutoAuth,
 		EnableCache: true,
 	})
@@ -298,8 +303,14 @@ auto_auth {
 			Logger:      hclog.NewNullLogger(),
 			Client:      client,
 			AuthTimeout: 3,
-			Secret:      mockSecretTable{oneSecret: secretPath},
-			AuthConfig:  config.AutoAuth,
+			Secret: mockSecretTable{
+				mockSecretTableConfig{
+					getPath: func(_ string) (string, error) {
+						return secretPath, nil
+					},
+				},
+			},
+			AuthConfig: config.AutoAuth,
 		})
 
 		makeApproleFiles()
@@ -352,9 +363,17 @@ auto_auth {
 			Client:      client,
 			AuthTimeout: 3,
 			Secret: mockSecretTable{
-				hostToSecret: map[string]string{
-					"registry-1.example.com": secretPath,
-					"registry-2.example.com": "secret/docker/other/creds",
+				mockSecretTableConfig{
+					getPath: func(path string) (string, error) {
+						switch path {
+						case "registry-1.example.com":
+							return secretPath, nil
+						case "registry-2.example.com":
+							return "secret/docker/other/creds", nil
+						default:
+							return "", nil
+						}
+					},
 				},
 			},
 			AuthConfig: config.AutoAuth,
@@ -362,6 +381,7 @@ auto_auth {
 
 		makeApproleFiles()
 
+		// This should work
 		user, pw, err = hh.Get("registry-1.example.com")
 		if err != nil {
 			t.Fatal(err)
@@ -372,6 +392,24 @@ auto_auth {
 		}
 		if pw != "secure password" {
 			t.Fatalf("Got password %q, expected \"secure password\"", pw)
+		}
+
+		// This should fail
+		hh.secret = mockSecretTable{
+			mockSecretTableConfig{
+				getPath: func(_ string) (string, error) {
+					return "", fmt.Errorf("oops")
+				},
+			},
+		}
+		_, _, err = hh.Get("fake.registry.com")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		gotErr := err.Error()
+		expectErr := `error parsing registry path: oops`
+		if gotErr != expectErr {
+			t.Errorf("Expected error:\n%s\nGot error:\n%s", expectErr, gotErr)
 		}
 	})
 
@@ -485,7 +523,13 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 		t.Fatal(err)
 	}
 	h := New(Options{
-		Secret:      mockSecretTable{oneSecret: "secret/docker/creds"},
+		Secret: mockSecretTable{
+			mockSecretTableConfig{
+				getPath: func(path string) (string, error) {
+					return "secret/docker/creds", nil
+				},
+			},
+		},
 		Logger:      logger,
 		AuthTimeout: 1,
 		Client:      client,
@@ -502,29 +546,17 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	}
 }
 
-type mockSecretTable struct {
-	oneSecret    string
-	hostToSecret map[string]string
+type mockSecretTableConfig struct {
+	getPath func(string) (string, error)
 }
 
-func (s mockSecretTable) GetPath(host string) (string, error) {
-	if s.oneSecret != "" {
-		return s.oneSecret, nil
-	}
+type mockSecretTable struct {
+	cfg mockSecretTableConfig
+}
 
-	// Add scheme if one is not present so url.Parse works as expected
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		host = "http://" + host
+func (m mockSecretTable) GetPath(path string) (string, error) {
+	if m.cfg.getPath == nil {
+		return "", nil
 	}
-
-	u, err := url.Parse(host)
-	if err != nil {
-		return "", err
-	}
-	host = u.Hostname()
-	if u.Port() != "" {
-		host = host + ":" + u.Port()
-	}
-
-	return s.hostToSecret[host], nil
+	return m.cfg.getPath(path)
 }
