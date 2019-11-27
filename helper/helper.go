@@ -97,14 +97,8 @@ func (h *Helper) List() (map[string]string, error) {
 
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
-func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
-	var (
-		creds  vault.Credentials
-		secret string
-		err    error
-	)
-
-	secret, err = h.secret.GetPath(serverURL)
+func (h *Helper) Get(serverURL string) (string, string, error) {
+	secret, err := h.secret.GetPath(serverURL)
 	if err != nil {
 		h.logger.Error("error parsing registry path", "error", err)
 		return "", "", xerrors.Errorf("error parsing registry path: %w", err)
@@ -112,61 +106,29 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 
 	if h.client.Token() != "" {
 		// Get credentials with provided token
-		creds, err = vault.GetCredentials(secret, h.client)
-		if err != nil {
-			h.logger.Error("error reading secret from Vault", "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
-		return creds.Username, creds.Password, nil
+		return h.getCredentials(h.client.Token(), secret)
 	}
 
 	if h.cacheEnabled {
-		var clone *api.Client
-
-		clone, err = h.client.Clone()
-		if err != nil {
-			h.logger.Error("error cloning Vault API client", "error", err)
-			return "", "", credentials.NewErrCredentialsNotFound()
-		}
-
-		// Get any cached tokens
-		cachedTokens := cache.GetCachedTokens(h.logger.Named("cache"), h.authConfig.Sinks, clone)
-		if len(cachedTokens) < 1 {
-			h.logger.Info("no cached token(s) were read. Re-authenticating.")
-		}
-
-		// Renew the cached tokens
-		for _, token := range cachedTokens {
-			if _, err = h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
-				h.logger.Error("error renewing token", "error", err)
-			}
-		}
+		cachedTokens := h.getCachedTokens()
 
 		// Use any token to get credentials
 		for _, token := range cachedTokens {
-			h.client.SetToken(token)
+			var user, pass string
 
 			// Get credentials
-			creds, err = vault.GetCredentials(secret, h.client)
-			if err != nil {
-				h.logger.Error("error reading secret from Vault", "error", err)
-				continue
+			if user, pass, err = h.getCredentials(token, secret); err == nil {
+				return user, pass, nil
 			}
-
-			return creds.Username, creds.Password, nil
 		}
 	}
 
 	ctx := context.Background()
 
-	// Failed to read secret with cached token. Reauthenticate.
-	h.client.ClearToken()
-
 	token, err := h.authenticate(ctx)
 	if err != nil {
-		h.logger.Error("error authenticating", "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
+		h.logger.Error("error authenticating to Vault", "error", err)
+		return "", "", xerrors.Errorf("error authenticating to Vault: %w", err)
 	}
 
 	// Cache the token if caching is enabled
@@ -174,17 +136,47 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 		h.cacheToken(ctx, token)
 	}
 
-	// Give the newly-obtained token to the client
+	// Get credentials
+	return h.getCredentials(token, secret)
+}
+
+func (h *Helper) getCredentials(token, secret string) (string, string, error) {
 	h.client.SetToken(token)
 
-	// Get credentials
-	creds, err = vault.GetCredentials(secret, h.client)
+	creds, err := vault.GetCredentials(secret, h.client)
 	if err != nil {
-		h.logger.Error("error reading secret from Vault", "error", err)
-		return "", "", credentials.NewErrCredentialsNotFound()
+		errMsg := "error reading secret from Vault"
+		h.logger.Error(errMsg, "error", err)
+
+		return "", "", xerrors.Errorf("%s: %w", errMsg, err)
 	}
 
 	return creds.Username, creds.Password, nil
+}
+
+func (h *Helper) getCachedTokens() []string {
+	clone, err := h.client.Clone()
+	if err != nil {
+		h.logger.Error("error cloning Vault API client", "error", err)
+		return nil
+	}
+
+	// Get any cached tokens
+	cachedTokens := cache.GetCachedTokens(h.logger.Named("cache"), h.authConfig.Sinks, clone)
+
+	if len(cachedTokens) < 1 {
+		h.logger.Info("no cached token(s) were read. Re-authenticating.")
+		return nil
+	}
+
+	// Renew the cached tokens
+	for _, token := range cachedTokens {
+		if _, err = h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
+			h.logger.Error("error renewing cached token", "error", err)
+		}
+	}
+
+	return cachedTokens
 }
 
 func (h *Helper) authenticate(ctx context.Context) (string, error) {
@@ -192,6 +184,8 @@ func (h *Helper) authenticate(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", xerrors.Errorf("error creating auth method: %w", err)
 	}
+
+	h.client.ClearToken()
 
 	ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
 		Logger:  h.logger.Named("auth.handler"),
