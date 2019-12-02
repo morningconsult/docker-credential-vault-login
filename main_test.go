@@ -384,7 +384,8 @@ auto_auth {
 		t.Fatal(err)
 	}
 	defer os.Remove(configFile)
-	defer os.Remove(filepath.Join("testdata", "token-sink"))
+	tokenFile := filepath.Join("testdata", "token-sink")
+	defer os.Remove(tokenFile)
 
 	// Load configuration from file
 	config, err := mciconfig.LoadConfig(configFile)
@@ -425,6 +426,231 @@ auto_auth {
 	if password != "secure password" {
 		t.Errorf("Expected password %q, got %q", "secure password", password)
 	}
+
+	if _, err = os.Stat(tokenFile); err != nil {
+		t.Fatal(err)
+	}
+
+	clientToken := client.Token()
+
+	// Test that it can read the secret using the cached token
+	t.Run("can-use-cached-token", func(t *testing.T) {
+		client.ClearToken() // Client has no token so it will have to reauthenticate
+
+		makeApproleFiles()
+
+		username, password, err = h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "test@user.com" {
+			t.Errorf("Got username %q, expected \"test@user.com\"", username)
+		}
+		if password != "secure password" {
+			t.Errorf("Got password %q, expected \"secure password\"", password)
+		}
+		if client.Token() != clientToken {
+			t.Errorf("Expected token %s, got token %s", clientToken, client.Token())
+		}
+	})
+
+	// Test that it can authenticate without sinks
+	t.Run("can-authenticate-without-sinks", func(t *testing.T) {
+		noSinksHCL := `
+auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = %q
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+}`
+		noSinksHCL = fmt.Sprintf(noSinksHCL, secretPath, roleIDFile, secretIDFile)
+
+		if err = ioutil.WriteFile(configFile, []byte(noSinksHCL), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		config, err = mciconfig.LoadConfig(configFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		secretsTable, err = mciconfig.BuildSecretsTable(config.AutoAuth.Method.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mciClient = mcivault.NewClient(mcivault.ClientOptions{
+			Logger:     hclog.NewNullLogger(),
+			Client:     client,
+			AuthConfig: config.AutoAuth,
+		})
+
+		h = helper.New(helper.Options{
+			Logger: hclog.NewNullLogger(),
+			Client: mciClient,
+			Secret: secretsTable,
+		})
+
+		makeApproleFiles()
+
+		client.ClearToken()
+
+		username, password, err = h.Get("")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", username)
+		}
+		if password != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", password)
+		}
+	})
+
+	// Test that you can use multiple registries
+	t.Run("multiple-secrets", func(t *testing.T) {
+		multiSecret := `
+auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+			secrets = {
+				registry-1.example.com = %q
+				registry-2.example.com = "secret/docker/other/creds"
+			}
+		}
+	}
+}`
+		multiSecret = fmt.Sprintf(multiSecret, roleIDFile, secretIDFile, secretPath)
+
+		if err = ioutil.WriteFile(configFile, []byte(multiSecret), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		config, err = mciconfig.LoadConfig(configFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		secretsTable, err = mciconfig.BuildSecretsTable(config.AutoAuth.Method.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mciClient = mcivault.NewClient(mcivault.ClientOptions{
+			Logger:     hclog.NewNullLogger(),
+			Client:     client,
+			AuthConfig: config.AutoAuth,
+		})
+
+		h = helper.New(helper.Options{
+			Logger: hclog.NewNullLogger(),
+			Client: mciClient,
+			Secret: secretsTable,
+		})
+
+		makeApproleFiles()
+
+		client.ClearToken()
+
+		username, password, err = h.Get("registry-1.example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if username != "test@user.com" {
+			t.Fatalf("Got username %q, expected \"test@user.com\"", username)
+		}
+		if password != "secure password" {
+			t.Fatalf("Got password %q, expected \"secure password\"", password)
+		}
+
+		_, _, err = h.Get("does.not.exist.net")
+		if err == nil {
+			t.Fatal("Expected an error")
+		}
+
+		gotErr := err.Error()
+		expectErr := `error parsing registry path: registry "does.not.exist.net" not found in configuration`
+		if gotErr != expectErr {
+			t.Errorf("Expected error:\n%s\nGot error:\n%s", expectErr, gotErr)
+		}
+	})
+
+	// Test that it fails if it tries to get credentials from
+	// a secret path that does not exist or that the user
+	// does not have permission to access
+	t.Run("bad-secret-path", func(t *testing.T) {
+		badSecretPathHCL := `
+auto_auth {
+	method "approle" {
+		mount_path = "auth/approle"
+		config     = {
+			secret              = "bad/secret/path"
+			role_id_file_path   = %q
+			secret_id_file_path = %q
+		}
+	}
+}`
+		badSecretPathHCL = fmt.Sprintf(badSecretPathHCL, roleIDFile, secretIDFile)
+
+		if err = ioutil.WriteFile(configFile, []byte(badSecretPathHCL), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		config, err = mciconfig.LoadConfig(configFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		secretsTable, err := mciconfig.BuildSecretsTable(config.AutoAuth.Method.Config)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mciClient = mcivault.NewClient(mcivault.ClientOptions{
+			Logger:     hclog.NewNullLogger(),
+			Client:     client,
+			AuthConfig: config.AutoAuth,
+		})
+
+		h = helper.New(helper.Options{
+			Logger: hclog.NewNullLogger(),
+			Client: mciClient,
+			Secret: secretsTable,
+		})
+
+		makeApproleFiles()
+
+		client.ClearToken()
+
+		_, _, err = h.Get("")
+		if err == nil {
+			t.Fatal(err)
+		}
+
+		gotErr := err.Error()
+		expectErr := fmt.Sprintf(`error reading secret: Error making API request.
+
+URL: GET %s/v1/bad/secret/path
+Code: 403. Errors:
+
+* 1 error occurred:
+	* permission denied
+
+`, client.Address())
+		if gotErr != expectErr {
+			t.Errorf("Expected error:\n%q\nGot error:\n%q", expectErr, gotErr)
+		}
+	})
 }
 
 func stashEnv() []string {
