@@ -14,517 +14,237 @@
 package helper
 
 import (
-	"bytes"
-	"fmt"
-	"io/ioutil"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
+	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
-	"time"
 
-	"github.com/docker/docker-credential-helpers/credentials"
-	"github.com/google/go-cmp/cmp"
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/builtin/credential/approle"
-	"github.com/hashicorp/vault/command/agent/config"
-	vaulthttp "github.com/hashicorp/vault/http"
-	"github.com/hashicorp/vault/sdk/helper/logging"
-	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/hashicorp/vault/vault"
-
-	mciconfig "github.com/morningconsult/docker-credential-vault-login/config"
+	hclog "github.com/hashicorp/go-hclog"
 )
 
-func TestHelper_Add(t *testing.T) {
-	h := New(Options{})
-	err := h.Add(&credentials.Credentials{})
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if err.Error() != "not implemented" {
-		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
-	}
-}
-
-func TestHelper_Delete(t *testing.T) {
-	h := New(Options{})
-	err := h.Delete("")
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if err.Error() != "not implemented" {
-		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
-	}
-}
-
-func TestHelper_List(t *testing.T) {
-	h := New(Options{})
-	_, err := h.List()
-	if err == nil {
-		t.Fatal("expected an error")
-	}
-	if err.Error() != "not implemented" {
-		t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), "not implemented"))
-	}
-}
-
 func TestHelper_Get(t *testing.T) {
-	// Note: This is an end-to-end test using the approle authentication method
-	testdata, err := filepath.Abs("testdata")
-	if err != nil {
-		t.Fatal(err)
-	}
-	coreConfig := &vault.CoreConfig{
-		Logger: logging.NewVaultLogger(hclog.Error),
-		CredentialBackends: map[string]logical.Factory{
-			"approle": approle.Factory,
+	logger := hclog.NewNullLogger()
+	numCalls := new(int32)
+	*numCalls = 0
+
+	cases := []struct {
+		name            string
+		getPath         func(string) (string, error)
+		getCredentials  func(string, string) (string, string, error)
+		authenticate    func(context.Context) (string, error)
+		getCachedTokens func() []string
+		cacheToken      func(context.Context, string)
+		cacheEnabled    bool
+		token           string
+		expectErr       string
+		expectUser      string
+		expectPass      string
+		expectNumCalls  int32
+	}{
+		{
+			name: "error-getting-secret",
+			getPath: func(_ string) (string, error) {
+				return "", errors.New("error getting secret")
+			},
+			expectErr: "error parsing registry path: error getting secret",
+		},
+		{
+			name: "gets-credentials-no-token-no-cache",
+			getCredentials: func(_, _ string) (string, string, error) {
+				atomic.AddInt32(numCalls, 1)
+				return "test@user.com", "password", nil
+			},
+			expectUser:     "test@user.com",
+			expectPass:     "password",
+			expectNumCalls: 1,
+		},
+		{
+			name: "gets-credentials-with-token",
+			getCredentials: func(token, _ string) (string, string, error) {
+				atomic.AddInt32(numCalls, 1)
+				if token != "4f13d9dc-2460-45fd-a702-f2ec51db7e6f" {
+					t.Errorf("Expected token %q, got token %q", "4f13d9dc-2460-45fd-a702-f2ec51db7e6f", token)
+				}
+				return "test@user.com", "password", nil
+			},
+			token:          "4f13d9dc-2460-45fd-a702-f2ec51db7e6f",
+			expectUser:     "test@user.com",
+			expectPass:     "password",
+			expectNumCalls: 1,
+		},
+		{
+			name: "gets-credentials-from-cache",
+			getCredentials: func(token, _ string) (string, string, error) {
+				atomic.AddInt32(numCalls, 1)
+				if token == "4b663b8d-2485-456a-8e2a-fcdad0b4af4d" {
+					return "test@user.com", "password", nil
+				}
+				return "", "", errors.New("failed to get cached token")
+			},
+			getCachedTokens: func() []string {
+				return []string{
+					"4dab504a-3633-4b11-b6fd-497d0ea79699",
+					"4b663b8d-2485-456a-8e2a-fcdad0b4af4d",
+				}
+			},
+			cacheEnabled:   true,
+			expectUser:     "test@user.com",
+			expectPass:     "password",
+			expectNumCalls: 2,
+		},
+		{
+			name: "fails-to-get-credentials-with-cached-tokens",
+			getCredentials: func(token, _ string) (string, string, error) {
+				atomic.AddInt32(numCalls, 1)
+				if token == "2f9a58fc-14db-4eed-840e-7de09412af62" {
+					return "test@user.com", "password", nil
+				}
+				return "", "", errors.New("failed to get cached token")
+			},
+			getCachedTokens: func() []string {
+				return []string{
+					"4dab504a-3633-4b11-b6fd-497d0ea79699",
+					"4b663b8d-2485-456a-8e2a-fcdad0b4af4d",
+				}
+			},
+			authenticate: func(_ context.Context) (string, error) {
+				return "2f9a58fc-14db-4eed-840e-7de09412af62", nil
+			},
+			cacheEnabled:   true,
+			expectUser:     "test@user.com",
+			expectPass:     "password",
+			expectNumCalls: 3,
+		},
+		{
+			name: "caches-token-after-auth",
+			getCredentials: func(token, _ string) (string, string, error) {
+				if token == "2f9a58fc-14db-4eed-840e-7de09412af62" {
+					return "test@user.com", "password", nil
+				}
+				return "", "", errors.New("failed to get cached token")
+			},
+			authenticate: func(_ context.Context) (string, error) {
+				return "2f9a58fc-14db-4eed-840e-7de09412af62", nil
+			},
+			cacheToken: func(_ context.Context, token string) {
+				if token != "2f9a58fc-14db-4eed-840e-7de09412af62" {
+					t.Errorf("Expected token %q, got token %q", "2f9a58fc-14db-4eed-840e-7de09412af62", token)
+				}
+				atomic.AddInt32(numCalls, 1)
+			},
+			cacheEnabled:   true,
+			expectUser:     "test@user.com",
+			expectPass:     "password",
+			expectNumCalls: 1,
+		},
+		{
+			name: "error-authenticating",
+			authenticate: func(_ context.Context) (string, error) {
+				return "", errors.New("error authenticating")
+			},
+			expectErr: "error authenticating to Vault: error authenticating",
 		},
 	}
-	cluster := vault.NewTestCluster(t, coreConfig, &vault.TestClusterOptions{
-		HandlerFunc: vaulthttp.Handler,
-	})
-	cluster.Start()
-	defer cluster.Cleanup()
 
-	core := cluster.Cores[0].Core
-	vault.TestWaitActive(t, core)
-	client := cluster.Cores[0].Client
-	rootToken := client.Token()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer func() { *numCalls = 0 }()
 
-	// Mount the auth backend
-	err = client.Sys().EnableAuthWithOptions("approle", &api.EnableAuthOptions{
-		Type: "approle",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Tune the mount
-	err = client.Sys().TuneMount("auth/approle", api.MountConfigInput{
-		DefaultLeaseTTL: "20s",
-		MaxLeaseTTL:     "20s",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create role
-	_, err = client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
-		"period":   "20s",
-		"policies": "dev-policy",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Get role_id
-	resp, err := client.Logical().Read("auth/approle/role/role-period/role-id")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp == nil {
-		t.Fatal("expected a response for fetching the role-id")
-	}
-	roleID, ok := resp.Data["role_id"].(string)
-	if !ok {
-		t.Fatal("could not convert 'role_id' to string")
-	}
-	roleIDFile := filepath.Join(testdata, "test-approle-role-id")
-	defer os.Remove(roleIDFile)
-
-	// Get secret_id
-	resp, err = client.Logical().Write("auth/approle/role/role-period/secret-id", map[string]interface{}{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp == nil {
-		t.Fatal("expected a response for fetching the secret-id")
-	}
-	secretID, ok := resp.Data["secret_id"].(string)
-	if !ok {
-		t.Fatal("could not convert 'secret_id' to string")
-	}
-	secretIDFile := filepath.Join(testdata, "test-approle-secret-id")
-	defer os.Remove(secretIDFile)
-
-	makeApproleFiles := func() {
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
-			t.Fatal(err)
-		}
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	makeApproleFiles()
-
-	// Write a secret
-	secretPath := "secret/docker/creds"
-	_, err = client.Logical().Write(secretPath, map[string]interface{}{
-		"username": "test@user.com",
-		"password": "secure password",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Give the approle permission to read the secret
-	policy := fmt.Sprintf(`path %q {
-	capabilities = ["read", "list"]
-}`, secretPath)
-	if err = client.Sys().PutPolicy("dev-policy", policy); err != nil {
-		t.Fatal(err)
-	}
-
-	hcl := `
-auto_auth {
-	method "approle" {
-		mount_path = "auth/approle"
-		config     = {
-			secret              = %q
-			role_id_file_path   = %q
-			secret_id_file_path = %q
-		}
-	}
-
-	sink "file" {
-		wrap_ttl = "5m"
-		aad      = "TESTAAD"
-		dh_type  = "curve25519"
-		dh_path  = "testdata/dh-pub-key.json"
-		config   = {
-			path    = "testdata/token-sink"
-			dh_priv = "testdata/dh-priv-key.json"
-		}
-	}
-}`
-	hcl = fmt.Sprintf(hcl, secretPath, roleIDFile, secretIDFile)
-
-	configFile := filepath.Join(testdata, "testing.hcl")
-	if err = ioutil.WriteFile(configFile, []byte(hcl), 0644); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(configFile)
-	defer os.Remove("testdata/token-sink")
-
-	config, err := mciconfig.LoadConfig(configFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	client.ClearToken()
-	h := New(Options{
-		Logger:      hclog.NewNullLogger(),
-		Client:      client,
-		AuthTimeout: 3,
-		Secret:      mockSecretTable{oneSecret: secretPath},
-		AuthConfig:  config.AutoAuth,
-		EnableCache: true,
-	})
-
-	// Test that it can read authenticate, get a new token, and read the secret
-	user, pw, err := h.Get("")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if user != "test@user.com" {
-		t.Fatalf("Got username %q, expected \"test@user.com\"", user)
-	}
-	if pw != "secure password" {
-		t.Fatalf("Got password %q, expected \"secure password\"", pw)
-	}
-
-	if _, err = os.Stat("testdata/token-sink"); err != nil {
-		t.Fatal(err)
-	}
-
-	clientToken := h.client.Token()
-
-	// Test that it can read the secret using the cached token
-	t.Run("can-use-cached-token", func(t *testing.T) {
-		h.client.ClearToken() // Client has no token so it will have to reauthenticate
-		h.cacheEnabled = true
-
-		makeApproleFiles()
-
-		user, pw, err = h.Get("")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if user != "test@user.com" {
-			t.Errorf("Got username %q, expected \"test@user.com\"", user)
-		}
-		if pw != "secure password" {
-			t.Errorf("Got password %q, expected \"secure password\"", pw)
-		}
-		if h.client.Token() != clientToken {
-			t.Errorf("Expected token %s, got token %s", clientToken, h.client.Token())
-		}
-	})
-
-	// Test that it can authenticate without sinks
-	t.Run("can-authenticate-without-sinks", func(t *testing.T) {
-		noSinksHCL := `
-auto_auth {
-	method "approle" {
-		mount_path = "auth/approle"
-		config     = {
-			secret              = %q
-			role_id_file_path   = %q
-			secret_id_file_path = %q
-		}
-	}
-}`
-		noSinksHCL = fmt.Sprintf(noSinksHCL, secretPath, roleIDFile, secretIDFile)
-
-		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
-		if err = ioutil.WriteFile(configFile, []byte(noSinksHCL), 0644); err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(noSinksConfigFile)
-
-		config, err = mciconfig.LoadConfig(noSinksConfigFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		client.ClearToken()
-		h = New(Options{
-			Logger:      hclog.NewNullLogger(),
-			Client:      client,
-			AuthTimeout: 3,
-			Secret:      mockSecretTable{oneSecret: secretPath},
-			AuthConfig:  config.AutoAuth,
-		})
-
-		makeApproleFiles()
-
-		user, pw, err = h.Get("")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if user != "test@user.com" {
-			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
-		}
-		if pw != "secure password" {
-			t.Fatalf("Got password %q, expected \"secure password\"", pw)
-		}
-	})
-
-	// Test that you can use multiple registries
-	t.Run("multiple-secrets", func(t *testing.T) {
-		multiSecret := `
-auto_auth {
-	method "approle" {
-		mount_path = "auth/approle"
-		config     = {
-			role_id_file_path   = %q
-			secret_id_file_path = %q
-			secret = {
-				registry-1.example.com = %q
-				registry-2.example.com = "secret/docker/other/creds"
+			table := mockSecretTable{
+				mockSecretTableConfig{getPath: tc.getPath},
 			}
-		}
-	}
-}`
-		multiSecret = fmt.Sprintf(multiSecret, roleIDFile, secretIDFile, secretPath)
-
-		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
-		if err = ioutil.WriteFile(configFile, []byte(multiSecret), 0644); err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(noSinksConfigFile)
-
-		config, err = mciconfig.LoadConfig(noSinksConfigFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		client.ClearToken()
-		hh := New(Options{
-			Logger:      hclog.Default(),
-			Client:      client,
-			AuthTimeout: 3,
-			Secret: mockSecretTable{
-				hostToSecret: map[string]string{
-					"registry-1.example.com": secretPath,
-					"registry-2.example.com": "secret/docker/other/creds",
+			client := mockClient{
+				mockClientConfig{
+					getCredentials:  tc.getCredentials,
+					authenticate:    tc.authenticate,
+					getCachedTokens: tc.getCachedTokens,
+					cacheToken:      tc.cacheToken,
 				},
-			},
-			AuthConfig: config.AutoAuth,
+			}
+			helper := Helper{
+				logger:       logger,
+				client:       client,
+				secret:       table,
+				cacheEnabled: tc.cacheEnabled,
+				token:        tc.token,
+			}
+			gotUser, gotPass, err := helper.Get("")
+			if tc.expectErr != "" {
+				if err == nil {
+					t.Fatal("Expected an error")
+				}
+				gotErr := err.Error()
+				if gotErr != tc.expectErr {
+					t.Fatalf("Expected error:\n%s\nGot error:\n%s", tc.expectErr, gotErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if gotUser != tc.expectUser {
+				t.Errorf("Expected user %q, got user %q", tc.expectUser, gotUser)
+			}
+			if gotPass != tc.expectPass {
+				t.Errorf("Expected password %q, got password %q", tc.expectPass, gotPass)
+			}
+			if *numCalls != tc.expectNumCalls {
+				t.Errorf("Expected GetCredentials to be called %d time(s), but it was called %d time(s)", tc.expectNumCalls, *numCalls)
+			}
 		})
-
-		makeApproleFiles()
-
-		user, pw, err = hh.Get("registry-1.example.com")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if user != "test@user.com" {
-			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
-		}
-		if pw != "secure password" {
-			t.Fatalf("Got password %q, expected \"secure password\"", pw)
-		}
-	})
-
-	// Test that caching can be disabled by setting the environment
-	// variable
-	t.Run("can-disable-caching", func(t *testing.T) {
-		h.client.ClearToken()
-		h.cacheEnabled = false
-
-		makeApproleFiles()
-
-		os.Remove("testdata/token-sink")
-		user, pw, err = h.Get("")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if user != "test@user.com" {
-			t.Fatalf("Got username %q, expected \"test@user.com\"", user)
-		}
-		if pw != "secure password" {
-			t.Fatalf("Got password %q, expected \"secure password\"", pw)
-		}
-		if _, err = os.Stat("testdata/token-sink"); !os.IsNotExist(err) {
-			t.Fatal("helper.Get() should not have cached a token")
-		}
-	})
-
-	// Ensure that if the client attempts to read the secret with
-	// a bad token it fails
-	t.Run("fails-when-bad-token-used", func(t *testing.T) {
-		h.client.SetToken("bad token!")
-		buf := bytes.Buffer{}
-		h.logger = hclog.New(&hclog.LoggerOptions{
-			Output: &buf,
-		})
-
-		makeApproleFiles()
-
-		_, _, err = h.Get("")
-		if err == nil {
-			t.Fatal("expected an error when client attempts to read secret with a bad token")
-		}
-		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
-
-URL: GET %s/v1/%s
-Code: 403. Errors:
-
-* permission denied"`, h.client.Address(), secretPath)
-		if !strings.Contains(buf.String(), expected) {
-			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
-				expected, buf.String())
-		}
-	})
-
-	// Ensure that if the role does not have permission to read
-	// the secret, it fails
-	t.Run("fails-when-no-policy", func(t *testing.T) {
-		client.SetToken(rootToken)
-		buf := bytes.Buffer{}
-		h.logger = hclog.New(&hclog.LoggerOptions{
-			Output: &buf,
-			Level:  hclog.Error,
-		})
-
-		// Delete the policy that allows the app role to read the secret
-		if err = client.Sys().DeletePolicy("dev-policy"); err != nil {
-			t.Fatal(err)
-		}
-
-		// Set to non-root token
-		h.client.SetToken(clientToken)
-
-		makeApproleFiles()
-
-		_, _, err = h.Get("")
-		if err == nil {
-			t.Fatal("expected an error when role attempts to read secret with without permission")
-		}
-
-		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
-
-URL: GET %s/v1/%s
-Code: 403. Errors:
-
-* 1 error occurred:
-	* permission denied`, h.client.Address(), secretPath)
-		if !strings.Contains(buf.String(), expected) {
-			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
-				expected, buf.String())
-		}
-	})
+	}
 }
 
-func TestHelper_Get_FastTimeout(t *testing.T) {
-	buf := bytes.Buffer{}
-	logger := hclog.New(&hclog.LoggerOptions{
-		Level:  hclog.Error,
-		Output: &buf,
-	})
-	client, err := api.NewClient(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	client.SetMaxRetries(1)
-	client.SetClientTimeout(1 * time.Second)
-	client.ClearToken()
+type mockClientConfig struct {
+	getCredentials  func(token, path string) (string, string, error)
+	authenticate    func(ctx context.Context) (string, error)
+	getCachedTokens func() []string
+	cacheToken      func(ctx context.Context, token string)
+}
 
-	config, err := config.LoadConfig("testdata/valid.hcl")
-	if err != nil {
-		t.Fatal(err)
-	}
-	h := New(Options{
-		Secret:      mockSecretTable{oneSecret: "secret/docker/creds"},
-		Logger:      logger,
-		AuthTimeout: 1,
-		Client:      client,
-		AuthConfig:  config.AutoAuth,
-	})
-	_, _, err = h.Get("")
-	if err == nil {
-		t.Fatal("expected an error")
-	}
+type mockClient struct {
+	cfg mockClientConfig
+}
 
-	expected := `failed to get credentials within timeout (1s)`
-	if !strings.Contains(buf.String(), expected) {
-		t.Fatalf("Expected log file to contain:\n\t%q\nGot this instead:\n\t%s", expected, buf.String())
+func (m mockClient) GetCredentials(token, path string) (string, string, error) {
+	if m.cfg.getCredentials == nil {
+		return "", "", nil
 	}
+	return m.cfg.getCredentials(token, path)
+}
+
+func (m mockClient) Authenticate(ctx context.Context) (string, error) {
+	if m.cfg.authenticate == nil {
+		return "", nil
+	}
+	return m.cfg.authenticate(ctx)
+}
+
+func (m mockClient) GetCachedTokens() []string {
+	if m.cfg.getCachedTokens == nil {
+		return nil
+	}
+	return m.cfg.getCachedTokens()
+}
+
+func (m mockClient) CacheToken(ctx context.Context, token string) {
+	if m.cfg.cacheToken == nil {
+		return
+	}
+	m.cfg.cacheToken(ctx, token)
+}
+
+type mockSecretTableConfig struct {
+	getPath func(string) (string, error)
 }
 
 type mockSecretTable struct {
-	oneSecret    string
-	hostToSecret map[string]string
+	cfg mockSecretTableConfig
 }
 
-func (s mockSecretTable) GetPath(host string) (string, error) {
-	if s.oneSecret != "" {
-		return s.oneSecret, nil
+func (m mockSecretTable) GetPath(path string) (string, error) {
+	if m.cfg.getPath == nil {
+		return "", nil
 	}
-
-	// Add scheme if one is not present so url.Parse works as expected
-	if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
-		host = "http://" + host
-	}
-
-	u, err := url.Parse(host)
-	if err != nil {
-		return "", err
-	}
-	host = u.Hostname()
-	if u.Port() != "" {
-		host = host + ":" + u.Port()
-	}
-
-	return s.hostToSecret[host], nil
+	return m.cfg.getPath(path)
 }
