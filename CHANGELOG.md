@@ -1,7 +1,11 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.3.0"></a>
+## [v0.3.0] - 2019-11-22
 ### Chore
+- Bump version and update changelog [ci skip]
 - Maintain backwards compatibility with DCVL_DH_PRIV_KEY env var
 
 ### Feat
@@ -263,7 +267,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.19...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.0...HEAD
+[v0.3.0]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.19...v0.3.0
 [v0.2.19]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.18...v0.2.19
 [v0.2.18]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.17...v0.2.18
 [v0.2.17]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.2.16...v0.2.17
