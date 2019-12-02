@@ -58,6 +58,8 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 		return s.oneSecret, nil
 	}
 
+	registry = strings.ToLower(registry)
+
 	// Add scheme if one is not present so url.Parse works as expected
 	if !strings.HasPrefix(registry, "http://") && !strings.HasPrefix(registry, "https://") {
 		registry = "http://" + registry
@@ -73,7 +75,12 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 		registry = registry + ":" + u.Port()
 	}
 
-	return s.registryToSecret[registry], nil
+	secret, ok := s.registryToSecret[registry]
+	if !ok {
+		return "", errors.New("registry \"" + registry + "\" not found in configuration")
+	}
+
+	return secret, nil
 }
 
 // LoadConfig will parse the configuration file and return a
@@ -198,7 +205,7 @@ func secretsTableFromMap(secretsRaw interface{}) (SecretsTable, error) {
 
 	for host, pathRaw := range secretsArr[0] {
 		if path, ok := pathRaw.(string); ok && path != "" && host != "" {
-			obj[host] = path
+			obj[strings.ToLower(host)] = path
 		}
 	}
 

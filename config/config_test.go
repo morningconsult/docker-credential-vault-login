@@ -236,13 +236,17 @@ func TestBuildSecretsTable(t *testing.T) {
 			name: "valid-map-secrets",
 			config: map[string]interface{}{
 				"secrets": []map[string]interface{}{
-					{"registry.example.com": "secret/docker/creds"},
+					{
+						"registry-1.example.com": "secret/docker/creds/1",
+						"REGISTRY-2.EXAMPLE.COM": "secret/docker/creds/2",
+					},
 				},
 			},
 			expectErr: "",
 			expectSecretsTable: SecretsTable{
 				registryToSecret: map[string]string{
-					"registry.example.com": "secret/docker/creds",
+					"registry-1.example.com": "secret/docker/creds/1",
+					"registry-2.example.com": "secret/docker/creds/2",
 				},
 			},
 		},
@@ -314,7 +318,7 @@ func TestEndToEnd(t *testing.T) {
 		if !reflect.DeepEqual(expectST, secretTable) {
 			t.Fatalf("Expected secrets table %+v, got secrets table %+v", expectST, secretTable)
 		}
-		gotSecret, err := expectST.GetPath("registry-1.example.com")
+		gotSecret, err := expectST.GetPath("REGISTRY-1.example.com")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -337,6 +341,16 @@ func TestEndToEnd(t *testing.T) {
 		expectSecret = "secret/docker/localhost/creds"
 		if expectSecret != gotSecret {
 			t.Errorf("Secrets differ:\n%v", cmp.Diff(expectSecret, gotSecret))
+		}
+		// Registry was no specified in config
+		_, err = expectST.GetPath("fake.domain.com")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		expectErr := `registry "fake.domain.com" not found in configuration`
+		gotErr := err.Error()
+		if expectErr != gotErr {
+			t.Errorf("Expected error:\n%s\nGot error:\n%s", expectErr, gotErr)
 		}
 	})
 }
