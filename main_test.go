@@ -266,7 +266,6 @@ func TestHelper_EndToEnd(t *testing.T) {
 	core := cluster.Cores[0].Core
 	vault.TestWaitActive(t, core)
 	client := cluster.Cores[0].Client
-	// rootToken := client.Token()
 
 	// Mount the auth backend
 	err := client.Sys().EnableAuthWithOptions("approle", &api.EnableAuthOptions{
