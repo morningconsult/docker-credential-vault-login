@@ -94,7 +94,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 	}
 
 	if h.token != "" {
-		return h.client.GetCredentials(h.token, secret)
+		return h.getCredentials(h.token, secret)
 	}
 
 	if h.cacheEnabled {
@@ -105,7 +105,7 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 			var user, pass string
 
 			// Get credentials
-			if user, pass, err = h.client.GetCredentials(token, secret); err == nil {
+			if user, pass, err = h.getCredentials(token, secret); err == nil {
 				return user, pass, nil
 			}
 		}
@@ -123,5 +123,15 @@ func (h *Helper) Get(serverURL string) (string, string, error) {
 		h.client.CacheToken(ctx, token)
 	}
 
-	return h.client.GetCredentials(token, secret)
+	return h.getCredentials(token, secret)
+}
+
+func (h *Helper) getCredentials(token, secret string) (string, string, error) {
+	username, password, err := h.client.GetCredentials(token, secret)
+	if err != nil {
+		h.logger.Error("error getting credentials", "error", err)
+		return "", "", xerrors.Errorf("error getting credentials: %w", err)
+	}
+
+	return username, password, nil
 }
