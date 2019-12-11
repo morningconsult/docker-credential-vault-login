@@ -637,15 +637,7 @@ auto_auth {
 		}
 
 		gotErr := err.Error()
-		expectErr := fmt.Sprintf(`error reading secret: Error making API request.
-
-URL: GET %s/v1/bad/secret/path
-Code: 403. Errors:
-
-* 1 error occurred:
-	* permission denied
-
-`, client.Address())
+		expectErr := fmt.Sprintf("error getting credentials: error reading secret: Error making API request.\n\nURL: GET %s/v1/bad/secret/path\nCode: 403. Errors:\n\n* 1 error occurred:\n\t* permission denied\n\n", client.Address())
 		if gotErr != expectErr {
 			t.Errorf("Expected error:\n%q\nGot error:\n%q", expectErr, gotErr)
 		}
