@@ -11,7 +11,7 @@ require (
 	github.com/cloudfoundry-community/go-cfclient v0.0.0-20190808214049-35bcce23fc5f // indirect
 	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/google/go-cmp v0.3.1
+	github.com/google/go-cmp v0.4.0
 	github.com/hashicorp/consul-template v0.23.0 // indirect
 	github.com/hashicorp/go-hclog v0.10.0
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
