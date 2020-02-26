@@ -17,8 +17,8 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.2-0.20191001231223-f32f5fe8d6a8
 	github.com/hashicorp/vault v1.3.2
-	github.com/hashicorp/vault/api v1.0.5-0.20191108163347-bdd38fca2cff
-	github.com/hashicorp/vault/sdk v0.1.14-0.20191112033314-390e96e22eb2
+	github.com/hashicorp/vault/api v1.0.5-0.20200117231345-460d63e36490
+	github.com/hashicorp/vault/sdk v0.1.14-0.20200121232954-73f411823aa0
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d // indirect
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/mitchellh/go-homedir v1.1.0

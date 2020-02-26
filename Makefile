@@ -45,7 +45,7 @@ build: $(LOCAL_BINARY)
 .PHONY: build
 
 test:
-	@go test -v -cover $(shell go list $(REPO)/... | grep -v vendor)
+	@go test -v -cover ./...
 .PHONY: test
 
 $(LOCAL_BINARY): $(SOURCES)
