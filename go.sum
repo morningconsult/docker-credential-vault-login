@@ -380,6 +380,8 @@ github.com/hashicorp/vault v1.3.0 h1:MaMv38qb6DNH1uuNLHaebioueemmCrftQdOiUnlNrPU
 github.com/hashicorp/vault v1.3.0/go.mod h1:b06flBzBl5H4rWbHg/Hcbvos1vlklo50J05XqIS79Co=
 github.com/hashicorp/vault v1.3.2 h1:6KPAGWBFLUG9KnkUr956f4o1LK6pjifDpEC4ax7ZYAU=
 github.com/hashicorp/vault v1.3.2/go.mod h1:WkKVSwqFg5Z9o8AEmukEMxuxvfwLwXWc84fgPGq4Lwk=
+github.com/hashicorp/vault v1.3.4 h1:Wn9WFXHWHMi3Zc+ZTaPovlcfjLL/yvAPIp77xIMvjZw=
+github.com/hashicorp/vault v1.3.4/go.mod h1:V096mtgbO7SmNd6uoIH4Fq0CvVHcb8Kq760cmgGjlH4=
 github.com/hashicorp/vault-plugin-auth-alicloud v0.5.2-0.20190814210027-93970f08f2ec h1:HXVE8h6RXFsPJgwWpE+5CscsgekqtX4nhDlZGV9jEe4=
 github.com/hashicorp/vault-plugin-auth-alicloud v0.5.2-0.20190814210027-93970f08f2ec/go.mod h1:TYFfVFgKF9x92T7uXouI9rLPkNnyXo/KkNcj5t+mjdM=
 github.com/hashicorp/vault-plugin-auth-alicloud v0.5.3 h1:csNfo6K5iXqL4jBvIuCsO+OKtjaSe5Tl6uJ/pZ7DZVU=
@@ -465,6 +467,8 @@ github.com/hashicorp/vault/sdk v0.1.14-0.20191112033314-390e96e22eb2/go.mod h1:P
 github.com/hashicorp/vault/sdk v0.1.14-0.20200117231345-460d63e36490/go.mod h1:PcekaFGiPJyHnFy+NZhP6ll650zEw51Ag7g/YEa+EOU=
 github.com/hashicorp/vault/sdk v0.1.14-0.20200121232954-73f411823aa0 h1:19FHdWKzeCtqcRA5dmXuv7/EZzkBMJRtcx+u7zsEnTs=
 github.com/hashicorp/vault/sdk v0.1.14-0.20200121232954-73f411823aa0/go.mod h1:PcekaFGiPJyHnFy+NZhP6ll650zEw51Ag7g/YEa+EOU=
+github.com/hashicorp/vault/sdk v0.1.14-0.20200305172021-03a3749f220d h1:Uyra+poga+ulm5m+XNBUUm/eUZ0e6RBVT5jxBcb7fVY=
+github.com/hashicorp/vault/sdk v0.1.14-0.20200305172021-03a3749f220d/go.mod h1:PcekaFGiPJyHnFy+NZhP6ll650zEw51Ag7g/YEa+EOU=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d h1:kJCB4vdITiW1eC1vq2e6IsrXKrZit1bv/TDYFGMp4BQ=
 github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
@@ -895,6 +899,7 @@ google.golang.org/api v0.14.0 h1:uMf5uLi4eQMRrMKhCplNik4U4H8Z6C1br3zOtAa/aDE=
 google.golang.org/api v0.14.0/go.mod h1:iLdEw5Ide6rF15KTC1Kkl0iskquN2gFfn9o9XIsbkAI=
 google.golang.org/api v0.15.0 h1:yzlyyDW/J0w8yNFJIhiAJy4kq74S+1DOLdawELNxFMA=
 google.golang.org/api v0.19.0 h1:GwFK8+l5/gdsOYKz5p6M4UK+QT8OvmHWZPJCnf+5DjA=
+google.golang.org/api v0.20.0 h1:jz2KixHX7EcCPiQrySzPdnYT7DbINAypCqKZ1Z7GM40=
 google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
 google.golang.org/appengine v1.2.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
 google.golang.org/appengine v1.3.0/go.mod h1:xpcJRLb0r/rnEns0DIKYYv+WjYCduHsrkT7/EB5XEv4=
