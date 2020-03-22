@@ -14,6 +14,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -24,6 +25,8 @@ import (
 
 	"github.com/docker/docker-credential-helpers/credentials"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/api"
+	vaultConfig "github.com/hashicorp/vault/command/agent/config"
 	homedir "github.com/mitchellh/go-homedir"
 	"golang.org/x/xerrors"
 
@@ -77,6 +80,12 @@ func main() { // nolint: funlen
 		log.Fatalf("error parsing configuration file: %v", err)
 	}
 
+	// Get a Vault token (if using the 'token' auth method)
+	token, err := getToken(cfg.AutoAuth.Method)
+	if err != nil {
+		log.Fatalf("error getting Vault token: %v", err)
+	}
+
 	// Build secrets table
 	secretsTable, err := config.BuildSecretsTable(cfg.AutoAuth.Method.Config)
 	if err != nil {
@@ -84,7 +93,7 @@ func main() { // nolint: funlen
 	}
 
 	// Create new Vault client
-	client, err := vault.NewClient(cfg.AutoAuth.Method, cfg.Vault)
+	vaultClient, err := newVaultClient(cfg.Vault)
 	if err != nil {
 		log.Fatalf("error creating new Vault client: %v", err)
 	}
@@ -108,13 +117,20 @@ func main() { // nolint: funlen
 		Output: logWriter,
 	})
 
+	// Create a wrapped Vault client
+	client := vault.NewClient(vault.ClientOptions{
+		Logger:     logger.Named("vault.client"),
+		Client:     vaultClient,
+		AuthConfig: cfg.AutoAuth,
+	})
+
 	// Create a new credential helper
 	helper := helper.New(helper.Options{
-		Logger:      logger,
+		Logger:      logger.Named("helper"),
 		Client:      client,
 		Secret:      secretsTable,
 		EnableCache: enableCache,
-		AuthConfig:  cfg.AutoAuth,
+		Token:       token,
 	})
 	credentials.Serve(helper)
 }
@@ -155,4 +171,74 @@ func cacheEnabled(disableCache bool) (bool, error) {
 	}
 
 	return !disableCache, nil
+}
+
+func getToken(method *vaultConfig.Method) (string, error) {
+	token := ""
+
+	if method.Type == "token" {
+		tokenRaw, ok := method.Config["token"]
+		if !ok {
+			return "", errors.New("missing 'auto_auth.method.config.token' value")
+		}
+
+		token, ok = tokenRaw.(string)
+		if !ok {
+			return "", errors.New("could not convert 'auto_auth.method.config.token' config value to string")
+		}
+
+		if token == "" {
+			return "", errors.New("'auto_auth.method.config.token' value is empty")
+		}
+	}
+
+	return token, nil
+}
+
+func newVaultClient(cfg *vaultConfig.Vault) (*api.Client, error) { // nolint: gocognit, gocyclo
+	if cfg != nil {
+		if os.Getenv(api.EnvVaultAddress) == "" && cfg.Address != "" {
+			os.Setenv(api.EnvVaultAddress, cfg.Address)
+			defer os.Unsetenv(api.EnvVaultAddress)
+		}
+
+		if os.Getenv(api.EnvVaultCACert) == "" && cfg.CACert != "" {
+			os.Setenv(api.EnvVaultCACert, cfg.CACert)
+			defer os.Unsetenv(api.EnvVaultCACert)
+		}
+
+		if os.Getenv(api.EnvVaultCAPath) == "" && cfg.CAPath != "" {
+			os.Setenv(api.EnvVaultCAPath, cfg.CAPath)
+			defer os.Unsetenv(api.EnvVaultCAPath)
+		}
+
+		if os.Getenv(api.EnvVaultSkipVerify) == "" && cfg.TLSSkipVerifyRaw != nil {
+			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", cfg.TLSSkipVerify))
+			defer os.Unsetenv(api.EnvVaultSkipVerify)
+		}
+
+		if os.Getenv(api.EnvVaultClientCert) == "" && cfg.ClientCert != "" {
+			os.Setenv(api.EnvVaultClientCert, cfg.ClientCert)
+			defer os.Unsetenv(api.EnvVaultClientCert)
+		}
+
+		if os.Getenv(api.EnvVaultClientKey) == "" && cfg.ClientKey != "" {
+			os.Setenv(api.EnvVaultClientKey, cfg.ClientKey)
+			defer os.Unsetenv(api.EnvVaultClientKey)
+		}
+	}
+
+	clientConfig := api.DefaultConfig()
+	if clientConfig.Error != nil {
+		return nil, clientConfig.Error
+	}
+
+	client, err := api.NewClient(clientConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	client.ClearToken()
+
+	return client, nil
 }

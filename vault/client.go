@@ -14,183 +14,174 @@
 package vault
 
 import (
-	"fmt"
-	"os"
-	"path"
+	"context"
+	"strings"
+	"time"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
 	"github.com/hashicorp/vault/command/agent/auth"
-	"github.com/hashicorp/vault/command/agent/auth/alicloud"
-	"github.com/hashicorp/vault/command/agent/auth/approle"
-	"github.com/hashicorp/vault/command/agent/auth/aws"
-	"github.com/hashicorp/vault/command/agent/auth/azure"
-	"github.com/hashicorp/vault/command/agent/auth/cert"
-	"github.com/hashicorp/vault/command/agent/auth/cf"
-	"github.com/hashicorp/vault/command/agent/auth/gcp"
-	"github.com/hashicorp/vault/command/agent/auth/jwt"
-	"github.com/hashicorp/vault/command/agent/auth/kubernetes"
 	"github.com/hashicorp/vault/command/agent/config"
 	"github.com/hashicorp/vault/command/agent/sink"
-	"github.com/hashicorp/vault/command/agent/sink/file"
+	"github.com/morningconsult/docker-credential-vault-login/cache"
 	"golang.org/x/xerrors"
 )
 
-// NewClient creates a new Vault client. Note that Vault environment
-// variables take precedence over the vaultConfig.
-func NewClient( // nolint: gocyclo, gocognit
-	methodConfig *config.Method,
-	vaultConfig *config.Vault,
-) (*api.Client, error) {
-	if vaultConfig != nil {
-		if os.Getenv(api.EnvVaultAddress) == "" && vaultConfig.Address != "" {
-			os.Setenv(api.EnvVaultAddress, vaultConfig.Address)
-			defer os.Unsetenv(api.EnvVaultAddress)
-		}
+const defaultAuthTimeout = 10 * time.Second
 
-		if os.Getenv(api.EnvVaultCACert) == "" && vaultConfig.CACert != "" {
-			os.Setenv(api.EnvVaultCACert, vaultConfig.CACert)
-			defer os.Unsetenv(api.EnvVaultCACert)
-		}
-
-		if os.Getenv(api.EnvVaultCAPath) == "" && vaultConfig.CAPath != "" {
-			os.Setenv(api.EnvVaultCAPath, vaultConfig.CAPath)
-			defer os.Unsetenv(api.EnvVaultCAPath)
-		}
-
-		if os.Getenv(api.EnvVaultSkipVerify) == "" && vaultConfig.TLSSkipVerifyRaw != nil {
-			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify))
-			defer os.Unsetenv(api.EnvVaultSkipVerify)
-		}
-
-		if os.Getenv(api.EnvVaultClientCert) == "" && vaultConfig.ClientCert != "" {
-			os.Setenv(api.EnvVaultClientCert, vaultConfig.ClientCert)
-			defer os.Unsetenv(api.EnvVaultClientCert)
-		}
-
-		if os.Getenv(api.EnvVaultClientKey) == "" && vaultConfig.ClientKey != "" {
-			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientKey)
-			defer os.Unsetenv(api.EnvVaultClientKey)
-		}
-	}
-
-	clientConfig := api.DefaultConfig()
-	if clientConfig.Error != nil {
-		return nil, clientConfig.Error
-	}
-
-	client, err := api.NewClient(clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return configureToken(client, methodConfig)
+// Client is used to interface with Vault
+type Client struct {
+	client      *api.Client
+	authTimeout time.Duration
+	authConfig  *config.AutoAuth
+	logger      hclog.Logger
 }
 
-func configureToken(client *api.Client, methodConfig *config.Method) (*api.Client, error) {
-	switch methodConfig.Type {
-	case "token":
-		if client.Token() == "" {
-			tokenRaw, ok := methodConfig.Config["token"]
-			if !ok {
-				return nil, xerrors.New("missing 'auto_auth.method.config.token' value")
-			}
-
-			token, ok := tokenRaw.(string)
-			if !ok {
-				return nil, xerrors.New("could not convert 'auto_auth.method.config.token' config value to string")
-			}
-
-			if token == "" {
-				return nil, xerrors.New("'auto_auth.method.config.token' value is empty")
-			}
-
-			client.SetToken(token)
-		}
-	default:
-		client.ClearToken()
-	}
-
-	return client, nil
+// ClientOptions is used to configure the Client
+type ClientOptions struct {
+	Logger      hclog.Logger
+	Client      *api.Client
+	AuthTimeout time.Duration
+	AuthConfig  *config.AutoAuth
 }
 
-// BuildSinks creates a set of sinks from the sink configurations.
-func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*sink.SinkConfig, error) {
-	sinks := make([]*sink.SinkConfig, 0, len(sc))
-
-	for _, ss := range sc {
-		switch ss.Type {
-		case "file":
-			config := &sink.SinkConfig{
-				Logger:  logger.Named("sink.file"),
-				Config:  ss.Config,
-				Client:  client,
-				WrapTTL: ss.WrapTTL,
-				DHType:  ss.DHType,
-				DHPath:  ss.DHPath,
-				AAD:     ss.AAD,
-			}
-
-			s, err := file.NewFileSink(config)
-			if err != nil {
-				return nil, xerrors.Errorf("error creating file sink: %w", err)
-			}
-
-			config.Sink = s
-			sinks = append(sinks, config)
-		default:
-			return nil, xerrors.Errorf("unknown sink type %q", ss.Type)
-		}
+// NewClient creates a new instance of Client
+func NewClient(opts ClientOptions) Client {
+	if opts.AuthTimeout == 0 {
+		opts.AuthTimeout = defaultAuthTimeout
 	}
 
-	return sinks, nil
+	if opts.Logger == nil {
+		opts.Logger = hclog.Default()
+	}
+
+	return Client{
+		logger:      opts.Logger,
+		client:      opts.Client,
+		authTimeout: opts.AuthTimeout,
+		authConfig:  opts.AuthConfig,
+	}
 }
 
-// BuildAuthMethod creates a new authentication method from config.
-func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMethod, error) { // nolint: gocyclo
-	// Check if a default namespace has been set
-	mountPath := config.MountPath
-	if config.Namespace != "" {
-		mountPath = path.Join(config.Namespace, mountPath)
-	}
-
-	authConfig := &auth.AuthConfig{
-		Logger:    logger.Named(fmt.Sprintf("auth.%s", config.Type)),
-		MountPath: mountPath,
-		Config:    config.Config,
-	}
-
+// GetCredentials uses the Vault client to read the secret at
+// path
+func (c Client) GetCredentials(token, path string) (string, string, error) {
 	var (
-		method auth.AuthMethod
-		err    error
+		username, password string
+		ok                 bool
+		missingSecrets     []string
 	)
 
-	switch config.Type {
-	case "alicloud":
-		method, err = alicloud.NewAliCloudAuthMethod(authConfig)
-	case "aws":
-		method, err = aws.NewAWSAuthMethod(authConfig)
-	case "azure":
-		method, err = azure.NewAzureAuthMethod(authConfig)
-	case "cert":
-		method, err = cert.NewCertAuthMethod(authConfig)
-	case "cf":
-		method, err = cf.NewCFAuthMethod(authConfig)
-	case "gcp":
-		method, err = gcp.NewGCPAuthMethod(authConfig)
-	case "jwt":
-		method, err = jwt.NewJWTAuthMethod(authConfig)
-	case "kubernetes":
-		method, err = kubernetes.NewKubernetesAuthMethod(authConfig)
-	case "approle":
-		method, err = approle.NewApproleAuthMethod(authConfig)
-	default:
-		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
-	}
+	c.client.SetToken(token)
 
+	secret, err := c.client.Logical().Read(path)
 	if err != nil {
-		return nil, xerrors.Errorf("error creating %s auth method: %v", config.Type, err)
+		return "", "", xerrors.Errorf("error reading secret: %v", err)
 	}
 
-	return method, nil
+	if secret == nil {
+		return "", "", xerrors.Errorf("No secret found in Vault at path %q", path)
+	}
+
+	creds := secret.Data
+
+	// Check for metadata in the response which will only exist if this is a kv-v2 mount
+	// https://www.vaultproject.io/api/secret/kv/kv-v2.html#sample-response-1
+	_, isKvv2 := secret.Data["metadata"].(map[string]interface{})
+	if isKvv2 {
+		creds = secret.Data["data"].(map[string]interface{})
+	}
+
+	if username, ok = creds["username"].(string); !ok || username == "" {
+		missingSecrets = append(missingSecrets, "username")
+	}
+
+	if password, ok = creds["password"].(string); !ok || password == "" {
+		missingSecrets = append(missingSecrets, "password")
+	}
+
+	if len(missingSecrets) > 0 {
+		return "", "", xerrors.Errorf("No %s found in Vault at path %q", strings.Join(missingSecrets, " or "), path)
+	}
+
+	return username, password, nil
+}
+
+// Authenticate authenticates to Vault to obtain a new Vault token.
+func (c Client) Authenticate(ctx context.Context) (string, error) {
+	method, err := buildAuthMethod(c.authConfig.Method, c.logger)
+	if err != nil {
+		return "", xerrors.Errorf("error creating auth method: %w", err)
+	}
+
+	c.client.ClearToken()
+
+	ah := auth.NewAuthHandler(&auth.AuthHandlerConfig{
+		Logger:  c.logger.Named("auth.handler"),
+		Client:  c.client,
+		WrapTTL: c.authConfig.Method.WrapTTL,
+	})
+
+	ctx, cancel := context.WithTimeout(ctx, c.authTimeout)
+	defer cancel()
+
+	go ah.Run(ctx, method)
+
+	var token string
+	select {
+	case <-ctx.Done():
+		<-ah.DoneCh
+		return "", xerrors.Errorf("failed to get credentials within timeout (%s)", c.authTimeout)
+	case token = <-ah.OutputCh:
+		// will have to unwrap token if wrapped
+		c.logger.Info("successfully authenticated")
+	}
+	cancel()
+	<-ah.DoneCh
+
+	return token, nil
+}
+
+// GetCachedTokens looks up all cached tokens based on the configuration
+// file and attempts to renew them.
+func (c Client) GetCachedTokens() []string {
+	clone, err := c.client.Clone()
+	if err != nil {
+		c.logger.Error("error cloning Vault API client", "error", err)
+		return nil
+	}
+
+	// Get any cached tokens
+	cachedTokens := cache.GetCachedTokens(c.logger.Named("cache"), c.authConfig.Sinks, clone)
+
+	// Renew the cached tokens
+	for _, token := range cachedTokens {
+		if _, err = c.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
+			c.logger.Error("error renewing cached token", "error", err)
+		}
+	}
+
+	return cachedTokens
+}
+
+// CacheToken caches the given token according to your
+// configuration file.
+func (c Client) CacheToken(ctx context.Context, token string) {
+	sinks, err := buildSinks(c.authConfig.Sinks, c.logger, c.client)
+	if err != nil {
+		c.logger.Error("error building sinks; will not cache token", "error", err)
+		return
+	}
+
+	if len(sinks) > 0 {
+		ss := sink.NewSinkServer(&sink.SinkServerConfig{
+			Logger:        c.logger.Named("sink.server"),
+			Client:        c.client,
+			ExitAfterAuth: true,
+		})
+		newTokenCh := make(chan string, 1)
+		newTokenCh <- token
+		ss.Run(ctx, newTokenCh, sinks)
+		close(newTokenCh)
+	}
 }

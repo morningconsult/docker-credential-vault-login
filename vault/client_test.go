@@ -14,381 +14,395 @@
 package vault
 
 import (
+	"bytes"
+	"context"
+	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
-	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/builtin/credential/approle"
 	"github.com/hashicorp/vault/command/agent/config"
+	vaulthttp "github.com/hashicorp/vault/http"
+	"github.com/hashicorp/vault/sdk/helper/logging"
+	"github.com/hashicorp/vault/sdk/logical"
+	server "github.com/hashicorp/vault/vault"
 )
 
-func TestBuildSinks(t *testing.T) {
-	logger := hclog.NewNullLogger()
-	client, err := api.NewClient(nil)
+func TestClient(t *testing.T) {
+	coreConfig := &server.CoreConfig{
+		Logger: logging.NewVaultLogger(hclog.Error),
+		CredentialBackends: map[string]logical.Factory{
+			"approle": approle.Factory,
+		},
+	}
+	cluster := server.NewTestCluster(t, coreConfig, &server.TestClusterOptions{
+		HandlerFunc: vaulthttp.Handler,
+	})
+	cluster.Start()
+	defer cluster.Cleanup()
+
+	core := cluster.Cores[0].Core
+	server.TestWaitActive(t, core)
+	client := cluster.Cores[0].Client
+
+	// Mount the auth backend
+	err := client.Sys().EnableAuthWithOptions("approle", &api.EnableAuthOptions{
+		Type: "approle",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cases := []struct {
-		name    string
-		configs []*config.Sink
-		err     string
-	}{
-		{
-			"bad-type",
-			[]*config.Sink{
-				{
-					Type: "kitchen",
-				},
-			},
-			`unknown sink type "kitchen"`,
-		},
-		{
-			"new-file-sink-error",
-			[]*config.Sink{
-				{
-					Type: "file",
-					Config: map[string]interface{}{
-						"no": "path!",
-					},
-				},
-			},
-			"error creating file sink: 'path' not specified for file sink",
-		},
-		{
-			"success",
-			[]*config.Sink{
-				{
-					Type: "file",
-					Config: map[string]interface{}{
-						"path": "testdata/test-sink",
-					},
-				},
-			},
-			"",
-		},
+	// Tune the mount
+	err = client.Sys().TuneMount("auth/approle", api.MountConfigInput{
+		DefaultLeaseTTL: "20s",
+		MaxLeaseTTL:     "20s",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := BuildSinks(tc.configs, logger, client)
-			if tc.err != "" {
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				if err.Error() != tc.err {
-					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
-func TestBuildAuthMethod(t *testing.T) {
-	logger := hclog.NewNullLogger()
-	cases := []struct {
-		name   string
-		config *config.Method
-		err    string
-	}{
-		{
-			"aws",
-			&config.Method{
-				Type: "aws",
-				Config: map[string]interface{}{
-					"type": "ec2",
-					"role": "dev-role",
-				},
-			},
-			"",
-		},
-		{
-			"azure",
-			&config.Method{
-				Type: "azure",
-				Config: map[string]interface{}{
-					"role":     "dev-test",
-					"resource": "important-stuff",
-				},
-			},
-			"",
-		},
-		{
-			"cert",
-			&config.Method{
-				Type:   "cert",
-				Config: map[string]interface{}{},
-			},
-			"",
-		},
-		{
-			"cf",
-			&config.Method{
-				Type: "cf",
-				Config: map[string]interface{}{
-					"role": "dev-test",
-				},
-			},
-			"",
-		},
-		{
-			"gcp",
-			&config.Method{
-				Type: "gcp",
-				Config: map[string]interface{}{
-					"type": "gce",
-					"role": "dev-test",
-				},
-			},
-			"",
-		},
-		{
-			"jwt",
-			&config.Method{
-				Type: "jwt",
-				Config: map[string]interface{}{
-					"path": "jwt/token",
-					"role": "dev-test",
-				},
-			},
-			"",
-		},
-		{
-			"kubernetes",
-			&config.Method{
-				Type: "kubernetes",
-				Config: map[string]interface{}{
-					"role": "dev-test",
-				},
-			},
-			"",
-		},
-		{
-			"approle",
-			&config.Method{
-				Type: "approle",
-				Config: map[string]interface{}{
-					"role_id_file_path":   "path/to/role/id",
-					"secret_id_file_path": "path/to/secret/id",
-				},
-			},
-			"",
-		},
-		{
-			"unknown",
-			&config.Method{
-				Type:   "fingerprint",
-				Config: map[string]interface{}{},
-			},
-			`unknown auth method "fingerprint"`,
-		},
-		{
-			"error",
-			&config.Method{
-				Type:   "alicloud",
-				Config: map[string]interface{}{},
-			},
-			"error creating alicloud auth method: 'role' is required but is not provided",
-		},
+	// Create role
+	_, err = client.Logical().Write("auth/approle/role/role-period", map[string]interface{}{
+		"period":   "20s",
+		"policies": "dev-policy",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			_, err := BuildAuthMethod(tc.config, logger)
-			if tc.err != "" {
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				if err.Error() != tc.err {
-					t.Fatalf("Results differ:\n%v", cmp.Diff(err.Error(), tc.err))
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
+	// Give the approle permission to read the secret
+	secretPath := "secret/docker/creds"
+	policy := fmt.Sprintf(`path %q {
+		capabilities = ["read", "list"]
+	}`, secretPath)
 
-func TestNewVaultClient(t *testing.T) {
-	oldEnv := stashEnv()
-	defer popEnv(oldEnv)
-
-	testToken := randomUUID(t)
-
-	cases := []struct {
-		name   string
-		env    map[string]string
-		method *config.Method
-		vault  *config.Vault
-		err    string
-		post   func(*api.Client)
-	}{
-		{
-			name: "env-precedence",
-			env: map[string]string{
-				api.EnvVaultAddress: "http://example.com",
-			},
-			method: &config.Method{Type: "aws"},
-			vault:  &config.Vault{Address: "http://127.0.0.1:8201"},
-			err:    "",
-			post: func(c *api.Client) {
-				if c.Address() != "http://example.com" {
-					t.Errorf("Expected Vault address %s, got %s", "http://example.com", c.Address())
-				}
-			},
-		},
-		{
-			name:   "config-in-no-env-counterpart",
-			env:    map[string]string{},
-			method: &config.Method{Type: "aws"},
-			vault: &config.Vault{
-				Address:          "http://example.com",
-				TLSSkipVerifyRaw: "true",
-			},
-			err: "",
-			post: func(c *api.Client) {
-				if c.Address() != "http://example.com" {
-					t.Errorf("Expected Vault address %s, got %s", "http://example.com", c.Address())
-				}
-			},
-		},
-		{
-			name:   "clears-token-if-not-token-auth",
-			env:    map[string]string{},
-			method: &config.Method{Type: "aws"},
-			vault:  &config.Vault{},
-			err:    "",
-			post: func(c *api.Client) {
-				if c.Token() != "" {
-					t.Errorf("Expected client to have no token but it has one")
-				}
-			},
-		},
-		{
-			name: "sets-token-from-env-if-token-auth",
-			env: map[string]string{
-				api.EnvVaultToken: testToken,
-			},
-			method: &config.Method{Type: "token"},
-			vault:  &config.Vault{},
-			err:    "",
-			post: func(c *api.Client) {
-				if c.Token() != testToken {
-					t.Errorf("Expected client to have token %s but it has %s", testToken, c.Token())
-				}
-			},
-		},
-		{
-			name: "sets-token-from-config-if-not-set-in-env-and-token-auth",
-			env:  map[string]string{},
-			method: &config.Method{
-				Type: "token",
-				Config: map[string]interface{}{
-					"token": testToken,
-				},
-			},
-			vault: &config.Vault{},
-			err:   "",
-			post: func(c *api.Client) {
-				if c.Token() != testToken {
-					t.Errorf("Expected client to have token %s but it has %s", testToken, c.Token())
-				}
-			},
-		},
-		{
-			name: "no-token",
-			env:  map[string]string{},
-			method: &config.Method{
-				Type:   "token",
-				Config: map[string]interface{}{}, // no token in config
-			},
-			vault: &config.Vault{},
-			err:   "missing 'auto_auth.method.config.token' value",
-			post:  func(*api.Client) {},
-		},
-		{
-			name: "token-not-string",
-			env:  map[string]string{},
-			method: &config.Method{
-				Type:   "token",
-				Config: map[string]interface{}{"token": 1234}, // no token in config
-			},
-			vault: &config.Vault{},
-			err:   "could not convert 'auto_auth.method.config.token' config value to string",
-			post:  func(*api.Client) {},
-		},
-		{
-			name: "token-is-empty",
-			env:  map[string]string{},
-			method: &config.Method{
-				Type:   "token",
-				Config: map[string]interface{}{"token": ""},
-			},
-			vault: &config.Vault{},
-			err:   "'auto_auth.method.config.token' value is empty",
-			post:  func(*api.Client) {},
-		},
-		{
-			name: "new-client-error",
-			env: map[string]string{
-				api.EnvRateLimit: "asdf",
-			},
-			method: &config.Method{},
-			vault:  &config.Vault{},
-			err:    "VAULT_RATE_LIMIT was provided but incorrectly formatted",
-			post:   func(*api.Client) {},
-		},
+	if err = client.Sys().PutPolicy("dev-policy", policy); err != nil {
+		t.Fatal(err)
 	}
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			for env, new := range tc.env {
-				old := os.Getenv(env)
-				defer os.Setenv(env, old)
-				os.Setenv(env, new)
-			}
-
-			client, err := NewClient(tc.method, tc.vault)
-			if tc.err != "" {
-				if err == nil {
-					t.Fatal("expected an error but didn't receive one")
-				}
-				if err.Error() != tc.err {
-					t.Fatalf("Errors differ:\n%v", cmp.Diff(tc.err, err.Error()))
-				}
-				return
-			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			tc.post(client)
-		})
+	// Get role_id
+	resp, err := client.Logical().Read("auth/approle/role/role-period/role-id")
+	if err != nil {
+		t.Fatal(err)
 	}
-}
+	if resp == nil {
+		t.Fatal("expected a response for fetching the role-id")
+	}
 
-func stashEnv() []string {
-	env := os.Environ()
-	os.Clearenv()
-	return env
-}
+	roleID, ok := resp.Data["role_id"].(string)
+	if !ok {
+		t.Fatal("could not convert 'role_id' to string")
+	}
+	roleIDFile := filepath.Join("testdata", "test-approle-role-id")
+	defer os.Remove(roleIDFile)
 
-func popEnv(env []string) {
-	os.Clearenv()
+	// Get secret_id
+	resp, err = client.Logical().Write("auth/approle/role/role-period/secret-id", map[string]interface{}{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp == nil {
+		t.Fatal("expected a response for fetching the secret-id")
+	}
 
-	for _, e := range env {
-		p := strings.SplitN(e, "=", 2)
-		k, v := p[0], ""
-		if len(p) > 1 {
-			v = p[1]
+	secretID, ok := resp.Data["secret_id"].(string)
+	if !ok {
+		t.Fatal("could not convert 'secret_id' to string")
+	}
+	secretIDFile := filepath.Join("testdata", "test-approle-secret-id")
+	defer os.Remove(secretIDFile)
+
+	makeApproleFiles := func() {
+		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0644); err != nil {
+			t.Fatal(err)
 		}
-		os.Setenv(k, v)
+		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
+
+	// Enable the kv v2 secrets engine
+	err = client.Sys().TuneMount("secret/", api.MountConfigInput{
+		Options: map[string]string{"version": "2"},
+	})
+	if err != nil {
+		t.Fatal("error tuning mount to kv v2")
+	}
+
+	cc := Client{
+		client:      client,
+		authTimeout: 3 * time.Minute,
+		logger:      hclog.NewNullLogger(),
+	}
+
+	addr := client.Address()
+	rootToken := client.Token()
+
+	t.Run("GetCredentials/wrong-address", func(t *testing.T) {
+		url := fmt.Sprintf("http://example.%s.com", randomUUID(t))
+		client.SetAddress(url)
+		defer client.SetAddress(addr)
+
+		_, _, err := cc.GetCredentials(rootToken, "secret/doesnt/exist")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+	})
+
+	t.Run("GetCredentials/secret-doesnt-exist", func(t *testing.T) {
+		_, _, err := cc.GetCredentials(rootToken, "secret/doesnt/exist")
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := `No secret found in Vault at path "secret/doesnt/exist"`
+		if err.Error() != expected {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), expected))
+		}
+	})
+
+	t.Run("GetCredentials/no-username", func(t *testing.T) {
+		secret := "secret/docker/creds"
+		_, err := client.Logical().Write(secret, map[string]interface{}{
+			"password": "correct horse battery staple",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Logical().Delete(secret)
+
+		_, _, err = cc.GetCredentials(rootToken, secret)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := fmt.Sprintf(`No username found in Vault at path %q`, secret)
+		if err.Error() != expected {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), expected))
+		}
+	})
+
+	t.Run("GetCredentials/no-password", func(t *testing.T) {
+		secret := "secret/docker/creds"
+		_, err := client.Logical().Write(secret, map[string]interface{}{
+			"username": "test@user.com",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Logical().Delete(secret)
+
+		_, _, err = cc.GetCredentials(rootToken, secret)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+
+		expected := fmt.Sprintf(`No password found in Vault at path %q`, secret)
+		if err.Error() != expected {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff(err.Error(), expected))
+		}
+	})
+
+	t.Run("GetCredentials/success-v1", func(t *testing.T) {
+		secret := "secret/docker/creds"
+		_, err := client.Logical().Write(secret, map[string]interface{}{
+			"username": "test@user.com",
+			"password": "correct horse battery staple",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Logical().Delete(secret)
+
+		username, password, err := cc.GetCredentials(rootToken, secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if username != "test@user.com" {
+			t.Fatalf("Usernames differ:\n%v", cmp.Diff("test@user.com", username))
+		}
+		if password != "correct horse battery staple" {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff("correct horse battery staple", password))
+		}
+	})
+
+	t.Run("GetCredentials/success-v2", func(t *testing.T) {
+		secret := "secret/data/docker/creds"
+		_, err := client.Logical().Write(secret, map[string]interface{}{
+			"data": map[string]interface{}{
+				"username": "test@user.com",
+				"password": "correct horse battery staple",
+			},
+			"metadata": map[string]interface{}{
+				"created_time":  "2019-10-24T18:39:39.656654Z",
+				"deletion_time": "",
+				"destroyed":     false,
+				"version":       "1",
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer client.Logical().Delete(secret)
+
+		username, password, err := cc.GetCredentials(rootToken, secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if username != "test@user.com" {
+			t.Fatalf("Usernames differ:\n%v", cmp.Diff("test@user.com", username))
+		}
+		if password != "correct horse battery staple" {
+			t.Fatalf("Errors differ:\n%v", cmp.Diff("correct horse battery staple", password))
+		}
+	})
+
+	t.Run("Authenticate/error-building-auth", func(t *testing.T) {
+		cc := Client{
+			logger: hclog.NewNullLogger(),
+			authConfig: &config.AutoAuth{
+				Method: &config.Method{Type: "magic"}, // Method not supported
+			},
+		}
+
+		_, err := cc.Authenticate(context.Background())
+		if err == nil {
+			t.Fatal("Expected an error")
+		}
+		gotErr := err.Error()
+		expectErr := "error creating auth method: unknown auth method \"magic\""
+		if gotErr != expectErr {
+			t.Errorf("Expected error:\n%s\nGot error:\n%s", expectErr, gotErr)
+		}
+	})
+
+	t.Run("Authenticate/timeout", func(t *testing.T) {
+		cc := Client{
+			client: client,
+			logger: hclog.NewNullLogger(),
+			authConfig: &config.AutoAuth{
+				Method: &config.Method{
+					Type:      "approle",
+					MountPath: "auth/approle",
+					Config: map[string]interface{}{
+						"secret":              secretPath,
+						"role_id_file_path":   roleIDFile,
+						"secret_id_file_path": secretIDFile,
+					},
+				},
+			},
+			authTimeout: 1 * time.Millisecond,
+		}
+
+		_, err := cc.Authenticate(context.Background())
+		if err == nil {
+			t.Fatal("Expected an error")
+		}
+		gotErr := err.Error()
+		expectErr := "failed to get credentials within timeout (1ms)"
+		if gotErr != expectErr {
+			t.Errorf("Expected error:\n%s\nGot error:\n%s", expectErr, gotErr)
+		}
+	})
+
+	t.Run("Authenticate/success", func(t *testing.T) {
+		makeApproleFiles()
+
+		cc := Client{
+			client: client,
+			logger: hclog.NewNullLogger(),
+			authConfig: &config.AutoAuth{
+				Method: &config.Method{
+					Type:      "approle",
+					MountPath: "auth/approle",
+					Config: map[string]interface{}{
+						"secret":              secretPath,
+						"role_id_file_path":   roleIDFile,
+						"secret_id_file_path": secretIDFile,
+					},
+				},
+			},
+			authTimeout: 30 * time.Second,
+		}
+
+		_, err := cc.Authenticate(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("CacheToken/error-building-sinks", func(t *testing.T) {
+		buf := bytes.Buffer{}
+		logger := hclog.New(&hclog.LoggerOptions{Output: &buf})
+		cc := Client{
+			client: client,
+			logger: logger,
+			authConfig: &config.AutoAuth{
+				Sinks: []*config.Sink{
+					{Type: "kitchen"},
+				},
+			},
+			authTimeout: 30 * time.Second,
+		}
+
+		cc.CacheToken(context.Background(), "")
+		if !strings.Contains(buf.String(), `[ERROR] error building sinks; will not cache token: error="unknown sink type "kitchen""`) {
+			t.Errorf("unexpected error:\n%s", buf.String())
+		}
+	})
+
+	t.Run("CacheToken/success", func(t *testing.T) {
+		tokenFile := "testdata/my-token"
+		defer os.Remove(tokenFile)
+
+		cc := Client{
+			client: client,
+			logger: hclog.NewNullLogger(),
+			authConfig: &config.AutoAuth{
+				Sinks: []*config.Sink{
+					{
+						Type: "file",
+						Config: map[string]interface{}{
+							"path": tokenFile,
+						},
+					},
+				},
+			},
+			authTimeout: 30 * time.Second,
+		}
+
+		token := "19c6107c-5509-42d4-883f-5a8ae7ed5e07"
+
+		cc.CacheToken(context.Background(), token)
+
+		if _, err := os.Stat(tokenFile); err != nil {
+			t.Fatalf("Did not cache token")
+		}
+
+		gotToken, err := ioutil.ReadFile(tokenFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if string(gotToken) != token {
+			t.Errorf("Expected token %q, got token %q", token, gotToken)
+		}
+	})
+}
+
+func randomUUID(t *testing.T) string {
+	id, err := uuid.GenerateUUID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return id
 }
