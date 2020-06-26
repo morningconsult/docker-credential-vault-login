@@ -136,12 +136,15 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 			h.logger.Info("no cached token(s) were read. Re-authenticating.")
 		}
 
-		// Renew the cached tokens
 		var validTokens []string
+
+		// Renew the cached tokens
 		for _, token := range cachedTokens {
 			if _, err = h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
 				h.logger.Info("Issue renewing token. Will Re-authenticate", "error", err)
+				continue
 			}
+
 			validTokens = append(validTokens, token)
 		}
 
