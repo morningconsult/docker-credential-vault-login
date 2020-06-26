@@ -137,24 +137,30 @@ func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocy
 		}
 
 		// Renew the cached tokens
+		var validTokens []string
 		for _, token := range cachedTokens {
 			if _, err = h.client.Auth().Token().RenewTokenAsSelf(token, 0); err != nil {
-				h.logger.Error("error renewing token", "error", err)
+				h.logger.Info("Issue renewing token. Will Re-authenticate", "error", err)
 			}
+			validTokens = append(validTokens, token)
 		}
 
 		// Use any token to get credentials
-		for _, token := range cachedTokens {
-			h.client.SetToken(token)
+		if len(validTokens) < 1 {
+			h.logger.Debug("No valid tokens. Need to Reauthenticate")
+		} else {
+			for _, token := range validTokens {
+				h.client.SetToken(token)
 
-			// Get credentials
-			creds, err = vault.GetCredentials(secret, h.client)
-			if err != nil {
-				h.logger.Error("error reading secret from Vault", "error", err)
-				continue
+				// Get credentials
+				creds, err = vault.GetCredentials(secret, h.client)
+				if err != nil {
+					h.logger.Error("error reading secret from Vault", "error", err)
+					continue
+				}
+
+				return creds.Username, creds.Password, nil
 			}
-
-			return creds.Username, creds.Password, nil
 		}
 	}
 
