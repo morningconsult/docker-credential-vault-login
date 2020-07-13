@@ -2,7 +2,7 @@
 
 ![Vocker](doc/vault.png)
 
-[![Build Status](https://ci.morningconsultintelligence.com/api/v1/teams/oss/pipelines/docker-credential-vault-login/jobs/publish-release/badge)](https://ci.morningconsultintelligence.com/teams/oss/pipelines/docker-credential-vault-login)
+![Test](https://github.com/morningconsult/docker-credential-vault-login/workflows/Test/badge.svg)
 
 This program is a [Docker credential helper](https://github.com/docker/docker-credential-helpers) for the Docker daemon. When you run `docker pull` it automatically authenticates to your [Vault](https://www.vaultproject.io/) server, fetches your Docker credentials, and uses those credentials to log in to your Docker registry before pulling the Docker image.
 
@@ -147,7 +147,7 @@ auto_auth {
 	}
 
 	sink "file" {
-		wrap_ttl = "5m" 
+		wrap_ttl = "5m"
 		aad_env_var = "TEST_AAD_ENV"
 		dh_type = "curve25519"
 		dh_path = "/tmp/dh-pub-key.json"
