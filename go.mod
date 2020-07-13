@@ -13,7 +13,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
 	github.com/google/go-cmp v0.3.1
 	github.com/hashicorp/consul-template v0.23.0 // indirect
-	github.com/hashicorp/go-hclog v0.10.0
+	github.com/hashicorp/go-hclog v0.14.1
 	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
 	github.com/hashicorp/go-uuid v1.0.2-0.20191001231223-f32f5fe8d6a8
 	github.com/hashicorp/vault v1.3.4
