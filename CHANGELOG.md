@@ -1,7 +1,14 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Ci
+- Switch to using github workflows
+
+
+<a name="v0.3.5"></a>
+## [v0.3.5] - 2020-03-21
 ### Chore
+- Bump version and update changelog [ci skip]
 - go mod tidy
 
 
@@ -295,7 +302,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.4...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.5...HEAD
+[v0.3.5]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.3...v0.3.4
 [v0.3.3]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.2...v0.3.3
 [v0.3.2]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.1...v0.3.2
