@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Chore
+- Fix goreleaser
+
+
+<a name="v0.3.6"></a>
+## [v0.3.6] - 2020-07-13
+### Chore
+- Bump version and update changelog [ci skip]
+
 ### Ci
 - Switch to using github workflows
 
@@ -302,7 +311,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.5...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.6...HEAD
+[v0.3.6]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.4...v0.3.5
 [v0.3.4]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.3...v0.3.4
 [v0.3.3]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.2...v0.3.3
