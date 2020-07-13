@@ -11,8 +11,6 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FLY := $(shell which fly)
-
 BIN_DIR := $(shell pwd)/bin
 REPO := github.com/morningconsult/docker-credential-vault-login
 SOURCES := $(shell find . -name '*.go')
@@ -64,37 +62,3 @@ mocktools:
 build_mocks: mocktools
 	scripts/build-mocks.sh
 .PHONY: build_mocks
-
-#=============================================================================
-# Release and Deployment tasks
-
-CONCOURSE_PIPELINE := docker-credential-vault-login
-
-
-check_fly:
-ifeq ($(FLY),)
-		sudo mkdir -p /usr/local/bin
-		sudo wget -q -O /usr/local/bin/fly "https://ci.morningconsultintelligence.com/api/v1/cli?arch=amd64&platform=linux"
-		sudo chmod +x /usr/local/bin/fly
-		/usr/local/bin/fly --version
-endif
-.PHONY: check_fly
-
-
-set_pipeline: check_fly
-	$(FLY) --target mci-ci-oss validate-pipeline \
-		--config ci/pipeline.yml \
-		--strict
-
-	$(FLY) --target mci-ci-oss set-pipeline \
-		--config ci/pipeline.yml \
-		--pipeline $(CONCOURSE_PIPELINE) \
-		--non-interactive \
-		-v github-repo="$$(git config remote.origin.url)" \
-		-v github-email="dbellinghoven@morningconsult.com" \
-		-v github-actor="Dilan Bellinghoven"
-
-
-	$(FLY) --target mci-ci-oss unpause-pipeline \
-		--pipeline $(CONCOURSE_PIPELINE)
-.PHONY: set_pipeline
