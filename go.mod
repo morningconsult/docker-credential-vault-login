@@ -1,6 +1,6 @@
 module github.com/morningconsult/docker-credential-vault-login
 
-go 1.12
+go 1.14
 
 require (
 	cloud.google.com/go v0.49.0 // indirect
