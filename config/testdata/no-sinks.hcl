@@ -1,3 +1,9 @@
+cache {
+  use_auto_auth_token = true
+}
+listener "unix" {
+	address = "/tmp/dcvl-agent"
+}
 auto_auth {
 	method "approle" {
 		mount_path = "auth/approle"

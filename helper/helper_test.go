@@ -275,6 +275,12 @@ auto_auth {
 	// Test that it can authenticate without sinks
 	t.Run("can-authenticate-without-sinks", func(t *testing.T) {
 		noSinksHCL := `
+cache {
+  use_auto_auth_token = true
+}
+listener "unix" {
+	address = "/tmp/dcvl-agent"
+}
 auto_auth {
 	method "approle" {
 		mount_path = "auth/approle"
@@ -331,6 +337,12 @@ auto_auth {
 	// Test that you can use multiple registries
 	t.Run("multiple-secrets", func(t *testing.T) {
 		multiSecret := `
+cache {
+  use_auto_auth_token = true
+}
+listener "unix" {
+	address = "/tmp/dcvl-agent"
+}
 auto_auth {
 	method "approle" {
 		mount_path = "auth/approle"
