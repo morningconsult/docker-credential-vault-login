@@ -1,6 +1,6 @@
 module github.com/morningconsult/docker-credential-vault-login
 
-go 1.14
+go 1.15
 
 replace github.com/hashicorp/vault/api => github.com/hashicorp/vault/api v1.0.5-0.20200717191844-f687267c8086
 
@@ -36,7 +36,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/mapstructure v1.3.3 // indirect
-	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oracle/oci-go-sdk v24.1.0+incompatible // indirect
 	github.com/posener/complete v1.2.3 // indirect
@@ -50,5 +49,4 @@ require (
 	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
 	google.golang.org/grpc v1.31.1 // indirect
 	gopkg.in/ini.v1 v1.60.2 // indirect
-	gotest.tools/v3 v3.0.2 // indirect
 )
