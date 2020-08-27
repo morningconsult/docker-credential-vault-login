@@ -42,7 +42,7 @@ listener "tcp" {
 // https://github.com/hashicorp/vault/blob/13c56f5f92a91bcc9a2ab02daed0910b1828c94f/command/agent/config/config.go#L143
 //
 // This error message must always be kept up to date.
-const errNoSinkMsg = "auto_auth requires at least one sink or cache.use_auto_auth_token=true "
+const errNoSinkMsg = "auto_auth requires at least one sink or at least one template or cache.use_auto_auth_token=true"
 
 // SecretsTable is used to lookup the path to where your Docker
 // credentials are stored in Vault based on a given hostname.

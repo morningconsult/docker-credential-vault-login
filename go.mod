@@ -1,37 +1,52 @@
 module github.com/morningconsult/docker-credential-vault-login
 
-go 1.12
+go 1.15
+
+replace github.com/hashicorp/vault/api => github.com/hashicorp/vault/api v1.0.5-0.20200717191844-f687267c8086
 
 require (
-	cloud.google.com/go v0.49.0 // indirect
-	cloud.google.com/go/spanner v1.1.0 // indirect
+	cloud.google.com/go v0.64.0 // indirect
+	github.com/Azure/azure-sdk-for-go v46.0.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest v0.11.4 // indirect
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.1 // indirect
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
+	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
+	github.com/DataDog/datadog-go v4.0.0+incompatible // indirect
 	github.com/Masterminds/semver v1.5.0 // indirect
-	github.com/aliyun/alibaba-cloud-sdk-go v0.0.0-20191122014323-8cc8f217b23a // indirect
-	github.com/aws/aws-sdk-go v1.25.40 // indirect
-	github.com/cloudfoundry-community/go-cfclient v0.0.0-20190808214049-35bcce23fc5f // indirect
+	github.com/aliyun/alibaba-cloud-sdk-go v1.61.441 // indirect
+	github.com/aws/aws-sdk-go v1.34.11 // indirect
+	github.com/circonus-labs/circonusllhist v0.1.4 // indirect
+	github.com/cloudfoundry-community/go-cfclient v0.0.0-20200413172050-18981bf12b4b // indirect
 	github.com/docker/docker-credential-helpers v0.6.3
-	github.com/golang/groupcache v0.0.0-20191027212112-611e8accdfc9 // indirect
-	github.com/google/go-cmp v0.3.1
-	github.com/hashicorp/consul-template v0.23.0 // indirect
+	github.com/google/go-cmp v0.5.2
 	github.com/hashicorp/go-hclog v0.14.1
-	github.com/hashicorp/go-retryablehttp v0.6.3 // indirect
-	github.com/hashicorp/go-uuid v1.0.2-0.20191001231223-f32f5fe8d6a8
-	github.com/hashicorp/vault v1.3.4
-	github.com/hashicorp/vault/api v1.0.5-0.20200117231345-460d63e36490
-	github.com/hashicorp/vault/sdk v0.1.14-0.20200305172021-03a3749f220d
-	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d // indirect
-	github.com/json-iterator/go v1.1.8 // indirect
+	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
+	github.com/hashicorp/go-kms-wrapping v0.5.14 // indirect
+	github.com/hashicorp/go-plugin v1.3.0 // indirect
+	github.com/hashicorp/go-retryablehttp v0.6.7 // indirect
+	github.com/hashicorp/go-uuid v1.0.2
+	github.com/hashicorp/go-version v1.2.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/vault v1.5.2
+	github.com/hashicorp/vault/api v1.0.5-0.20200805123347-1ef507638af6
+	github.com/hashicorp/vault/sdk v0.1.14-0.20200805123347-1ef507638af6
+	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
+	github.com/mitchellh/cli v1.1.1 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/pierrec/lz4 v2.3.0+incompatible // indirect
-	go.opencensus.io v0.22.2 // indirect
-	golang.org/x/crypto v0.0.0-20191119213627-4f8c1d86b1ba // indirect
-	golang.org/x/net v0.0.0-20191119073136-fc4aabc6c914 // indirect
-	golang.org/x/sys v0.0.0-20191120155948-bd437916bb0e // indirect
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0 // indirect
-	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898
-	google.golang.org/appengine v1.6.5 // indirect
-	google.golang.org/genproto v0.0.0-20191115221424-83cc0476cb11 // indirect
-	google.golang.org/grpc v1.25.1 // indirect
-	gopkg.in/ini.v1 v1.51.0 // indirect
-	gopkg.in/square/go-jose.v2 v2.4.0 // indirect
+	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
+	github.com/mitchellh/mapstructure v1.3.3 // indirect
+	github.com/oklog/run v1.1.0 // indirect
+	github.com/oracle/oci-go-sdk v24.1.0+incompatible // indirect
+	github.com/posener/complete v1.2.3 // indirect
+	github.com/prometheus/common v0.13.0 // indirect
+	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
+	golang.org/x/net v0.0.0-20200822124328-c89045814202 // indirect
+	golang.org/x/sys v0.0.0-20200826173525-f9321e4c35a6 // indirect
+	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987 // indirect
+	google.golang.org/grpc v1.31.1 // indirect
+	gopkg.in/ini.v1 v1.60.2 // indirect
 )
