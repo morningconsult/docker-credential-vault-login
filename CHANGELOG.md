@@ -1,6 +1,20 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Chore
+- Address some linting issues
+- Bump Go Docker images to 1.15
+
+### Deps
+- Bump go to v1.15
+- Vault[@1](https://gitlab.morningconsult.com/1).5.2
+
+
+<a name="v0.3.8"></a>
+## [v0.3.8] - 2020-07-21
+### Chore
+- Bump version and update changelog [ci skip]
+
 
 <a name="v0.3.7"></a>
 ## [v0.3.7] - 2020-07-13
@@ -315,7 +329,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.7...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.8...HEAD
+[v0.3.8]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.6...v0.3.7
 [v0.3.6]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.5...v0.3.6
 [v0.3.5]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.4...v0.3.5
