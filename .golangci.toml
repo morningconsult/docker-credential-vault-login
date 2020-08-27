@@ -20,6 +20,14 @@ disable = [
   "gochecknoglobals", # There are valid use cases for globals
   "maligned",         # Readability is more important than saving bytes
   "funlen",
+  "nolintlint",
+  "testpackage",
+  "nlreturn",
+  "goerr113",
+  "godot",
+  "nestif",
+  "gosec",
+  "gci",
 ]
 
 [linters-settings]
