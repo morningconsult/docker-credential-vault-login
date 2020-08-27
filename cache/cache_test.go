@@ -316,7 +316,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 		EncryptedPayload:    base64Decode("GVH1YTtDw7pWpMPs1GQKRrl2CRuw5M54mtPuYWJuLMY3tYNHwmN8vnwZ4QcmcKg2KcuaWw=="),
 	}
 
-	aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
+	aesKey, err := dhutil.GenerateSharedSecret(privateKey, resp.Curve25519PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -575,7 +575,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 		EncryptedPayload:    base64Decode("GVH1YTtDw7pWpMPs1GQKRrl2CRuw5M54mtPuYWJuLMY3tYNHwmN8vnwZ4QcmcKg2KcuaWw=="),
 	}
 
-	aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
+	aesKey, err := dhutil.GenerateSharedSecret(privateKey, resp.Curve25519PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}

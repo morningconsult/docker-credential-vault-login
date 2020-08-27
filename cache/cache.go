@@ -115,7 +115,7 @@ func decryptToken(token string, aad string, config map[string]interface{}) (stri
 		return "", xerrors.New("no valid Diffie-Hellman private key found")
 	}
 
-	aesKey, err := dhutil.GenerateSharedKey(privateKey, resp.Curve25519PublicKey)
+	aesKey, err := dhutil.GenerateSharedSecret(privateKey, resp.Curve25519PublicKey)
 	if err != nil {
 		return "", xerrors.Errorf("error creating AES-GCM key: %w", err)
 	}
