@@ -2,6 +2,14 @@
 ## [Unreleased]
 
 ### Chore
+- Fix bump workflow step for git
+- update vault deps to 1.6.0
+
+
+<a name="v0.3.9"></a>
+## [v0.3.9] - 2020-08-27
+### Chore
+- Bump version and update changelog [ci skip]
 - Address some linting issues
 - Bump Go Docker images to 1.15
 
@@ -329,7 +337,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.8...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.9...HEAD
+[v0.3.9]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.8...v0.3.9
 [v0.3.8]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.6...v0.3.7
 [v0.3.6]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.5...v0.3.6
