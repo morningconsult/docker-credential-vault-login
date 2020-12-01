@@ -202,19 +202,21 @@ func (h *Helper) authenticate(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, h.authTimeout)
 	defer cancel()
 
-	go ah.Run(ctx, method)
+	go func() {
+		if err := ah.Run(ctx, method); err != nil {
+			panic(err)
+		}
+	}()
 
 	var token string
 	select {
 	case <-ctx.Done():
-		<-ah.DoneCh
 		return "", xerrors.Errorf("failed to get credentials within timeout (%s)", h.authTimeout)
 	case token = <-ah.OutputCh:
 		// will have to unwrap token if wrapped
 		h.logger.Info("successfully authenticated")
 	}
 	cancel()
-	<-ah.DoneCh
 
 	return token, nil
 }
@@ -234,7 +236,11 @@ func (h *Helper) cacheToken(ctx context.Context, token string) {
 		})
 		newTokenCh := make(chan string, 1)
 		newTokenCh <- token
-		ss.Run(ctx, newTokenCh, sinks)
+
+		if err := ss.Run(ctx, newTokenCh, sinks); err != nil {
+			panic(err)
+		}
+
 		close(newTokenCh)
 	}
 }
