@@ -2,6 +2,13 @@
 ## [Unreleased]
 
 ### Chore
+- Fix inclusify changes
+
+
+<a name="v0.3.10"></a>
+## [v0.3.10] - 2020-12-01
+### Chore
+- Bump version and update changelog [ci skip]
 - Fix bump workflow step for git
 - update vault deps to 1.6.0
 
@@ -337,7 +344,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.9...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.10...HEAD
+[v0.3.10]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.9...v0.3.10
 [v0.3.9]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.8...v0.3.9
 [v0.3.8]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.7...v0.3.8
 [v0.3.7]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.6...v0.3.7
