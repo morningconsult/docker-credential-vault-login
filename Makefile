@@ -27,7 +27,7 @@ all: build
 
 git_chglog_check:
 ifeq ($(shell which git-chglog),)
-	go get -u -v github.com/git-chglog/git-chglog/cmd/git-chglog
+	go install github.com/git-chglog/git-chglog/cmd/git-chglog@latest
 	git-chglog --version
 endif
 .PHONY: git_chglog_check
@@ -54,7 +54,7 @@ $(LOCAL_BINARY): $(SOURCES)
 
 $(EXTERNAL_TOOLS):
 	$(info Installing/Updating $@)
-	go get -u $@
+	go install $@@latest
 
 mocktools: $(EXTERNAL_TOOLS)
 .PHONY: mocktools
