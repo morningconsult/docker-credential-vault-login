@@ -2,6 +2,13 @@
 ## [Unreleased]
 
 ### Chore
+- update vault dependency to 1.7.0 ([#64](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/64))
+
+
+<a name="v0.3.12"></a>
+## [v0.3.12] - 2021-03-10
+### Chore
+- Bump version and update changelog
 - Remove ci skip from bump so release will run
 
 
@@ -351,7 +358,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.11...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.12...HEAD
+[v0.3.12]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.11...v0.3.12
 [v0.3.11]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.10...v0.3.11
 [v0.3.10]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.9...v0.3.10
 [v0.3.9]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.8...v0.3.9
