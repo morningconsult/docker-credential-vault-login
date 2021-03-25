@@ -18,7 +18,7 @@ jobs:
     name: Run linting and tests
     runs-on: ubuntu-18.04
     container:
-      image: golang:1.15.0-alpine3.12
+      image: golang:1.16-alpine3.13
     steps:
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
