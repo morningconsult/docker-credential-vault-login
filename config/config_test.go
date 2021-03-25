@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	vaultconfig "github.com/hashicorp/vault/command/agent/config"
+	"github.com/hashicorp/vault/internalshared/configutil"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -63,6 +64,16 @@ func TestLoadConfig(t *testing.T) {
 			"testdata/no-sinks.hcl",
 			"",
 			&vaultconfig.Config{
+				SharedConfig: &configutil.SharedConfig{
+					Listeners: []*configutil.Listener{
+						{
+							RawConfig:  map[string]interface{}{"address": string("127.0.0.1:8100"), "tls_disable": bool(true)},
+							Type:       "tcp",
+							Address:    "127.0.0.1:8100",
+							TLSDisable: true,
+						},
+					},
+				},
 				AutoAuth: &vaultconfig.AutoAuth{
 					Method: &vaultconfig.Method{
 						Type:      "approle",
@@ -74,6 +85,8 @@ func TestLoadConfig(t *testing.T) {
 						},
 					},
 				},
+				Cache: &vaultconfig.Cache{UseAutoAuthTokenRaw: bool(true), UseAutoAuthToken: true},
+				Vault: &vaultconfig.Vault{Retry: &vaultconfig.Retry{NumRetries: 12}},
 			},
 		},
 		{
@@ -81,6 +94,7 @@ func TestLoadConfig(t *testing.T) {
 			"testdata/no-mount-path.hcl",
 			"",
 			&vaultconfig.Config{
+				SharedConfig: &configutil.SharedConfig{},
 				AutoAuth: &vaultconfig.AutoAuth{
 					Method: &vaultconfig.Method{
 						Type:      "aws",
@@ -100,6 +114,7 @@ func TestLoadConfig(t *testing.T) {
 						},
 					},
 				},
+				Vault: &vaultconfig.Vault{Retry: &vaultconfig.Retry{NumRetries: 12}},
 			},
 		},
 		{
@@ -107,6 +122,7 @@ func TestLoadConfig(t *testing.T) {
 			"testdata/valid.hcl",
 			"",
 			&vaultconfig.Config{
+				SharedConfig: &configutil.SharedConfig{},
 				AutoAuth: &vaultconfig.AutoAuth{
 					Method: &vaultconfig.Method{
 						Type:      "approle",
@@ -126,6 +142,7 @@ func TestLoadConfig(t *testing.T) {
 						},
 					},
 				},
+				Vault: &vaultconfig.Vault{Retry: &vaultconfig.Retry{NumRetries: 12}},
 			},
 		},
 	}

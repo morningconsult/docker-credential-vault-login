@@ -26,9 +26,10 @@ EXTERNAL_TOOLS := \
 all: build
 
 git_chglog_check:
-	if [ -z "$(shell which git-chglog)" ]; then \
-		go get -u -v github.com/git-chglog/git-chglog/cmd/git-chglog && git-chglog --version; \
-	fi
+ifeq ($(shell which git-chglog),)
+	go get -u -v github.com/git-chglog/git-chglog/cmd/git-chglog
+	git-chglog --version
+endif
 .PHONY: git_chglog_check
 
 changelog: git_chglog_check
@@ -51,12 +52,11 @@ $(LOCAL_BINARY): $(SOURCES)
 	@sh -c "'./scripts/build-binary.sh' '$(shell git describe --tags --abbrev=0)' '$(shell git rev-parse --short HEAD)' '$(REPO)'"
 	@echo "==> Done. Binary can be found at ./bin/docker-credential-vault-login"
 
-mocktools:
-	@echo $(GOPATH)
-	@for tool in  $(EXTERNAL_TOOLS) ; do \
-		echo "Installing/Updating $$tool" ; \
-		go get -u $$tool; \
-	done
+$(EXTERNAL_TOOLS):
+	$(info Installing/Updating $@)
+	go get -u $@
+
+mocktools: $(EXTERNAL_TOOLS)
 .PHONY: mocktools
 
 build_mocks: mocktools
