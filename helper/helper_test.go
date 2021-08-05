@@ -444,7 +444,9 @@ auto_auth {
 		h.client.SetToken("bad token!")
 		buf := bytes.Buffer{}
 		h.logger = hclog.New(&hclog.LoggerOptions{
-			Output: &buf,
+			Output:      &buf,
+			DisableTime: true,
+			JSONFormat:  true,
 		})
 
 		makeApproleFiles()
@@ -453,12 +455,8 @@ auto_auth {
 		if err == nil {
 			t.Fatal("expected an error when client attempts to read secret with a bad token")
 		}
-		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
 
-URL: GET %s/v1/%s
-Code: 403. Errors:
-
-* permission denied"`, h.client.Address(), secretPath)
+		expected := fmt.Sprintf(`{"@level":"error","@message":"error reading secret from Vault","error":"error reading secret: Error making API request.\n\nURL: GET %s/v1/%s\nCode: 403. Errors:\n\n* permission denied"}`, h.client.Address(), secretPath)
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
 				expected, buf.String())
@@ -471,8 +469,10 @@ Code: 403. Errors:
 		client.SetToken(rootToken)
 		buf := bytes.Buffer{}
 		h.logger = hclog.New(&hclog.LoggerOptions{
-			Output: &buf,
-			Level:  hclog.Error,
+			Output:      &buf,
+			Level:       hclog.Error,
+			DisableTime: true,
+			JSONFormat:  true,
 		})
 
 		// Delete the policy that allows the app role to read the secret
@@ -490,13 +490,7 @@ Code: 403. Errors:
 			t.Fatal("expected an error when role attempts to read secret with without permission")
 		}
 
-		expected := fmt.Sprintf(`[ERROR] error reading secret from Vault: error="error reading secret: Error making API request.
-
-URL: GET %s/v1/%s
-Code: 403. Errors:
-
-* 1 error occurred:
-	* permission denied`, h.client.Address(), secretPath)
+		expected := fmt.Sprintf(`{"@level":"error","@message":"error reading secret from Vault","error":"error reading secret: Error making API request.\n\nURL: GET %s/v1/%s\nCode: 403. Errors:\n\n* 1 error occurred:\n\t* permission denied\n\n"}`, h.client.Address(), secretPath)
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
 				expected, buf.String())
