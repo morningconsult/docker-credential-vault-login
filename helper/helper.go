@@ -32,7 +32,7 @@ import (
 
 var (
 	errNotImplemented  = errors.New("not implemented")
-	defaultAuthTimeout = 10 * time.Second
+	defaultAuthTimeout = 30 * time.Second
 )
 
 type secretTable interface {

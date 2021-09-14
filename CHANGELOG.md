@@ -2,6 +2,13 @@
 ## [Unreleased]
 
 ### Chore
+- increase default timeout to 30s ([#73](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/73))
+
+
+<a name="v0.3.17"></a>
+## [v0.3.17] - 2021-08-05
+### Chore
+- Bump version and update changelog
 - Fix go module resolutions ([#71](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/71))
 
 
@@ -384,7 +391,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.16...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.17...HEAD
+[v0.3.17]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.16...v0.3.17
 [v0.3.16]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.15...v0.3.16
 [v0.3.15]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.14...v0.3.15
 [v0.3.14]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.13...v0.3.14
