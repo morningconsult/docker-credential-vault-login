@@ -29,7 +29,7 @@ import (
 )
 
 // EnvDiffieHellmanPrivateKey is the path to Diffie Hellman private key
-// used to decrypt an encrypted Vault token
+// used to decrypt an encrypted Vault token.
 const EnvDiffieHellmanPrivateKey = "DCVL_DH_PRIV_KEY"
 
 type privateKeyInfo struct {
@@ -152,7 +152,7 @@ func parseDHPrivateKeyFile(path string) ([]byte, error) {
 		return nil, xerrors.Errorf("error opening 'dh_priv' file %s: %w", path, err)
 	}
 
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	var pkInfo privateKeyInfo
 	if err = json.NewDecoder(file).Decode(&pkInfo); err != nil {

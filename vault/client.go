@@ -44,33 +44,33 @@ func NewClient( // nolint: gocyclo, gocognit
 ) (*api.Client, error) {
 	if vaultConfig != nil {
 		if os.Getenv(api.EnvVaultAddress) == "" && vaultConfig.Address != "" {
-			os.Setenv(api.EnvVaultAddress, vaultConfig.Address)
-			defer os.Unsetenv(api.EnvVaultAddress)
+			os.Setenv(api.EnvVaultAddress, vaultConfig.Address) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultAddress)              //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultCACert) == "" && vaultConfig.CACert != "" {
-			os.Setenv(api.EnvVaultCACert, vaultConfig.CACert)
-			defer os.Unsetenv(api.EnvVaultCACert)
+			os.Setenv(api.EnvVaultCACert, vaultConfig.CACert) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultCACert)             //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultCAPath) == "" && vaultConfig.CAPath != "" {
-			os.Setenv(api.EnvVaultCAPath, vaultConfig.CAPath)
-			defer os.Unsetenv(api.EnvVaultCAPath)
+			os.Setenv(api.EnvVaultCAPath, vaultConfig.CAPath) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultCAPath)             //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultSkipVerify) == "" && vaultConfig.TLSSkipVerifyRaw != nil {
-			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify))
-			defer os.Unsetenv(api.EnvVaultSkipVerify)
+			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify)) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultSkipVerify)                                       //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultClientCert) == "" && vaultConfig.ClientCert != "" {
-			os.Setenv(api.EnvVaultClientCert, vaultConfig.ClientCert)
-			defer os.Unsetenv(api.EnvVaultClientCert)
+			os.Setenv(api.EnvVaultClientCert, vaultConfig.ClientCert) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultClientCert)                 //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultClientKey) == "" && vaultConfig.ClientKey != "" {
-			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientKey)
-			defer os.Unsetenv(api.EnvVaultClientKey)
+			os.Setenv(api.EnvVaultClientKey, vaultConfig.ClientKey) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultClientKey)                //nolint:errcheck
 		}
 	}
 
