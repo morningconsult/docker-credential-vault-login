@@ -20,14 +20,14 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// Credentials represent Docker credentials
+// Credentials represent Docker credentials.
 type Credentials struct {
 	Username string
 	Password string
 }
 
 // GetCredentials uses the Vault client to read the secret at
-// path
+// path.
 func GetCredentials(path string, client *api.Client) (Credentials, error) {
 	var (
 		username, password string

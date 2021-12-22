@@ -1,9 +1,0 @@
-(io.Closer).Close
-(net/http.ResponseWriter).Write
-io.WriteString
-os.Setenv
-(*github.com/hashicorp/vault/api.Client).SetAddress
-(*github.com/hashicorp/vault/api.Logical).Delete
-os.Remove
-(*os.File).Close
-os.Unsetenv

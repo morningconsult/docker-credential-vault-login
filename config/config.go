@@ -121,7 +121,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 			return nil, err
 		}
 
-		defer os.Remove(tempFile.Name())
+		defer os.Remove(tempFile.Name()) //nolint:errcheck
 
 		if _, err = tempFile.Write([]byte(hcl)); err != nil {
 			return nil, err

@@ -39,7 +39,7 @@ type secretTable interface {
 	GetPath(host string) (string, error)
 }
 
-// Options is used to configure a new Helper instance
+// Options is used to configure a new Helper instance.
 type Options struct {
 	Logger      hclog.Logger
 	Client      *api.Client
@@ -53,7 +53,7 @@ type Options struct {
 // Helper implements a Docker credential helper which will
 // fetch Docker credentials from Vault and pass them to
 // the Docker daemon in order to authenticate to a private
-// Docker registry
+// Docker registry.
 type Helper struct {
 	logger       hclog.Logger
 	client       *api.Client
@@ -63,7 +63,7 @@ type Helper struct {
 	authConfig   *config.AutoAuth
 }
 
-// New creates a new Helper instance
+// New creates a new Helper instance.
 func New(opts Options) *Helper {
 	timeout := defaultAuthTimeout
 	if opts.AuthTimeout != 0 {
@@ -80,17 +80,17 @@ func New(opts Options) *Helper {
 	}
 }
 
-// Add is not implemented
+// Add is not implemented.
 func (h *Helper) Add(creds *credentials.Credentials) error {
 	return errNotImplemented
 }
 
-// Delete is not implemented
+// Delete is not implemented.
 func (h *Helper) Delete(serverURL string) error {
 	return errNotImplemented
 }
 
-// List is not implemented
+// List is not implemented.
 func (h *Helper) List() (map[string]string, error) {
 	return nil, errNotImplemented
 }

@@ -192,7 +192,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err = ioutil.WriteFile(filename, data, 0644); err != nil {
+			if err = ioutil.WriteFile(filename, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -521,7 +521,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ioutil.WriteFile(tc.tokenFile, data, 0644); err != nil {
+			if err = ioutil.WriteFile(tc.tokenFile, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(tc.tokenFile)
@@ -531,7 +531,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ioutil.WriteFile(tc.pkFile, data, 0644); err != nil {
+			if err = ioutil.WriteFile(tc.pkFile, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(tc.pkFile)
@@ -594,7 +594,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ioutil.WriteFile("testdata/token-encrypted.json", data, 0644); err != nil {
+	if err = ioutil.WriteFile("testdata/token-encrypted.json", data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove("testdata/token-encrypted.json")

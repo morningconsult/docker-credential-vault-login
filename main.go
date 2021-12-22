@@ -100,7 +100,7 @@ func main() { // nolint: funlen
 	if err != nil {
 		log.Fatalf("error creating log file: %v", err)
 	}
-	defer logWriter.Close()
+	defer logWriter.Close() //nolint:errcheck
 
 	// Create logger
 	logger := hclog.New(&hclog.LoggerOptions{
@@ -135,13 +135,13 @@ func newLogWriter(config map[string]interface{}) (*os.File, error) {
 		return nil, xerrors.Errorf("error expanding logging directory %s: %w", logDir, err)
 	}
 
-	if err = os.MkdirAll(logDir, 0750); err != nil {
+	if err = os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, xerrors.Errorf("error creating directory %s: %w", logDir, err)
 	}
 
 	logFile := filepath.Join(logDir, fmt.Sprintf("vault-login_%s.log", time.Now().Format("2006-01-02")))
 
-	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	return os.OpenFile(logFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec
 }
 
 func cacheEnabled(disableCache bool) (bool, error) {

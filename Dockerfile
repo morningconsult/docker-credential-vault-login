@@ -11,7 +11,7 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.16-alpine3.13
+FROM golang:1.17.5-alpine3.14
 
 RUN set -e; \
   apk add -qU --no-cache git make; \
