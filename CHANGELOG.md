@@ -1,7 +1,11 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+
+<a name="v0.3.19"></a>
+## [v0.3.19] - 2021-12-22
 ### Chore
+- Bump version and update changelog
 - upgrade to vault 1.9.2 ([#75](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/75))
 
 
@@ -398,7 +402,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.18...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.19...HEAD
+[v0.3.19]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.18...v0.3.19
 [v0.3.18]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.17...v0.3.18
 [v0.3.17]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.16...v0.3.17
 [v0.3.16]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.15...v0.3.16
