@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/google/go-cmp v0.5.6
-	github.com/hashicorp/go-hclog v1.0.0
+	github.com/hashicorp/go-hclog v1.1.0
 	github.com/hashicorp/go-uuid v1.0.2
 	github.com/hashicorp/vault v1.9.2
 	github.com/hashicorp/vault/api v1.3.0
