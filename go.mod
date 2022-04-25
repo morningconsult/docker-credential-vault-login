@@ -6,7 +6,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-hclog v1.2.0
-	github.com/hashicorp/go-uuid v1.0.2
+	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/vault v1.10.1
 	github.com/hashicorp/vault/api v1.4.1
 	github.com/hashicorp/vault/sdk v0.4.2-0.20220324144656-cdb85cfca8f5
