@@ -7,9 +7,9 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-uuid v1.0.2
-	github.com/hashicorp/vault v1.10.0
+	github.com/hashicorp/vault v1.10.1
 	github.com/hashicorp/vault/api v1.4.1
-	github.com/hashicorp/vault/sdk v0.4.2-0.20220321211954-d7083ad326db
+	github.com/hashicorp/vault/sdk v0.4.2-0.20220324144656-cdb85cfca8f5
 	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
@@ -73,7 +73,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gophercloud/gophercloud v0.1.0 // indirect
-	github.com/hashicorp/consul-template v0.27.2-0.20211014231529-4ff55381f1c4 // indirect
+	github.com/hashicorp/consul-template v0.28.1-0.20220415203157-ebf2f3dfe745 // indirect
 	github.com/hashicorp/consul/api v1.12.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
@@ -89,10 +89,10 @@ require (
 	github.com/hashicorp/go-raftchunking v0.6.3-0.20191002164813-7e9e8525653a // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
-	github.com/hashicorp/go-secure-stdlib/awsutil v0.1.5 // indirect
+	github.com/hashicorp/go-secure-stdlib/awsutil v0.1.6 // indirect
 	github.com/hashicorp/go-secure-stdlib/base62 v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
-	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.3 // indirect
+	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.4 // indirect
 	github.com/hashicorp/go-secure-stdlib/reloadutil v0.1.1 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/tlsutil v0.1.1 // indirect
@@ -104,7 +104,7 @@ require (
 	github.com/hashicorp/raft v1.3.3 // indirect
 	github.com/hashicorp/raft-autopilot v0.1.3 // indirect
 	github.com/hashicorp/raft-boltdb/v2 v2.0.0-20210421194847-a7e34179d62c // indirect
-	github.com/hashicorp/raft-snapshot v1.0.3 // indirect
+	github.com/hashicorp/raft-snapshot v1.0.4 // indirect
 	github.com/hashicorp/serf v0.9.6 // indirect
 	github.com/hashicorp/vault-plugin-auth-alicloud v0.11.0 // indirect
 	github.com/hashicorp/vault-plugin-auth-cf v0.11.0 // indirect
