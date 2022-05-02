@@ -7,9 +7,9 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/hashicorp/go-hclog v1.2.0
 	github.com/hashicorp/go-uuid v1.0.3
-	github.com/hashicorp/vault v1.10.1
+	github.com/hashicorp/vault v1.10.2
 	github.com/hashicorp/vault/api v1.4.1
-	github.com/hashicorp/vault/sdk v0.4.2-0.20220324144656-cdb85cfca8f5
+	github.com/hashicorp/vault/sdk v0.4.2-0.20220422204215-a7cef09c9429
 	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
