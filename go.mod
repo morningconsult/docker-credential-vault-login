@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/vault v1.10.3
 	github.com/hashicorp/vault/api v1.7.1
-	github.com/hashicorp/vault/sdk v0.5.0
+	github.com/hashicorp/vault/sdk v0.5.1
 	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
