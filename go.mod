@@ -8,8 +8,8 @@ require (
 	github.com/hashicorp/go-hclog v1.3.1
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/vault v1.11.4
-	github.com/hashicorp/vault/api v1.7.2
-	github.com/hashicorp/vault/sdk v0.5.3-0.20220826205147-7caf353e8124
+	github.com/hashicorp/vault/api v1.8.0
+	github.com/hashicorp/vault/sdk v0.6.0
 	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
@@ -85,7 +85,7 @@ require (
 	github.com/hashicorp/go-gcp-common v0.7.1-0.20220519220342-94aabf4c4c87 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-kms-wrapping v0.7.0 // indirect
-	github.com/hashicorp/go-kms-wrapping/entropy v0.1.0 // indirect
+	github.com/hashicorp/go-kms-wrapping/entropy/v2 v2.0.0 // indirect
 	github.com/hashicorp/go-memdb v1.3.2 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
