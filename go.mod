@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-uuid v1.0.3
 	github.com/hashicorp/vault v1.11.4
 	github.com/hashicorp/vault/api v1.7.2
-	github.com/hashicorp/vault/sdk v0.5.3-0.20220826205147-7caf353e8124
+	github.com/hashicorp/vault/sdk v0.9.0
 	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 )
@@ -85,11 +85,12 @@ require (
 	github.com/hashicorp/go-gcp-common v0.7.1-0.20220519220342-94aabf4c4c87 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-kms-wrapping v0.7.0 // indirect
-	github.com/hashicorp/go-kms-wrapping/entropy v0.1.0 // indirect
+	github.com/hashicorp/go-kms-wrapping/entropy/v2 v2.0.0 // indirect
+	github.com/hashicorp/go-kms-wrapping/v2 v2.0.8 // indirect
 	github.com/hashicorp/go-memdb v1.3.2 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-plugin v1.4.4 // indirect
+	github.com/hashicorp/go-plugin v1.4.5 // indirect
 	github.com/hashicorp/go-raftchunking v0.6.3-0.20191002164813-7e9e8525653a // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
@@ -99,7 +100,7 @@ require (
 	github.com/hashicorp/go-secure-stdlib/parseutil v0.1.6 // indirect
 	github.com/hashicorp/go-secure-stdlib/reloadutil v0.1.1 // indirect
 	github.com/hashicorp/go-secure-stdlib/strutil v0.1.2 // indirect
-	github.com/hashicorp/go-secure-stdlib/tlsutil v0.1.1 // indirect
+	github.com/hashicorp/go-secure-stdlib/tlsutil v0.1.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/go-version v1.4.0 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
@@ -184,13 +185,13 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
-	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+	golang.org/x/crypto v0.6.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20220825204002-c680a09ffe64 // indirect
-	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/term v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
 	google.golang.org/api v0.30.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
