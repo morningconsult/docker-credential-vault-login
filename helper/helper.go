@@ -21,9 +21,9 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/command/agent/auth"
 	"github.com/hashicorp/vault/command/agent/config"
-	"github.com/hashicorp/vault/command/agent/sink"
+	"github.com/hashicorp/vault/command/agentproxyshared/auth"
+	"github.com/hashicorp/vault/command/agentproxyshared/sink"
 	"golang.org/x/xerrors"
 
 	"github.com/morningconsult/docker-credential-vault-login/cache"
@@ -81,12 +81,12 @@ func New(opts Options) *Helper {
 }
 
 // Add is not implemented.
-func (h *Helper) Add(creds *credentials.Credentials) error {
+func (h *Helper) Add(*credentials.Credentials) error {
 	return errNotImplemented
 }
 
 // Delete is not implemented.
-func (h *Helper) Delete(serverURL string) error {
+func (h *Helper) Delete(string) error {
 	return errNotImplemented
 }
 
