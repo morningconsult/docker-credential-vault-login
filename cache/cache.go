@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/hashicorp/go-hclog"
@@ -92,7 +91,7 @@ func readFileSink(config map[string]interface{}) (string, error) {
 		return "", xerrors.New("value of 'path' of sink could not be converted to string")
 	}
 
-	fileData, err := ioutil.ReadFile(path) // nolint: gosec
+	fileData, err := os.ReadFile(path) // nolint: gosec
 	if err != nil {
 		return "", xerrors.Errorf("error opening file sink %s: %w", path, err)
 	}

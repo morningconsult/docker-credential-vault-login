@@ -16,7 +16,6 @@ package helper
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -150,10 +149,10 @@ func TestHelper_Get(t *testing.T) {
 	defer os.Remove(secretIDFile)
 
 	makeApproleFiles := func() {
-		if err = ioutil.WriteFile(secretIDFile, []byte(secretID), 0o644); err != nil {
+		if err = os.WriteFile(secretIDFile, []byte(secretID), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		if err = ioutil.WriteFile(roleIDFile, []byte(roleID), 0o644); err != nil {
+		if err = os.WriteFile(roleIDFile, []byte(roleID), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -202,7 +201,7 @@ auto_auth {
 	hcl = fmt.Sprintf(hcl, secretPath, roleIDFile, secretIDFile)
 
 	configFile := filepath.Join(testdata, "testing.hcl")
-	if err = ioutil.WriteFile(configFile, []byte(hcl), 0o644); err != nil {
+	if err = os.WriteFile(configFile, []byte(hcl), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(configFile)
@@ -287,7 +286,7 @@ auto_auth {
 		noSinksHCL = fmt.Sprintf(noSinksHCL, secretPath, roleIDFile, secretIDFile)
 
 		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
-		if err = ioutil.WriteFile(configFile, []byte(noSinksHCL), 0o644); err != nil {
+		if err = os.WriteFile(configFile, []byte(noSinksHCL), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		defer os.Remove(noSinksConfigFile)
@@ -346,7 +345,7 @@ auto_auth {
 		multiSecret = fmt.Sprintf(multiSecret, roleIDFile, secretIDFile, secretPath)
 
 		noSinksConfigFile := filepath.Join(testdata, "testing.hcl")
-		if err = ioutil.WriteFile(configFile, []byte(multiSecret), 0o644); err != nil {
+		if err = os.WriteFile(configFile, []byte(multiSecret), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		defer os.Remove(noSinksConfigFile)

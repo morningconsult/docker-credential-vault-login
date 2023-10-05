@@ -17,7 +17,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -192,7 +191,7 @@ func TestGetCachedTokens_Wrapped(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err = ioutil.WriteFile(filename, data, 0o644); err != nil {
+			if err = os.WriteFile(filename, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 
@@ -300,7 +299,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 		return data
 	}
 
-	privateKeyData, err := ioutil.ReadFile("testdata/dh-private-key.json")
+	privateKeyData, err := os.ReadFile("testdata/dh-private-key.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -521,7 +520,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ioutil.WriteFile(tc.tokenFile, data, 0o644); err != nil {
+			if err = os.WriteFile(tc.tokenFile, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(tc.tokenFile)
@@ -531,7 +530,7 @@ func TestGetCachedTokens_Encrypted(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err = ioutil.WriteFile(tc.pkFile, data, 0o644); err != nil {
+			if err = os.WriteFile(tc.pkFile, data, 0o644); err != nil {
 				t.Fatal(err)
 			}
 			defer os.Remove(tc.pkFile)
@@ -559,7 +558,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 		return data
 	}
 
-	privateKeyData, err := ioutil.ReadFile("testdata/dh-private-key.json")
+	privateKeyData, err := os.ReadFile("testdata/dh-private-key.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -594,7 +593,7 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = ioutil.WriteFile("testdata/token-encrypted.json", data, 0o644); err != nil {
+	if err = os.WriteFile("testdata/token-encrypted.json", data, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove("testdata/token-encrypted.json")

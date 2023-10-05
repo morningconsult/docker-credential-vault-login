@@ -16,7 +16,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -96,7 +95,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 
 		var data []byte
 
-		data, err = ioutil.ReadFile(configFile) // nolint: gosec
+		data, err = os.ReadFile(configFile) // nolint: gosec
 		if err != nil {
 			return nil, err
 		}
@@ -116,7 +115,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 
 		var tempFile *os.File
 
-		tempFile, err = ioutil.TempFile("", configFileBase+".*")
+		tempFile, err = os.CreateTemp("", configFileBase+".*")
 		if err != nil {
 			return nil, err
 		}

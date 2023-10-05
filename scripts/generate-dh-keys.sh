@@ -24,7 +24,7 @@ package main
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"os"
 	"encoding/json"
 	"log"
 
@@ -58,11 +58,11 @@ func main() {
 	}
 
 
-	if err := ioutil.WriteFile("dh-pub-key.json", mPubKey, 0644); err != nil {
+	if err := os.WriteFile("dh-pub-key.json", mPubKey, 0644); err != nil {
 		log.Fatal(err)
 	}
 
-	if err := ioutil.WriteFile("dh-priv-key.json", mPrivKey, 0644); err != nil {
+	if err := os.WriteFile("dh-priv-key.json", mPrivKey, 0644); err != nil {
 		log.Fatal(err)
 	}
 }
