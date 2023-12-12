@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Refactor
+- inline version package ([#129](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/129))
+
+
+<a name="v0.3.44"></a>
+## [v0.3.44] - 2023-10-26
+### Chore
+- Bump version and update changelog
+
 
 <a name="v0.3.43"></a>
 ## [v0.3.43] - 2023-10-06
@@ -549,7 +558,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.43...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.44...HEAD
+[v0.3.44]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.43...v0.3.44
 [v0.3.43]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.42...v0.3.43
 [v0.3.42]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.41...v0.3.42
 [v0.3.41]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.40...v0.3.41
