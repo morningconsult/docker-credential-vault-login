@@ -30,14 +30,14 @@ fi
 cd "${ROOT}"
 
 # Set ldflags
-version_ldflags="-X \"${REPO}/version.Date=$( date +"%b %d, %Y" )\""
+version_ldflags="-X 'main.date=$( date +"%b %d, %Y" )'"
 
 if [ "${TAG}" != "" ]; then
-  version_ldflags="${version_ldflags} -X \"${REPO}/version.Version=${TAG}\""
+  version_ldflags="${version_ldflags} -X 'main.version=${TAG}'"
 fi
 
 if [ "${COMMIT}" != "" ]; then
-  version_ldflags="${version_ldflags} -X \"${REPO}/version.Commit=${COMMIT}\""
+  version_ldflags="${version_ldflags} -X 'main.commit=${COMMIT}'"
 fi
 
 mkdir -p "${BIN_DIR}"
