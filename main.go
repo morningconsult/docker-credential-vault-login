@@ -30,7 +30,18 @@ import (
 	"github.com/morningconsult/docker-credential-vault-login/config"
 	"github.com/morningconsult/docker-credential-vault-login/helper"
 	"github.com/morningconsult/docker-credential-vault-login/vault"
-	"github.com/morningconsult/docker-credential-vault-login/version"
+)
+
+var (
+	// version indicates which version of the binary is running.
+	version = "dev"
+
+	// commit is the commit hash of the git repository from which
+	// the binary is built.
+	commit = "none"
+
+	// date is the date on which the binary was built.
+	date = "unknown"
 )
 
 const (
@@ -57,7 +68,7 @@ func main() { // nolint: funlen
 
 	// Exit safely when version is used
 	if versionFlag {
-		fmt.Printf(banner, version.Version, version.Commit, version.Date)
+		fmt.Printf(banner, version, commit, date)
 		os.Exit(0)
 	}
 
