@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/gcp"
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/jwt"
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/kubernetes"
+	"github.com/hashicorp/vault/command/agentproxyshared/auth/token-file"
 	"github.com/hashicorp/vault/command/agentproxyshared/sink"
 	"github.com/hashicorp/vault/command/agentproxyshared/sink/file"
 	"golang.org/x/xerrors"
@@ -184,6 +185,8 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 		method, err = kubernetes.NewKubernetesAuthMethod(authConfig)
 	case "approle":
 		method, err = approle.NewApproleAuthMethod(authConfig)
+	case "token-file":
+		method, err = tokenFile.NewTokenFileAuthMethod(authConfig)
 	default:
 		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
 	}
