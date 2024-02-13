@@ -186,7 +186,7 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 	case "approle":
 		method, err = approle.NewApproleAuthMethod(authConfig)
 	case "token-file":
-		method, err = tokenFile.NewTokenFileAuthMethod(authConfig)
+		method, err = token_file.NewTokenFileAuthMethod(authConfig)
 	default:
 		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
 	}
