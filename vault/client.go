@@ -31,7 +31,7 @@ import (
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/gcp"
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/jwt"
 	"github.com/hashicorp/vault/command/agentproxyshared/auth/kubernetes"
-	"github.com/hashicorp/vault/command/agentproxyshared/auth/token-file"
+	token_file "github.com/hashicorp/vault/command/agentproxyshared/auth/token-file"
 	"github.com/hashicorp/vault/command/agentproxyshared/sink"
 	"github.com/hashicorp/vault/command/agentproxyshared/sink/file"
 	"golang.org/x/xerrors"
