@@ -16,6 +16,7 @@ package helper
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/docker/docker-credential-helpers/credentials"
@@ -237,7 +238,8 @@ func (h *Helper) cacheToken(ctx context.Context, token string) {
 		newTokenCh := make(chan string, 1)
 		newTokenCh <- token
 
-		if err := ss.Run(ctx, newTokenCh, sinks); err != nil {
+		var tokenWriteInProgress atomic.Bool
+		if err := ss.Run(ctx, newTokenCh, sinks, &tokenWriteInProgress); err != nil {
 			panic(err)
 		}
 

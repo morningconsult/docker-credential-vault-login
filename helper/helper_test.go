@@ -454,7 +454,7 @@ auto_auth {
 			t.Fatal("expected an error when client attempts to read secret with a bad token")
 		}
 
-		expected := fmt.Sprintf(`{"@level":"error","@message":"error reading secret from Vault","error":"error reading secret: Error making API request.\n\nURL: GET %s/v1/%s\nCode: 403. Errors:\n\n* permission denied"}`, h.client.Address(), secretPath)
+		expected := fmt.Sprintf(`{"@level":"error","@message":"error reading secret from Vault","error":"error reading secret: Error making API request.\n\nURL: GET %s/v1/%s\nCode: 403. Errors:\n\n* 2 errors occurred:\n\t* permission denied\n\t* invalid token\n\n"}`, h.client.Address(), secretPath)
 		if !strings.Contains(buf.String(), expected) {
 			t.Fatalf("\nExpected error to contain:\n\t%s\nReceived the following error(s):\n\t%s",
 				expected, buf.String())
@@ -517,7 +517,7 @@ func TestHelper_Get_FastTimeout(t *testing.T) {
 	h := New(Options{
 		Secret: mockSecretTable{
 			mockSecretTableConfig{
-				getPath: func(path string) (string, error) {
+				getPath: func(string) (string, error) {
 					return "secret/docker/creds", nil
 				},
 			},

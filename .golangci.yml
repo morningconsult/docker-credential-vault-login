@@ -34,7 +34,7 @@ issues:
 linters:
   enable:
     - bodyclose
-    - exportloopref
+    - copyloopvar
     - goconst
     - gocognit
     - gocyclo
@@ -65,7 +65,8 @@ linters-settings:
   revive:
     confidence: 0.0
   govet:
-    check-shadowing: true
+    enable:
+      - shadow
   misspell:
     locale: US
   nakedret:
