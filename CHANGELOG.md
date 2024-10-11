@@ -2,7 +2,16 @@
 ## [Unreleased]
 
 ### Build
+- bump vault version ([#137](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/137))
+
+
+<a name="v0.3.52"></a>
+## [v0.3.52] - 2024-10-01
+### Build
 - bump vault version ([#136](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/136))
+
+### Chore
+- Bump version and update changelog
 
 
 <a name="v0.3.51"></a>
@@ -618,7 +627,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.51...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.52...HEAD
+[v0.3.52]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.51...v0.3.52
 [v0.3.51]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.50...v0.3.51
 [v0.3.50]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.49...v0.3.50
 [v0.3.49]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.48...v0.3.49
