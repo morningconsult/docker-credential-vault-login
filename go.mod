@@ -6,7 +6,7 @@ go 1.23.1
 replace github.com/pires/go-proxyproto v1.0.0 => github.com/peteski22/go-proxyproto v1.0.0
 
 require (
-	github.com/docker/docker-credential-helpers v0.8.0
+	github.com/docker/docker-credential-helpers v0.8.2
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-uuid v1.0.3
