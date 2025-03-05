@@ -2,6 +2,12 @@
 ## [Unreleased]
 
 
+<a name="v0.3.65"></a>
+## [v0.3.65] - 2025-03-03
+### Chore
+- Bump version and update changelog
+
+
 <a name="v0.3.64"></a>
 ## [v0.3.64] - 2025-02-28
 ### Chore
@@ -699,7 +705,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.64...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.65...HEAD
+[v0.3.65]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.64...v0.3.65
 [v0.3.64]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.63...v0.3.64
 [v0.3.63]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.62...v0.3.63
 [v0.3.62]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.61...v0.3.62
