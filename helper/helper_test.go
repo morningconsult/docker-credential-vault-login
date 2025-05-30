@@ -15,6 +15,7 @@ package helper
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -396,7 +397,7 @@ auto_auth {
 		hh.secret = mockSecretTable{
 			mockSecretTableConfig{
 				getPath: func(_ string) (string, error) {
-					return "", fmt.Errorf("oops")
+					return "", errors.New("oops")
 				},
 			},
 		}

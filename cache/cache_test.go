@@ -675,8 +675,9 @@ func TestGetCachedTokens_EnvVar(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			os.Setenv(tc.envKey, tc.envVal)
-			defer os.Unsetenv(tc.envKey)
+			if tc.envKey != "" {
+				t.Setenv(tc.envKey, tc.envVal)
+			}
 
 			tokens := GetCachedTokens(hclog.NewNullLogger(), tc.sinks, nil)
 			if len(tokens) != tc.tokens {
@@ -797,7 +798,7 @@ func TestReadDHPrivateKey(t *testing.T) {
 			config: map[string]interface{}{
 				"dh_priv": "testdata/does-not-exist.json",
 			},
-			expectErr: "error opening 'dh_priv' file testdata/does-not-exist.json: open testdata/does-not-exist.json: no such file or directory", // nolint: lll
+			expectErr: "error opening 'dh_priv' file testdata/does-not-exist.json: open testdata/does-not-exist.json: no such file or directory",
 			expectKey: nil,
 		},
 		{
@@ -805,7 +806,7 @@ func TestReadDHPrivateKey(t *testing.T) {
 			config: map[string]interface{}{
 				"dh_priv": "testdata/dh-private-key-malformed.json",
 			},
-			expectErr: "error JSON-decoding file testdata/dh-private-key-malformed.json: json: cannot unmarshal string into Go value of type cache.privateKeyInfo", // nolint: lll
+			expectErr: "error JSON-decoding file testdata/dh-private-key-malformed.json: json: cannot unmarshal string into Go value of type cache.privateKeyInfo",
 			expectKey: nil,
 		},
 		{
@@ -849,12 +850,9 @@ func TestReadDHPrivateKey(t *testing.T) {
 }
 
 func TestDecryptToken(t *testing.T) {
-	noop := func() {}
-
 	cases := []struct {
 		name        string
-		pre         func()
-		post        func()
+		pre         func(t *testing.T)
 		token       string
 		aad         string
 		config      map[string]interface{}
@@ -863,8 +861,6 @@ func TestDecryptToken(t *testing.T) {
 	}{
 		{
 			name:        "bad-json",
-			pre:         noop,
-			post:        noop,
 			token:       `not a json`,
 			aad:         "",
 			config:      nil,
@@ -873,16 +869,12 @@ func TestDecryptToken(t *testing.T) {
 		},
 		{
 			name: "error-reading-key-from-env",
-			pre: func() {
+			pre: func(t *testing.T) {
 				// This is to check backwards compatibility - it ensures that
 				// the DCVL_DH_PRIV_KEY environment variable takes precedence
 				// over any other environment variables
-				os.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64")
-				os.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=")
-			},
-			post: func() {
-				os.Unsetenv(EnvDiffieHellmanPrivateKey)
-				os.Unsetenv("DCVL_DH_PRIV_KEY_1")
+				t.Setenv(EnvDiffieHellmanPrivateKey, "i should be base64")
+				t.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=")
 			},
 			token:       `{"curve25519_public_key":""}`,
 			aad:         "",
@@ -891,9 +883,10 @@ func TestDecryptToken(t *testing.T) {
 			expectToken: "",
 		},
 		{
-			name:        "reads-private-key-from-env",
-			pre:         func() { os.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=") },
-			post:        func() { os.Unsetenv("DCVL_DH_PRIV_KEY_1") },
+			name: "reads-private-key-from-env",
+			pre: func(t *testing.T) {
+				t.Setenv("DCVL_DH_PRIV_KEY_1", "kYU15pdT5zjjJ9aLD3eG+1jljySQn47c8W+IHTgJYAA=")
+			},
 			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
 			aad:         "TESTAAD",
 			config:      map[string]interface{}{"dh_priv_env": "DCVL_DH_PRIV_KEY_1"},
@@ -902,8 +895,6 @@ func TestDecryptToken(t *testing.T) {
 		},
 		{
 			name:        "reads-private-key-from-config",
-			pre:         noop,
-			post:        noop,
 			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
 			aad:         "TESTAAD",
 			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key-2.json"},
@@ -912,8 +903,6 @@ func TestDecryptToken(t *testing.T) {
 		},
 		{
 			name:        "error-generating-shared-keys",
-			pre:         noop,
-			post:        noop,
 			token:       `{"curve25519_public_key":"","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
 			aad:         "TESTAAD",
 			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key.json"},
@@ -922,8 +911,6 @@ func TestDecryptToken(t *testing.T) {
 		},
 		{
 			name:        "error-decrypting",
-			pre:         noop,
-			post:        noop,
 			token:       `{"curve25519_public_key":"BzaaB2oB3c2aOcPB6PocpKjEpOtvhGRTl8sUFu9OaH0=","nonce":"guhCxCtngC9OnAjj","encrypted_payload":"53318eHfcsz3jQnwTuGKH+VpaW7d0oA7KL59DwfzjVjImZLcD4k8t6KWTSTXi2Wwvy2T+n8aUVjkirxlYCALYYFIRuMGvAChDbAk7Sdg+CJJ/dDS5ifF2+ax/IHe7V+p4sdPN2HtMDFMosDK2MQvj9TxLdPg21n6LrVR40lkRJlXzVT9pNKUeXPXK3WxDCpnIDwnBeoxCnsj9ujFkj/3lFKdoW7GUK+93d87oUKC/BKouTQQfWXgtGS6d9zOkhM/ppg+57q54TlRyieLBtM56MYINGeBMKY="}`,
 			aad:         "TESTAADAAA", // Wrong AAD
 			config:      map[string]interface{}{"dh_priv": "testdata/dh-private-key-2.json"},
@@ -934,8 +921,9 @@ func TestDecryptToken(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.pre()
-			defer tc.post()
+			if tc.pre != nil {
+				tc.pre(t)
+			}
 
 			gotToken, err := decryptToken(tc.token, tc.aad, tc.config)
 			if tc.expectErr != "" {

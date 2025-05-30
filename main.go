@@ -55,7 +55,7 @@ const (
 	envDisableCaching = "DCVL_DISABLE_CACHE"
 )
 
-func main() { // nolint: funlen
+func main() { //nolint:funlen
 	var (
 		versionFlag, disableCache bool
 		configFile                string
@@ -111,7 +111,7 @@ func main() { // nolint: funlen
 	if err != nil {
 		log.Fatalf("error creating log file: %v", err)
 	}
-	defer logWriter.Close() //nolint:errcheck
+	defer logWriter.Close()
 
 	// Create logger
 	logger := hclog.New(&hclog.LoggerOptions{

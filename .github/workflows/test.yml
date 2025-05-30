@@ -21,7 +21,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.23.1
+        go-version: 1.24.3
     - name: Build
       run: go build -v ./...
     - name: Test
@@ -34,11 +34,10 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.23.1
-    - name: Lint
-      uses: golangci/golangci-lint-action@v3
+        go-version: 1.24.3
+    - uses: golangci/golangci-lint-action@v7
       with:
-        version: v1.61.0
+        version: v2.1.6
 
   goreleaser:
     runs-on: ubuntu-latest
@@ -50,7 +49,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        go-version: 1.23.1
+        go-version: 1.24.3
 
     - name: Run GoReleaser
       uses: goreleaser/goreleaser-action@v5

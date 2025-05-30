@@ -350,10 +350,8 @@ func TestNewVaultClient(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			for env, new := range tc.env {
-				old := os.Getenv(env)
-				defer os.Setenv(env, old)
-				os.Setenv(env, new)
+			for env, val := range tc.env {
+				t.Setenv(env, val)
 			}
 
 			client, err := NewClient(tc.method, tc.vault)

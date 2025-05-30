@@ -84,7 +84,9 @@ func (s SecretsTable) GetPath(registry string) (string, error) {
 
 // LoadConfig will parse the configuration file and return a
 // configuration struct.
-func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: gocyclo
+//
+//nolint:gocyclo,gocognit
+func LoadConfig(configFile string) (*vaultconfig.Config, error) {
 	// Try to parse config file once
 	config, err := vaultconfig.LoadConfig(configFile)
 	if err != nil {
@@ -95,7 +97,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 
 		var data []byte
 
-		data, err = os.ReadFile(configFile) // nolint: gosec
+		data, err = os.ReadFile(configFile) //nolint:gosec
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +124,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 
 		defer os.Remove(tempFile.Name()) //nolint:errcheck
 
-		if _, err = tempFile.Write([]byte(hcl)); err != nil {
+		if _, err = tempFile.WriteString(hcl); err != nil {
 			return nil, err
 		}
 
@@ -155,7 +157,7 @@ func LoadConfig(configFile string) (*vaultconfig.Config, error) { // nolint: goc
 // BuildSecretsTable parses the auto_auth.method.secrets.config stanza
 // of the configuration file. The value of this field may be either a
 // string or a map[string]string.
-func BuildSecretsTable(config map[string]interface{}) (SecretsTable, error) { // nolint: gocyclo
+func BuildSecretsTable(config map[string]interface{}) (SecretsTable, error) {
 	errInvalidFormat := errors.New("path to the secret where your Docker credentials are stored " +
 		"must be specified in either 'auto_auth.method.config.secret' or " +
 		"'auto_auth.method.config.secrets', but not both")

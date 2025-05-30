@@ -14,9 +14,9 @@
 package vault
 
 import (
-	"fmt"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/api"
@@ -39,7 +39,9 @@ import (
 
 // NewClient creates a new Vault client. Note that Vault environment
 // variables take precedence over the vaultConfig.
-func NewClient( // nolint: gocyclo, gocognit
+//
+//nolint:gocyclo,gocognit
+func NewClient(
 	methodConfig *config.Method,
 	vaultConfig *config.Vault,
 ) (*api.Client, error) {
@@ -60,8 +62,8 @@ func NewClient( // nolint: gocyclo, gocognit
 		}
 
 		if os.Getenv(api.EnvVaultSkipVerify) == "" && vaultConfig.TLSSkipVerifyRaw != nil {
-			os.Setenv(api.EnvVaultSkipVerify, fmt.Sprintf("%t", vaultConfig.TLSSkipVerify)) //nolint:errcheck
-			defer os.Unsetenv(api.EnvVaultSkipVerify)                                       //nolint:errcheck
+			os.Setenv(api.EnvVaultSkipVerify, strconv.FormatBool(vaultConfig.TLSSkipVerify)) //nolint:errcheck
+			defer os.Unsetenv(api.EnvVaultSkipVerify)                                        //nolint:errcheck
 		}
 
 		if os.Getenv(api.EnvVaultClientCert) == "" && vaultConfig.ClientCert != "" {
@@ -88,6 +90,7 @@ func NewClient( // nolint: gocyclo, gocognit
 	return configureToken(client, methodConfig)
 }
 
+//nolint:gocognit
 func configureToken(client *api.Client, methodConfig *config.Method) (*api.Client, error) {
 	switch methodConfig.Type {
 	case "token":
@@ -148,7 +151,9 @@ func BuildSinks(sc []*config.Sink, logger hclog.Logger, client *api.Client) ([]*
 }
 
 // BuildAuthMethod creates a new authentication method from config.
-func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMethod, error) { // nolint: gocyclo
+//
+//nolint:gocyclo
+func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMethod, error) {
 	// Check if a default namespace has been set
 	mountPath := config.MountPath
 	if config.Namespace != "" {
@@ -156,7 +161,7 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 	}
 
 	authConfig := &auth.AuthConfig{
-		Logger:    logger.Named(fmt.Sprintf("auth.%s", config.Type)),
+		Logger:    logger.Named("auth." + config.Type),
 		MountPath: mountPath,
 		Config:    config.Config,
 	}
