@@ -37,6 +37,8 @@ type privateKeyInfo struct {
 
 // GetCachedTokens attempts to read tokens from the sink(s) and
 // return them. Currently, this function only supports "file" sinks.
+//
+//nolint:gocognit
 func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Client) []string {
 	tokens := make([]string, 0, len(sinks))
 
@@ -53,7 +55,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			if sink.DHType != "" {
 				var err error
 				token, err = decryptToken(token, sink.AAD, sink.Config)
-				if err != nil { // nolint: wsl
+				if err != nil {
 					logger.Error(fmt.Sprintf("error decrypting file sink %d", i+1), "error", err)
 					continue
 				}
@@ -63,7 +65,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 			if sink.WrapTTL != 0 {
 				var err error
 				token, err = unwrapToken(token, client.Logical().Unwrap)
-				if err != nil { // nolint: wsl
+				if err != nil {
 					logger.Error(fmt.Sprintf("error TTL-unwrapping token in file sink %d", i+1), "error", err)
 					continue
 				}
@@ -73,7 +75,7 @@ func GetCachedTokens(logger hclog.Logger, sinks []*config.Sink, client *api.Clie
 				tokens = append(tokens, token)
 			}
 		default:
-			logger.Info(fmt.Sprintf("unsupported sink type: %s", sink.Type))
+			logger.Info("unsupported sink type: " + sink.Type)
 		}
 	}
 
@@ -91,7 +93,7 @@ func readFileSink(config map[string]interface{}) (string, error) {
 		return "", xerrors.New("value of 'path' of sink could not be converted to string")
 	}
 
-	fileData, err := os.ReadFile(path) // nolint: gosec
+	fileData, err := os.ReadFile(path) //nolint:gosec
 	if err != nil {
 		return "", xerrors.Errorf("error opening file sink %s: %w", path, err)
 	}
@@ -146,12 +148,12 @@ func parseDHPrivateKeyEnv(key string) ([]byte, error) {
 }
 
 func parseDHPrivateKeyFile(path string) ([]byte, error) {
-	file, err := os.Open(path) // nolint: gosec
+	file, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return nil, xerrors.Errorf("error opening 'dh_priv' file %s: %w", path, err)
 	}
 
-	defer file.Close() //nolint:errcheck
+	defer file.Close()
 
 	var pkInfo privateKeyInfo
 	if err = json.NewDecoder(file).Decode(&pkInfo); err != nil {

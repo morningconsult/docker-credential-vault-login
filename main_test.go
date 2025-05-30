@@ -21,46 +21,40 @@ import (
 )
 
 func TestNewLogWriter(t *testing.T) {
-	noop := func() {}
 	cases := []struct {
 		name   string
-		pre    func()
+		pre    func(t *testing.T)
 		config map[string]interface{}
 		err    string
-		post   func()
 	}{
 		{
 			name: "log-dir-from-env",
-			pre: func() {
-				os.Setenv(envLogDir, "testdata")
+			pre: func(t *testing.T) {
+				t.Setenv(envLogDir, "testdata")
 			},
 			err: "",
-			post: func() {
-				os.Unsetenv(envLogDir)
-			},
 		},
 		{
 			name: "log-dir-from-config",
-			pre: func() {
+			pre: func(t *testing.T) {
+				t.Setenv(envLogDir, "")
 				os.Unsetenv(envLogDir)
 			},
 			config: map[string]interface{}{"log_dir": "testdata"},
 			err:    "",
-			post:   noop,
 		},
 		{
 			name:   "error-expanding-log-dir",
-			pre:    noop,
 			config: map[string]interface{}{"log_dir": "~asdgweq"},
 			err:    "error expanding logging directory : cannot expand user-specific home dir",
-			post:   noop,
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.pre()
-			defer tc.post()
+			if tc.pre != nil {
+				tc.pre(t)
+			}
 
 			file, err := newLogWriter(tc.config)
 			if tc.err != "" {

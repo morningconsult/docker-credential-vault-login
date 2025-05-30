@@ -154,7 +154,7 @@ func TestLoadConfig(t *testing.T) {
 				t.Fatal(err)
 			}
 			comparer := cmp.Comparer(func(c1 *vaultconfig.Config, c2 *vaultconfig.Config) bool {
-				if (c1 == nil || c2 == nil) && !((c1 == nil) && (c2 == nil)) {
+				if (c1 == nil || c2 == nil) && (c1 != nil || c2 != nil) {
 					return false
 				}
 				return cmp.Equal(c1.AutoAuth, c2.AutoAuth) && cmp.Equal(c1.Vault, c2.Vault)
@@ -176,7 +176,7 @@ func TestBuildSecretsTable(t *testing.T) {
 		{
 			name:               "no-secrets-field",
 			config:             map[string]interface{}{},
-			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both",
 			expectSecretsTable: SecretsTable{},
 		},
 		{
@@ -187,7 +187,7 @@ func TestBuildSecretsTable(t *testing.T) {
 					{"registry-1.example.com": "secret/docker/registry1"},
 				},
 			},
-			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both", // nolint: lll
+			expectErr:          "path to the secret where your Docker credentials are stored must be specified in either 'auto_auth.method.config.secret' or 'auto_auth.method.config.secrets', but not both",
 			expectSecretsTable: SecretsTable{},
 		},
 		{

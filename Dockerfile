@@ -11,11 +11,9 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.23.1-alpine3.18
+FROM golang:1.24.3-alpine3.21
 
-RUN set -e; \
-  apk add -qU --no-cache git make; \
-  rm -f /var/cache/apk/*;
+RUN apk add --no-cache git make
 
 ARG TARGET_GOOS
 ARG TARGET_GOARCH
@@ -27,6 +25,6 @@ WORKDIR /build
 
 COPY . .
 
-RUN GO111MODULE=on make
+RUN make
 
 ENTRYPOINT "/bin/sh"

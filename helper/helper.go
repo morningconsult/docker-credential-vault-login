@@ -98,7 +98,9 @@ func (h *Helper) List() (map[string]string, error) {
 
 // Get will lookup Docker credentials in Vault and pass them
 // to the Docker daemon.
-func (h *Helper) Get(serverURL string) (string, string, error) { // nolint: gocyclo
+//
+//nolint:gocyclo,gocognit
+func (h *Helper) Get(serverURL string) (string, string, error) {
 	var (
 		creds  vault.Credentials
 		secret string
