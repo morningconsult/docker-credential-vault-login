@@ -11,15 +11,15 @@
 # express or implied. See the License for the specific language governing
 # permissions and limitations under the License.
 
-FROM golang:1.24.3-alpine3.21
+FROM golang:1.24.5-alpine3.21
 
 RUN apk add --no-cache git make
 
 ARG TARGET_GOOS
 ARG TARGET_GOARCH
 
-ENV GOOS $TARGET_GOOS
-ENV GOARCH $TARGET_GOARCH
+ENV GOOS=$TARGET_GOOS
+ENV GOARCH=$TARGET_GOARCH
 
 WORKDIR /build
 
@@ -27,4 +27,4 @@ COPY . .
 
 RUN make
 
-ENTRYPOINT "/bin/sh"
+ENTRYPOINT ["/bin/sh"]
