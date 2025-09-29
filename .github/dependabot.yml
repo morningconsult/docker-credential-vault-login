@@ -3,10 +3,7 @@ updates:
 - package-ecosystem: gomod
   directory: "/"
   schedule:
-    interval: daily
-    time: "10:00"
-  open-pull-requests-limit: 10
-  ignore:
-  - dependency-name: github.com/google/go-cmp
-    versions:
-    - 0.5.2
+    interval: monthly
+  groups:
+    dependencies:
+      patterns: ["*"]
