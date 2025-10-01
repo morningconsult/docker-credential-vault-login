@@ -17,42 +17,54 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 1.24.5
-    - name: Build
-      run: go build -v ./...
-    - name: Test
-      run: go test -v ./...
+      - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.1
+      - name: Build
+        run: go build -v ./...
+      - name: Test
+        run: go test -v ./...
 
   lint:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 1.24.5
-    - uses: golangci/golangci-lint-action@v7
-      with:
-        version: v2.1.6
+      - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.1
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.5.0
 
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Clean up disk space
+        run: |
+          sudo apt-get clean
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/share/dotnet
+          sudo docker system prune --all --force --volumes
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: 1.24.5
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v5
-      with:
-        version: latest
-        args: release --clean --snapshot
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 1.25.1
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: latest
+          args: release --clean --snapshot

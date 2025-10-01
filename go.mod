@@ -1,6 +1,6 @@
 module github.com/morningconsult/docker-credential-vault-login
 
-go 1.24.5
+go 1.25.1
 
 // Needed as long as this is in Vault's go.mod
 replace github.com/pires/go-proxyproto v1.0.0 => github.com/peteski22/go-proxyproto v1.0.0
