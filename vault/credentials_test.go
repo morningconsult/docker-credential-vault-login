@@ -144,8 +144,8 @@ func TestGetCredentialsKvv2(t *testing.T) {
 	server.TestWaitActive(t, core)
 	client := cluster.Cores[0].Client
 
-	err := client.Sys().TuneMount("secret/", api.MountConfigInput{
-		Options: map[string]string{
+	err := client.Sys().TuneMountAllowNil("secret/", api.TuneMountConfigInput{
+		Options: &map[string]string{
 			"version": "2",
 		},
 	})
