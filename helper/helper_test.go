@@ -102,9 +102,9 @@ func TestHelper_Get(t *testing.T) {
 	}
 
 	// Tune the mount
-	err = client.Sys().TuneMount("auth/approle", api.MountConfigInput{
-		DefaultLeaseTTL: "20s",
-		MaxLeaseTTL:     "20s",
+	err = client.Sys().TuneMountAllowNil("auth/approle", api.TuneMountConfigInput{
+		DefaultLeaseTTL: ptr("20s"),
+		MaxLeaseTTL:     ptr("20s"),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -552,4 +552,8 @@ func (m mockSecretTable) GetPath(path string) (string, error) {
 		return "", nil
 	}
 	return m.cfg.getPath(path)
+}
+
+func ptr[T any](x T) *T {
+	return &x
 }
