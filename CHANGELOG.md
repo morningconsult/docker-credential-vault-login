@@ -1,6 +1,15 @@
 <a name="unreleased"></a>
 ## [Unreleased]
 
+### Fix
+- typo in token_file auto_auth method type ([#190](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/190))
+
+
+<a name="v0.3.89"></a>
+## [v0.3.89] - 2026-05-04
+### Chore
+- Bump version and update changelog
+
 
 <a name="v0.3.88"></a>
 ## [v0.3.88] - 2026-04-24
@@ -861,7 +870,8 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.88...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.89...HEAD
+[v0.3.89]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.88...v0.3.89
 [v0.3.88]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.87...v0.3.88
 [v0.3.87]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.86...v0.3.87
 [v0.3.86]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.85...v0.3.86
