@@ -190,7 +190,7 @@ func BuildAuthMethod(config *config.Method, logger hclog.Logger) (auth.AuthMetho
 		method, err = kubernetes.NewKubernetesAuthMethod(authConfig)
 	case "approle":
 		method, err = approle.NewApproleAuthMethod(authConfig)
-	case "token-file":
+	case "token_file":
 		method, err = token_file.NewTokenFileAuthMethod(authConfig)
 	default:
 		return nil, xerrors.Errorf("unknown auth method %q", config.Type)
