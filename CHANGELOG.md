@@ -2,6 +2,63 @@
 ## [Unreleased]
 
 
+<a name="v0.3.96"></a>
+## [v0.3.96] - 2026-07-26
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.95"></a>
+## [v0.3.95] - 2026-07-10
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.94"></a>
+## [v0.3.94] - 2026-07-02
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.93"></a>
+## [v0.3.93] - 2026-07-02
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.92"></a>
+## [v0.3.92] - 2026-06-22
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.91"></a>
+## [v0.3.91] - 2026-06-03
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.90"></a>
+## [v0.3.90] - 2026-05-05
+### Chore
+- Bump version and update changelog
+
+### Fix
+- typo in token_file auto_auth method type ([#190](https://gitlab.morningconsult.com/mci/docker-credential-vault-login/issues/190))
+
+
+<a name="v0.3.89"></a>
+## [v0.3.89] - 2026-05-04
+### Chore
+- Bump version and update changelog
+
+
+<a name="v0.3.88"></a>
+## [v0.3.88] - 2026-04-24
+### Chore
+- Bump version and update changelog
+
+
 <a name="v0.3.87"></a>
 ## [v0.3.87] - 2026-04-24
 ### Chore
@@ -855,7 +912,16 @@
 - Merge branch 'ad-gitlab-ci' into 'master'
 
 
-[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.87...HEAD
+[Unreleased]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.96...HEAD
+[v0.3.96]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.95...v0.3.96
+[v0.3.95]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.94...v0.3.95
+[v0.3.94]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.93...v0.3.94
+[v0.3.93]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.92...v0.3.93
+[v0.3.92]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.91...v0.3.92
+[v0.3.91]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.90...v0.3.91
+[v0.3.90]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.89...v0.3.90
+[v0.3.89]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.88...v0.3.89
+[v0.3.88]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.87...v0.3.88
 [v0.3.87]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.86...v0.3.87
 [v0.3.86]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.85...v0.3.86
 [v0.3.85]: https://gitlab.morningconsult.com/mci/docker-credential-vault-login/compare/v0.3.84...v0.3.85
