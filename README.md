@@ -398,15 +398,15 @@ Provide the username and password from the first step (`testuser` and `testpassw
 5. Copy an image from Docker Hub to your registry.
 
 ```shell
-$ docker pull alpine:3.8
-$ docker tag alpine:3.8 localhost:5000/my-alpine
+$ docker pull alpine:3.24
+$ docker tag alpine:3.24 localhost:5000/my-alpine
 $ docker push localhost:5000/my-alpine
 ```
 
-6. Remove locally-cached `alpine:3.8` and `localhost:5000/my-alpine` images so that you can test pulling the image from your registry later. This does not remove the `localhost:5000/my-alpine` image from your registry.
+6. Remove locally-cached `alpine:3.24` and `localhost:5000/my-alpine` images so that you can test pulling the image from your registry later. This does not remove the `localhost:5000/my-alpine` image from your registry.
 
 ```shell
-$ docker image remove alpine:3.8
+$ docker image remove alpine:3.24
 $ docker image remove localhost:5000/my-alpine
 ```
 
