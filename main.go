@@ -78,6 +78,7 @@ func main() { //nolint:funlen
 
 		configFile, err = homedir.Expand(f)
 		if err != nil {
+			//nolint:gosec // intended user input
 			log.Fatalf("error expanding directory %q: %v", f, err)
 		}
 	}
@@ -146,6 +147,7 @@ func newLogWriter(config map[string]interface{}) (*os.File, error) {
 		return nil, xerrors.Errorf("error expanding logging directory %s: %w", logDir, err)
 	}
 
+	//nolint:gosec // intended user input
 	if err = os.MkdirAll(logDir, 0o750); err != nil {
 		return nil, xerrors.Errorf("error creating directory %s: %w", logDir, err)
 	}

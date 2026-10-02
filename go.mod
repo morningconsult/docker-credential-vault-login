@@ -1,6 +1,6 @@
 module github.com/morningconsult/docker-credential-vault-login
 
-go 1.25.1
+go 1.25.13
 
 // Needed as long as this is in Vault's go.mod
 replace github.com/pires/go-proxyproto v1.0.0 => github.com/peteski22/go-proxyproto v1.0.0
@@ -9,7 +9,7 @@ require (
 	github.com/docker/docker-credential-helpers v0.9.9
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-uuid v1.0.3
+	github.com/hashicorp/go-uuid v1.0.4
 	github.com/hashicorp/hcl v1.0.1-vault-7
 	github.com/hashicorp/vault v1.21.0
 	github.com/hashicorp/vault/api v1.22.0
